@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -25,6 +26,9 @@ import (
 // Source collects the CPU group.
 type Source struct {
 	perCore bool
+
+	load     LoadAverage
+	lastLoad time.Time
 
 	// Static facts are read once: the model name and core counts do not
 	// change while the machine is running.
@@ -44,7 +48,9 @@ type Source struct {
 
 // New builds the CPU source. perCore adds one reading per logical processor,
 // which on a 16-core machine is 32 extra entities and is therefore opt-in.
-func New(perCore bool) *Source { return &Source{perCore: perCore} }
+func New(perCore bool) *Source {
+	return &Source{perCore: perCore}
+}
 
 // Group identifies this source.
 func (s *Source) Group() metrics.Group { return metrics.GroupCPU }
@@ -75,6 +81,8 @@ func (s *Source) Collect(set *metrics.Set) error {
 	if temp, ok := s.temperature(); ok {
 		set.Add(metrics.Gauge(metrics.CPUTemperature, "", temp))
 	}
+
+	s.collectLoad(set)
 
 	if s.perCore {
 		s.collectPerCore(set)
@@ -121,6 +129,41 @@ func (s *Source) temperature() (float64, bool) {
 		return 0, false
 	}
 	return entry.Value, true
+}
+
+// collectLoad folds the current utilisation into the three averages.
+//
+// The utilisation is taken from what the core group already put in the set
+// rather than measured again: it is a difference between two samples, and a
+// second reader would take half the interval from the first.
+func (s *Source) collectLoad(set *metrics.Set) {
+	if s.logical == 0 {
+		return
+	}
+	reading, ok := set.Find(metrics.CPULoad.ID, "")
+	if !ok {
+		return
+	}
+	percent := reading.Number
+
+	now := time.Now()
+	elapsed := 0.0
+	if !s.lastLoad.IsZero() {
+		elapsed = now.Sub(s.lastLoad).Seconds()
+	}
+	s.lastLoad = now
+
+	s.load.Add(percent/100*float64(s.logical), elapsed)
+
+	values, ready := s.load.Values()
+	if !ready {
+		return
+	}
+	set.Add(
+		metrics.Gauge(metrics.CPULoad1, "", values[0]),
+		metrics.Gauge(metrics.CPULoad5, "", values[1]),
+		metrics.Gauge(metrics.CPULoad15, "", values[2]),
+	)
 }
 
 func (s *Source) collectPerCore(set *metrics.Set) {

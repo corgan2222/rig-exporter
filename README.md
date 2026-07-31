@@ -27,10 +27,10 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Laufzeit, Leerlaufzeit | RTSS + Windows |
-| **Grafikkarte** | Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
-| **Prozessor** | Modell, Kerne, Threads, aktueller und maximaler Takt, Temperatur, optional Last je Thread | Windows, Temperatur über Afterburner |
-| **Arbeitsspeicher** | belegt, frei, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
-| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Kapazität, belegt, frei, Belegung in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
+| **Grafikkarte** | Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
+| **Prozessor** | Modell, Kerne, Threads, aktueller und maximaler Takt, Temperatur, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner |
+| **Arbeitsspeicher** | belegt und frei in MB und in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
+| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 
 Auf dem Entwicklungsrechner ergibt das 91 Werte: zwei Grafikkarten, vier NVMe,
@@ -291,9 +291,10 @@ Spiel, Laufwerk und Adapter sind Tags — „durchschnittliche FPS pro Spiel" od
 ## Tray-Menü
 
 Zeigt FPS, Spiel, Anzeige und Auslastung inklusive GPU live, dazu eine
-Statuszeile je aktivem Exportziel und den RTSS-Status. Aktionen: Senden
-pausieren, Einstellungen öffnen, Log öffnen, Autostart mit Windows, Beenden.
-Fehlt RTSS, kommt ein Eintrag zum Download dazu.
+Statuszeile je aktivem Exportziel und den RTSS-Status. Der Name ganz oben
+öffnet die Oberfläche im Browser. Weitere Aktionen: Senden pausieren,
+Einstellungen öffnen, Log öffnen, Autostart mit Windows, Beenden. Fehlt RTSS,
+kommt ein Eintrag zum Download dazu.
 
 ## Diagnose
 
@@ -343,6 +344,20 @@ also aus dem Anzeigetreiber — unabhängig von der DPI-Skalierung des Prozesses
 **CPU-Last** ist die Differenz zweier `GetSystemTimes`-Abfragen, der Takt kommt
 aus `CallNtPowerInformation`, die Last je Thread aus
 `NtQuerySystemInformation`.
+
+**Load** gibt es unter Windows nicht: es existiert keine Lauf-Warteschlange,
+die man auslesen könnte. Gemessen wird deshalb dasselbe von der anderen Seite —
+Auslastung mal Anzahl logischer Prozessoren, also wie viele Prozessoren an
+Arbeit tatsächlich verrichtet werden. Load 4 auf einer 16-Thread-Maschine
+bedeutet vier Threads voll ausgelastet, genau wie unter Linux. Was diese Zahl
+nicht zeigen kann, ist eine Warteschlange, die länger ist als die Maschine
+breit — bei Volllast deckelt sie bei der Kernzahl. Geglättet wird mit denselben
+Konstanten wie unter Linux, und zwar über die tatsächlich verstrichene Zeit:
+ein anderes Auslese-Intervall ändert nicht, was ein Ein-Minuten-Mittel bedeutet.
+
+**GPU-Leistungsgrenze** ist das erzwungene Board-Power-Limit aus NVML — die
+Zahl, die man meint, wenn man TDP sagt. Zusammen mit der aktuellen Aufnahme
+ergibt sie den Prozentsatz, an dem man sieht, ob die Grenze gerade bremst.
 
 **Arbeitsspeicher**: Belegung und freier Speicher aus `GlobalMemoryStatusEx`.
 Takt, Typ und Bestückung kennt Windows nicht — die stehen in den
@@ -413,9 +428,20 @@ Eine dritte Sprache ist entsprechend: ein Feld an `i18n.Text`, ein Eintrag in
 go test ./...
 ```
 
-Laufen ohne RTSS, ohne Afterburner, ohne Broker und ohne InfluxDB: die beiden
-Shared-Memory-Parser werden gegen synthetische Speicherblöcke geprüft, die
-Exporter gegen `httptest`-Server, die Messquellen gegen Attrappen.
+Laufen ohne RTSS, ohne Afterburner, ohne Broker und ohne InfluxDB: die drei
+Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
+geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
+gegen Attrappen.
+
+Abgedeckt sind: die Parser, die Metrikdefinition und ihre vier Ausgabeformate,
+die Konfiguration samt Migration und Grenzwerten, die Übersetzungen, die
+Home-Assistant-Discovery, die Exportziele, die Messschleife mit ihren zwei
+Takten, die Web-Handler samt blockweisem Speichern, und der Load-Mittelwert.
+
+Nicht abgedeckt sind die Win32-Aufrufe selbst und die Windows-Hälften der
+Hardware-Quellen — die brauchen die Hardware, die sie beschreiben. Sie werden
+mit `-probe` gegen den echten Rechner geprüft. Auch das Tray-Menü und das
+Icon-Werkzeug sind nur manuell verifiziert.
 
 `go vet` läuft im Build-Skript mit `-unsafeptr=false`: das Mappen fremder
 Shared-Memory-Blöcke braucht eine `uintptr`-Konvertierung, die vet nicht

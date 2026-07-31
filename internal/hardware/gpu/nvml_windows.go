@@ -70,6 +70,7 @@ type nvml struct {
 	deviceTemp    *windows.LazyProc
 	deviceClock   *windows.LazyProc
 	devicePower   *windows.LazyProc
+	powerLimit    *windows.LazyProc
 	deviceFan     *windows.LazyProc
 }
 
@@ -97,6 +98,10 @@ func (n *nvml) load() bool {
 		n.deviceTemp = n.dll.NewProc("nvmlDeviceGetTemperature")
 		n.deviceClock = n.dll.NewProc("nvmlDeviceGetClockInfo")
 		n.devicePower = n.dll.NewProc("nvmlDeviceGetPowerUsage")
+		// The enforced limit is what the card is actually held to, which is
+		// the board power limit as configured — the number people mean when
+		// they say TDP.
+		n.powerLimit = n.dll.NewProc("nvmlDeviceGetEnforcedPowerLimit")
 		n.deviceFan = n.dll.NewProc("nvmlDeviceGetFanSpeed")
 
 		if n.init.Find() != nil {
@@ -123,6 +128,8 @@ type nvmlCard struct {
 	hasVRAM     bool
 	PowerW      float64
 	hasPower    bool
+	PowerLimitW float64
+	hasLimit    bool
 	FanPercent  float64
 	hasFan      bool
 }
@@ -187,6 +194,11 @@ func readCard(index int, handle nvmlDeviceHandle) nvmlCard {
 	var milliwatts uint32
 	if ret, _, _ := lib.devicePower.Call(uintptr(handle), uintptr(unsafe.Pointer(&milliwatts))); ret == nvmlSuccess {
 		card.PowerW, card.hasPower = float64(milliwatts)/1000, true
+	}
+
+	var limit uint32
+	if ret, _, _ := lib.powerLimit.Call(uintptr(handle), uintptr(unsafe.Pointer(&limit))); ret == nvmlSuccess {
+		card.PowerLimitW, card.hasLimit = float64(limit)/1000, true
 	}
 
 	var fan uint32

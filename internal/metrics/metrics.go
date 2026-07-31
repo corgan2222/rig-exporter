@@ -11,6 +11,7 @@ package metrics
 import (
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/corgan/rig-exporter/internal/i18n"
@@ -267,7 +268,7 @@ func (s Set) GroupInstances(group Group) []string {
 		seen[r.Instance] = true
 		out = append(out, r.Instance)
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return LessInstance(out[i], out[j]) })
 	return out
 }
 
@@ -296,8 +297,31 @@ func sortReadings(readings []Reading) {
 		if a.Def.ID != b.Def.ID {
 			return a.Def.ID < b.Def.ID
 		}
-		return a.Instance < b.Instance
+		return LessInstance(a.Instance, b.Instance)
 	})
+}
+
+// LessInstance orders two instance names.
+//
+// Numeric instances are compared as numbers: a plain string comparison puts
+// core 10 between core 1 and core 2, which is exactly the kind of list nobody
+// can read. Anything non-numeric falls back to the usual ordering, which is
+// what drive letters and adapter names want.
+func LessInstance(a, b string) bool {
+	na, aErr := strconv.Atoi(a)
+	nb, bErr := strconv.Atoi(b)
+	aNumeric, bNumeric := aErr == nil, bErr == nil
+
+	switch {
+	case aNumeric && bNumeric:
+		return na < nb
+	case aNumeric:
+		return true // numbers before names
+	case bNumeric:
+		return false
+	default:
+		return a < b
+	}
 }
 
 // Round drops the decimals a definition does not claim to measure. Values that

@@ -648,8 +648,11 @@ func rowsFor(snap collector.Snapshot, group metrics.Group, lang i18n.Lang) []row
 	}
 
 	// Ordered so that grouping by device on the page needs no re-sorting:
-	// every instance's readings are already adjacent.
-	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Instance < rows[j].Instance })
+	// every instance's readings are already adjacent, and numeric instances
+	// count rather than sort as text, so core 10 comes after core 9.
+	sort.SliceStable(rows, func(i, j int) bool {
+		return metrics.LessInstance(rows[i].Instance, rows[j].Instance)
+	})
 	return rows
 }
 

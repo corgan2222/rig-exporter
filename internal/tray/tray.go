@@ -44,6 +44,7 @@ type Tray struct {
 	labelled i18n.Lang
 
 	items struct {
+		header    *systray.MenuItem
 		fps       *systray.MenuItem
 		game      *systray.MenuItem
 		display   *systray.MenuItem
@@ -80,8 +81,9 @@ func (t *Tray) onReady() {
 	systray.SetTitle(config.AppName)
 	systray.SetTooltip(config.AppName + " " + config.Version)
 
-	header := systray.AddMenuItem(fmt.Sprintf("%s %s", config.AppName, config.Version), "")
-	header.Disable()
+	// The name at the top is the obvious thing to click, so it opens the
+	// interface rather than sitting there greyed out.
+	t.items.header = systray.AddMenuItem(fmt.Sprintf("%s %s", config.AppName, config.Version), "")
 	systray.AddSeparator()
 
 	t.items.fps = addReadout()
@@ -134,6 +136,7 @@ func (t *Tray) relabel(lang i18n.Lang) {
 	}
 	t.labelled = lang
 
+	t.items.header.SetTooltip(i18n.T(lang, "tray.openInterface"))
 	t.items.rtssGet.SetTitle(i18n.T(lang, "tray.rtssDownload"))
 	t.items.rtssGet.SetTooltip(i18n.T(lang, "tray.rtssDownloadTip"))
 	t.items.pause.SetTitle(i18n.T(lang, "tray.pause"))
@@ -152,6 +155,9 @@ func (t *Tray) relabel(lang i18n.Lang) {
 func (t *Tray) handleClicks() {
 	for {
 		select {
+		case <-t.items.header.ClickedCh:
+			t.open(t.opts.SettingsURL())
+
 		case <-t.items.pause.ClickedCh:
 			t.app.SetPaused(!t.app.Paused())
 

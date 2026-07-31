@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -45,6 +46,11 @@ type Pinger struct {
 	stop chan struct{}
 	done chan struct{}
 	once sync.Once
+	// started tells Stop whether there is a goroutine to wait for. A pinger
+	// that was built but never started — a configuration change before the
+	// app is running does exactly that — would otherwise wait forever on a
+	// channel nobody is going to close.
+	started atomic.Bool
 }
 
 // NewPinger builds a pinger. An empty target means the default gateway, which
@@ -66,16 +72,20 @@ func NewPinger(target string, count int, interval time.Duration, log *slog.Logge
 	}
 }
 
-// Start begins probing.
+// Start begins probing. Calling it twice is harmless.
 func (p *Pinger) Start() {
-	go p.run()
+	if p.started.CompareAndSwap(false, true) {
+		go p.run()
+	}
 }
 
-// Stop ends probing.
+// Stop ends probing, and returns immediately if it never began.
 func (p *Pinger) Stop() {
 	p.once.Do(func() {
 		close(p.stop)
-		<-p.done
+		if p.started.Load() {
+			<-p.done
+		}
 	})
 }
 
