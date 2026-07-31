@@ -28,13 +28,19 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Laufzeit, Leerlaufzeit | RTSS + Windows |
 | **Grafikkarte** | Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
-| **Prozessor** | Modell, Kerne, Threads, aktueller und maximaler Takt, Temperatur, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner |
-| **Arbeitsspeicher** | belegt und frei in MB und in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
+| **Prozessor** | Modell, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner |
+| **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 
 Auf dem Entwicklungsrechner ergibt das 91 Werte: zwei Grafikkarten, vier NVMe,
 ein aktiver Adapter.
+
+CPU- und RAM-Last gehören zu **FPS & System**, damit sie unabhängig von jedem
+Schalter da sind — die Kacheln oben auf der Seite brauchen sie. Angezeigt werden
+sie trotzdem bei Prozessor und Arbeitsspeicher, weil dort danach gesucht wird.
+Ein zweiter Sensor mit demselben Wert wäre die Alternative, und zwei
+Home-Assistant-Entitäten für dieselbe Zahl sind schlechter als keine.
 
 ### Woher die Grafikwerte kommen
 
@@ -341,9 +347,24 @@ verschiedener Hersteller würden sonst vertauscht.
 **Auflösung und Hz** kommen von `EnumDisplaySettingsW` des primären Monitors,
 also aus dem Anzeigetreiber — unabhängig von der DPI-Skalierung des Prozesses.
 
-**CPU-Last** ist die Differenz zweier `GetSystemTimes`-Abfragen, der Takt kommt
-aus `CallNtPowerInformation`, die Last je Thread aus
-`NtQuerySystemInformation`.
+**CPU-Last** ist die Differenz zweier `GetSystemTimes`-Abfragen, die Last je
+Thread kommt aus `NtQuerySystemInformation`.
+
+**CPU-Takt** ist der wirksame Takt, nicht der Basistakt. `CallNtPowerInformation`
+wäre der naheliegende Weg, liefert auf jedem aktuellen AMD und den meisten Intel
+aber unverändert den Nennwert — ein 5950X mit 4,2 GHz meldet dort seine 3,4 GHz
+Basistakt, und die Anzeige steht still. Der einzige bewegliche Wert ist der
+Leistungsindikator `% Processor Performance`, ein Prozentsatz des Basistakts,
+der beim Boosten über hundert geht. Gelesen wird er über PDH mit
+`PdhAddEnglishCounterW`, weil Indikatornamen übersetzt sind und derselbe Zähler
+auf einem deutschen Windows `% Prozessorleistung` heißt. Aus ihm ergeben sich
+drei Werte: **Basistakt** (der Nennwert aus der Registry), **Takt** (der
+wirksame) und **Takt max.**, der höchste seit dem Start beobachtete — den
+Boost-Takt nennt Windows nirgends, beobachten lässt er sich aber. Zwei Abfragen
+kurz hintereinander teilen zwei Differenzen nahe null durch einander, was
+Ausreißer ergibt, die sich im Maximum dauerhaft festsetzen würden; darum wird
+ein Messfenster von mindestens 100 ms verlangt. Fällt der Indikator aus, bleibt
+der Nennwert aus `CallNtPowerInformation` als Rückfallebene.
 
 **Load** gibt es unter Windows nicht: es existiert keine Lauf-Warteschlange,
 die man auslesen könnte. Gemessen wird deshalb dasselbe von der anderen Seite —

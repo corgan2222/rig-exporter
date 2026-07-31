@@ -42,8 +42,9 @@ func (s *Source) Collect(set *metrics.Set) error {
 			metrics.Gauge(metrics.RAMUsed, "", float64(usage.UsedMB)),
 			metrics.Gauge(metrics.RAMFree, "", float64(usage.AvailableMB)),
 			metrics.Gauge(metrics.RAMTotal, "", float64(usage.TotalMB)),
-			metrics.Gauge(metrics.RAMUsedPercent, "", usage.UsedPercent),
 		)
+		// The load in percent is a core reading, collected whether or not this
+		// group runs, and shown on this panel through its Panel override.
 		// Free is derived from the amounts rather than from 100 minus the
 		// load: Windows rounds the load to whole percent, and the two would
 		// disagree by a percentage point at the edges.

@@ -88,7 +88,17 @@ type Definition struct {
 	Kind Kind
 	// Precision is how many decimals the value is rendered with.
 	Precision int
-	Group     Group
+	// Group decides whether the measurement is collected at all, and which
+	// switch turns it off.
+	Group Group
+	// Panel overrides where the interface shows the measurement, without
+	// moving it out of the group that collects it. The overall processor and
+	// memory load are core readings — the dashboard tiles need them whatever
+	// else is switched off — but belong on the processor and memory panels,
+	// which is where a reader looks for them. Publishing them twice under two
+	// names would be the alternative, and two Home Assistant entities holding
+	// the same number is worse than none.
+	Panel Group
 	// InstanceLabel names the dimension for measurements that repeat, e.g.
 	// "gpu", "disk", "nic", "core". Empty when there is only ever one.
 	InstanceLabel string
@@ -109,6 +119,15 @@ type Definition struct {
 	// publishing it in JSON, Prometheus and InfluxDB. Used for values that
 	// are useful in a dashboard query but would only clutter an entity list.
 	NoEntity bool
+}
+
+// PanelGroup is where the interface shows this measurement, which is its own
+// group unless it was placed elsewhere.
+func (d Definition) PanelGroup() Group {
+	if d.Panel != "" {
+		return d.Panel
+	}
+	return d.Group
 }
 
 // Component is the Home Assistant platform this definition is discovered as.

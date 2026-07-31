@@ -626,7 +626,7 @@ func rowsFor(snap collector.Snapshot, group metrics.Group, lang i18n.Lang) []row
 
 	var rows []row
 	for _, reading := range snap.Entities() {
-		if reading.Def.Group != group {
+		if reading.Def.PanelGroup() != group {
 			continue
 		}
 		if nameID != "" && reading.Def.ID == nameID && reading.Text != "" {
