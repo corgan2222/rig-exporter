@@ -1,0 +1,208 @@
+{{ define "layout" }}<!DOCTYPE html>
+<html lang="{{ .Lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ .AppName }} &mdash; {{ .T .TitleKey }}</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --panel: #111827;
+    --panel-2: #1a2334;
+    --line: #24314a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #22c55e;
+    --accent-dim: #16803c;
+    --warn: #f59e0b;
+    --err: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 1rem 4rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* Header and navigation */
+  .topbar { position: sticky; top: 0; z-index: 10; background: rgba(11,17,32,.92);
+            backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
+            margin: 0 -1rem 1.5rem; padding: .7rem 1rem; }
+  .topbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center;
+                  gap: 1rem; flex-wrap: wrap; }
+  .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; text-decoration: none; color: var(--text); }
+  .brand span { color: var(--muted); font-weight: 400; font-size: .8rem; margin-left: .45rem; }
+  nav.main { display: flex; gap: .3rem; }
+  nav.main a { color: var(--muted); text-decoration: none; padding: .32rem .75rem;
+               border-radius: 7px; font-size: .9rem; }
+  nav.main a:hover { background: var(--panel-2); color: var(--text); }
+  nav.main a.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .langs { margin-left: auto; display: flex; gap: .25rem; align-items: center; }
+  .langs .label { color: var(--muted); font-size: .75rem; margin-right: .25rem; }
+  .langs button { background: transparent; color: var(--muted); border: 1px solid var(--line);
+                  padding: .22rem .55rem; border-radius: 6px; font: inherit; font-size: .8rem;
+                  cursor: pointer; }
+  .langs button:hover { color: var(--text); border-color: var(--muted); }
+  .langs button.active { background: var(--panel-2); color: var(--text); border-color: var(--accent-dim); }
+
+  /* Cards and typography */
+  h2 { font-size: 1rem; margin: 0 0 1rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+          padding: 1.25rem 1.5rem 1.5rem; margin-bottom: 1.25rem; scroll-margin-top: 4.5rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; }
+  .tile { background: var(--panel-2); border-radius: 9px; padding: .7rem .9rem; }
+  .tile .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
+  .tile .value { font-size: 1.35rem; font-variant-numeric: tabular-nums; margin-top: .15rem; overflow-wrap: anywhere; }
+  .tile .value.small { font-size: 1rem; line-height: 1.35; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  label { display: block; margin-bottom: 1rem; }
+  label .name { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
+  label .hint { display: block; font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+  input[type=text], input[type=password], input[type=number], select {
+    width: 100%; padding: .5rem .65rem;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; font: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent-dim); outline-offset: 1px; }
+  .check { display: flex; align-items: flex-start; gap: .55rem; margin-bottom: .9rem; }
+  .check input { margin-top: .3rem; }
+  .check .name { font-size: .9rem; color: var(--text); }
+  .note { color: var(--muted); font-size: .8rem; }
+  .indent { margin: -.5rem 0 1rem 1.7rem; }
+  button.primary { background: var(--accent); color: #05210f; border: 0;
+                   padding: .6rem 1.4rem; border-radius: 8px; font: 600 15px/1 inherit; cursor: pointer; }
+  button.primary:hover { filter: brightness(1.1); }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line);
+                 padding: .6rem 1.4rem; border-radius: 8px; font: inherit; cursor: pointer; }
+  .actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem;
+           padding: .25rem .6rem; border-radius: 999px; background: var(--panel-2); }
+  .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--accent); }
+  .dot.bad { background: var(--err); }
+  .dot.warn { background: var(--warn); }
+  .banner { border-radius: 10px; padding: .85rem 1.1rem; margin-bottom: 1.25rem; border: 1px solid; }
+  .banner.ok { border-color: var(--accent-dim); background: #062814; }
+  .banner.err { border-color: #7f1d1d; background: #2a0d0d; }
+  .banner.warn { border-color: #78500a; background: #2b1e05; }
+  .banner a { color: var(--accent); }
+  code { background: var(--panel-2); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+  table.endpoints { width: 100%; border-collapse: collapse; }
+  table.endpoints td { padding: .3rem .6rem .3rem 0; vertical-align: top; }
+  table.endpoints td:first-child { color: var(--muted); white-space: nowrap; font-size: .85rem; }
+  table.endpoints code { overflow-wrap: anywhere; }
+
+  /* Hardware panels */
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .9rem; }
+  .group { background: var(--panel-2); border-radius: 9px; padding: .8rem .95rem; }
+  .group h3 { margin: 0 0 .5rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em;
+              display: flex; align-items: center; gap: .45rem; color: var(--text); }
+  /* Both columns need a floor. A track that may break mid-word collapses to a
+     single character as soon as the other column wants the space, and then
+     every label — or every value — reads as a vertical stack of letters. */
+  .group dl { margin: 0; display: grid;
+              grid-template-columns: minmax(7rem, max-content) minmax(4rem, 1fr);
+              gap: .18rem .8rem; font-size: .85rem; }
+  .group dt { color: var(--muted); overflow-wrap: break-word; }
+  .group dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  /* Settings section jump list */
+  .jump { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
+  .jump .label { color: var(--muted); font-size: .78rem; }
+  .jump a { color: var(--muted); text-decoration: none; font-size: .82rem;
+            border: 1px solid var(--line); border-radius: 999px; padding: .2rem .7rem; }
+  .jump a:hover { color: var(--text); border-color: var(--muted); }
+
+  /* Per-block save. The button only turns green once its own block has
+     something unsaved in it, so the page says at a glance what is pending. */
+  .cardfoot { display: flex; align-items: center; gap: .75rem; margin-top: 1.1rem;
+              padding-top: .9rem; border-top: 1px solid var(--line); }
+  .cardfoot button { background: transparent; color: var(--muted); border: 1px solid var(--line);
+                     padding: .45rem 1.1rem; border-radius: 8px; font: inherit; cursor: pointer; }
+  .cardfoot button:hover { color: var(--text); border-color: var(--muted); }
+  form.dirty .cardfoot button { background: var(--accent); color: #05210f; border-color: var(--accent); font-weight: 600; }
+  form.dirty .cardfoot button:hover { filter: brightness(1.1); color: #05210f; }
+  .cardfoot .state { color: var(--muted); font-size: .8rem; }
+  .cardfoot .state.pending { display: none; color: var(--warn); }
+  form.dirty .cardfoot .state.clean { display: none; }
+  form.dirty .cardfoot .state.pending { display: inline; }
+
+  /* Toggle switches, used for the dashboard grouping */
+  .segmented { display: inline-flex; gap: .2rem; }
+  .segmented button { background: transparent; color: var(--muted); border: 1px solid var(--line);
+                      padding: .2rem .65rem; border-radius: 6px; font: inherit; font-size: .78rem; cursor: pointer; }
+  .segmented button.active { background: var(--panel-2); color: var(--text); border-color: var(--accent-dim); }
+  .cardhead { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .cardhead h2 { margin: 0; }
+  .cardhead .spacer { margin-left: auto; }
+
+  /* Device grouping in the hardware panels */
+  .device { margin-bottom: .7rem; }
+  .device:last-child { margin-bottom: 0; }
+  .device .name { font-size: .78rem; color: var(--accent); margin-bottom: .2rem;
+                  font-weight: 600; overflow-wrap: anywhere; }
+
+  footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 2rem; }
+  footer .openers { display: inline-flex; align-items: center; gap: .4rem; }
+  footer button { background: transparent; border: 0; color: var(--muted); font: inherit;
+                  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: 0; }
+  footer button:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">{{ .AppName }}<span>v{{ .Version }} &middot; {{ .Config.DeviceName }}</span></a>
+    <nav class="main">
+      <a href="/" {{ if eq .Active "status" }}class="active"{{ end }}>{{ .T "nav.status" }}</a>
+      <a href="/capture" {{ if eq .Active "capture" }}class="active"{{ end }}>{{ .T "nav.capture" }}</a>
+      <a href="/export" {{ if eq .Active "export" }}class="active"{{ end }}>{{ .T "nav.export" }}</a>
+    </nav>
+    <form class="langs" method="post" action="/language">
+      <span class="label">{{ .T "nav.language" }}</span>
+      {{ $lang := .Lang }}
+      {{ range .Languages }}
+      <button type="submit" name="lang" value="{{ .Code }}" {{ if eq .Code $lang }}class="active"{{ end }}>{{ .Name }}</button>
+      {{ end }}
+    </form>
+  </div>
+</div>
+
+<div class="wrap">
+  {{ template "content" . }}
+
+  <footer>
+    <form method="post" action="/open" class="openers">
+      <button type="submit" name="what" value="config" title="{{ .ConfigDir }}\config.json">
+        {{ .T "footer.config" }}
+      </button>
+      &middot;
+      <button type="submit" name="what" value="log" title="{{ .ConfigDir }}\{{ .AppName }}.log">
+        {{ .T "footer.log" }}
+      </button>
+      &middot;
+      <button type="submit" name="what" value="folder" title="{{ .ConfigDir }}">
+        {{ .T "footer.folder" }}
+      </button>
+    </form>
+  </footer>
+</div>
+
+<script>
+// Mark a settings block as unsaved as soon as anything inside it changes, so
+// its save button is the only one that lights up.
+for (const form of document.querySelectorAll("form[data-block]")) {
+  const mark = () => form.classList.add("dirty");
+  form.addEventListener("input", mark);
+  form.addEventListener("change", mark);
+}
+</script>
+
+</body>
+</html>
+{{ end }}

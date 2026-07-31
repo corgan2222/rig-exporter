@@ -1,0 +1,125 @@
+{{ define "content" }}
+
+  {{ if .Saved }}<div class="banner ok">{{ .T "settings.saved" }}</div>{{ end }}
+  {{ if .Error }}<div class="banner err">{{ .T "settings.failed" }}: {{ .Error }}</div>{{ end }}
+
+  <div class="jump">
+    <span class="label">{{ .T "settings.jumpTo" }}</span>
+    <a href="#sensors">{{ .T "settings.sensors.nav" }}</a>
+    <a href="#capture">{{ .T "settings.capture.nav" }}</a>
+  </div>
+
+  <form method="post" action="/save/sensors" data-block="sensors">
+    <div class="card" id="sensors">
+      <h2>{{ .T "settings.sensors.title" }}</h2>
+      <p class="note" style="margin-top:0">
+        {{ .T "settings.sensors.intro" }}
+        {{ .T "settings.sensors.entityCount" }}: <strong>{{ .EntityCount }}</strong> {{ .T "settings.sensors.entities" }}.
+      </p>
+
+      <div class="check">
+        <input type="checkbox" name="gpu_enabled" id="gpu_enabled" value="1" {{ if .Config.GPUEnabled }}checked{{ end }}>
+        <label for="gpu_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.gpu" }}</span></label>
+      </div>
+      <p class="note indent">
+        {{ .T "settings.sensors.gpuHint" }}
+        <a href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "settings.sensors.gpuLink" }}</a>
+      </p>
+
+      <div class="check">
+        <input type="checkbox" name="cpu_detail_enabled" id="cpu_detail_enabled" value="1" {{ if .Config.CPUDetailEnabled }}checked{{ end }}>
+        <label for="cpu_detail_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.cpu" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="cpu_per_core" id="cpu_per_core" value="1" {{ if .Config.CPUPerCore }}checked{{ end }}>
+        <label for="cpu_per_core" style="margin:0"><span class="name">{{ .T "settings.sensors.cpuPerCore" }}</span></label>
+      </div>
+
+      <div class="check">
+        <input type="checkbox" name="ram_detail_enabled" id="ram_detail_enabled" value="1" {{ if .Config.RAMDetailEnabled }}checked{{ end }}>
+        <label for="ram_detail_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ram" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.sensors.ramHint" }}</p>
+
+      <div class="check">
+        <input type="checkbox" name="disk_enabled" id="disk_enabled" value="1" {{ if .Config.DiskEnabled }}checked{{ end }}>
+        <label for="disk_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.disk" }}</span></label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.sensors.diskOnly" }}</span>
+        <input type="text" name="disk_include" value="{{ .DiskInclude }}" placeholder="{{ .T "settings.sensors.diskAll" }}">
+        <span class="hint">{{ .H "settings.sensors.diskHint" }}</span>
+      </label>
+
+      <div class="check">
+        <input type="checkbox" name="net_enabled" id="net_enabled" value="1" {{ if .Config.NetEnabled }}checked{{ end }}>
+        <label for="net_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.net" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="net_all_adapters" id="net_all_adapters" value="1" {{ if .Config.NetAllAdapters }}checked{{ end }}>
+        <label for="net_all_adapters" style="margin:0"><span class="name">{{ .T "settings.sensors.netAll" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.sensors.netHint" }}</p>
+
+      <div class="check">
+        <input type="checkbox" name="ping_enabled" id="ping_enabled" value="1" {{ if .Config.PingEnabled }}checked{{ end }}>
+        <label for="ping_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ping" }}</span></label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.sensors.pingTarget" }}</span>
+          <input type="text" name="ping_target" value="{{ .Config.PingTarget }}" placeholder="{{ .T "settings.sensors.pingGateway" }}">
+          <span class="hint">{{ .H "settings.sensors.pingHint" }}</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.sensors.pingCount" }}</span>
+          <input type="number" name="ping_count" value="{{ .Config.PingCount }}" min="1" max="10">
+        </label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.sensors.pingInterval" }}</span>
+        <input type="number" name="ping_interval_ms" value="{{ .Config.PingIntervalMs }}" min="2000" max="600000" step="1000">
+        <span class="hint">{{ .T "settings.sensors.pingIntervalHint" }}</span>
+      </label>
+
+      {{ template "save" . }}
+    </div>
+  </form>
+
+  <form method="post" action="/save/capture" data-block="capture">
+    <div class="card" id="capture">
+      <h2>{{ .T "settings.capture.title" }}</h2>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.capture.poll" }}</span>
+          <input type="number" name="poll_interval_ms" value="{{ .Config.PollIntervalMs }}"
+                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+          <span class="hint">{{ .T "settings.capture.pollHint" }} ({{ .MinIntervalMs }}&ndash;{{ .MaxIntervalMs }} ms)</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.capture.publish" }}</span>
+          <input type="number" name="interval_ms" value="{{ .Config.PublishIntervalMs }}"
+                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+          <span class="hint">{{ .T "settings.capture.publishHint" }}</span>
+        </label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.capture.idle" }}</span>
+        <input type="number" name="idle_timeout_ms" value="{{ .Config.IdleTimeoutMs }}"
+               min="{{ .MinIdleMs }}" max="{{ .MaxIdleMs }}" step="500">
+        <span class="hint">{{ .T "settings.capture.idleHint" }}</span>
+      </label>
+
+      {{ template "save" . }}
+    </div>
+  </form>
+{{ end }}
+
+{{ define "save" }}
+<div class="cardfoot">
+  <button type="submit">{{ .T "settings.save" }}</button>
+
+  <span class="state clean">{{ .T "settings.unchanged" }}</span>
+  <span class="state pending">{{ .T "settings.unsaved" }}</span>
+</div>
+{{ end }}

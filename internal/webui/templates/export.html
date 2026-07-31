@@ -1,0 +1,237 @@
+{{ define "content" }}
+
+  {{ if .Saved }}<div class="banner ok">{{ .T "settings.saved" }}</div>{{ end }}
+  {{ if .Error }}<div class="banner err">{{ .T "settings.failed" }}: {{ .Error }}</div>{{ end }}
+
+  <div class="jump">
+    <span class="label">{{ .T "settings.jumpTo" }}</span>
+    <a href="#mqtt">{{ .T "settings.mqtt.nav" }}</a>
+    <a href="#ha">{{ .T "settings.ha.nav" }}</a>
+    <a href="#data">{{ .T "settings.data.nav" }}</a>
+    <a href="#influx">{{ .T "settings.influx.nav" }}</a>
+    <a href="#app">{{ .T "settings.app.nav" }}</a>
+  </div>
+
+  <form method="post" action="/save/mqtt" data-block="mqtt">
+    <div class="card" id="mqtt">
+      <h2>{{ .T "settings.mqtt.title" }}</h2>
+      <div class="check">
+        <input type="checkbox" name="mqtt_enabled" id="mqtt_enabled" value="1" {{ if .Config.MQTTEnabled }}checked{{ end }}>
+        <label for="mqtt_enabled" style="margin:0"><span class="name">{{ .T "settings.mqtt.enabled" }}</span></label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.mqtt.host" }}</span>
+          <input type="text" name="mqtt_host" value="{{ .Config.MQTTHost }}" required>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.mqtt.port" }}</span>
+          <input type="number" name="mqtt_port" value="{{ .Config.MQTTPort }}" min="1" max="65535" required>
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.mqtt.username" }}</span>
+          <input type="text" name="mqtt_username" value="{{ .Config.MQTTUsername }}" autocomplete="off">
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.mqtt.password" }}</span>
+          <input type="password" name="mqtt_password" autocomplete="new-password"
+                 placeholder="{{ if .HasPassword }}{{ .T "settings.keepSecret" }}{{ else }}{{ .T "settings.noSecret" }}{{ end }}">
+        </label>
+      </div>
+      {{ if .HasPassword }}
+      <div class="check">
+        <input type="checkbox" name="clear_password" id="clear_password" value="1">
+        <label for="clear_password" style="margin:0"><span class="name">{{ .T "settings.mqtt.clearPass" }}</span></label>
+      </div>
+      {{ end }}
+      <div class="check">
+        <input type="checkbox" name="mqtt_tls" id="mqtt_tls" value="1" {{ if .Config.MQTTTLS }}checked{{ end }}>
+        <label for="mqtt_tls" style="margin:0"><span class="name">{{ .T "settings.mqtt.tls" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="mqtt_tls_insecure" id="mqtt_tls_insecure" value="1" {{ if .Config.MQTTTLSInsecure }}checked{{ end }}>
+        <label for="mqtt_tls_insecure" style="margin:0"><span class="name">{{ .T "settings.mqtt.tlsSkip" }}</span></label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.mqtt.clientId" }}</span>
+        <input type="text" name="client_id" value="{{ .Config.ClientID }}">
+      </label>
+
+      {{ template "save" . }}
+    </div>
+  </form>
+
+  <form method="post" action="/save/ha" data-block="ha">
+    <div class="card" id="ha">
+      <h2>{{ .T "settings.ha.title" }}</h2>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.ha.deviceName" }}</span>
+          <input type="text" name="device_name" value="{{ .Config.DeviceName }}">
+          <span class="hint">{{ .T "settings.ha.deviceHint" }}</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.ha.nodeId" }}</span>
+          <input type="text" name="node_id" value="{{ .Config.NodeID }}">
+          <span class="hint">{{ .T "settings.ha.nodeHint" }} <code>sensor.fps_{{ .Config.NodeID }}</code></span>
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.ha.topicPrefix" }}</span>
+          <input type="text" name="topic_prefix" value="{{ .Config.TopicPrefix }}">
+          <span class="hint">{{ .T "settings.ha.stateTopic" }}: <code>{{ .Config.StateTopic }}</code></span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.ha.discovery" }}</span>
+          <input type="text" name="discovery_prefix" value="{{ .Config.DiscoveryPrefix }}">
+          <span class="hint">{{ .T "settings.ha.discoveryHint" }} <code>homeassistant</code></span>
+        </label>
+      </div>
+      <p class="note">{{ .T "settings.ha.renameNote" }}</p>
+
+      {{ template "save" . }}
+    </div>
+  </form>
+
+  <form method="post" action="/save/data" data-block="data">
+    <div class="card" id="data">
+      <h2>{{ .T "settings.data.title" }}</h2>
+      <div class="check">
+        <input type="checkbox" name="data_server_enabled" id="data_server_enabled" value="1" {{ if .Config.DataServerEnabled }}checked{{ end }}>
+        <label for="data_server_enabled" style="margin:0"><span class="name">{{ .T "settings.data.enabled" }}</span></label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.data.bind" }}</span>
+          <input type="text" name="data_bind_address" value="{{ .Config.DataBindAddress }}">
+          <span class="hint">{{ .H "settings.data.bindHint" }}</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.data.port" }}</span>
+          <input type="number" name="data_port" value="{{ .Config.DataPort }}" min="1" max="65535">
+        </label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="json_enabled" id="json_enabled" value="1" {{ if .Config.JSONEnabled }}checked{{ end }}>
+        <label for="json_enabled" style="margin:0"><span class="name">{{ .H "settings.data.json" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="prometheus_enabled" id="prometheus_enabled" value="1" {{ if .Config.PrometheusEnabled }}checked{{ end }}>
+        <label for="prometheus_enabled" style="margin:0"><span class="name">{{ .H "settings.data.prom" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="influx_pull_enabled" id="influx_pull_enabled" value="1" {{ if .Config.InfluxPullEnabled }}checked{{ end }}>
+        <label for="influx_pull_enabled" style="margin:0"><span class="name">{{ .H "settings.data.influx" }}</span></label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.data.token" }}</span>
+        <input type="password" name="data_token" autocomplete="new-password"
+               placeholder="{{ if .HasDataToken }}{{ .T "settings.keepSecret" }}{{ else }}{{ .T "settings.data.tokenNone" }}{{ end }}">
+        <span class="hint">{{ .H "settings.data.tokenHint" }}</span>
+      </label>
+      {{ if .HasDataToken }}
+      <div class="check">
+        <input type="checkbox" name="clear_data_token" id="clear_data_token" value="1">
+        <label for="clear_data_token" style="margin:0"><span class="name">{{ .T "settings.data.clearToken" }}</span></label>
+      </div>
+      {{ end }}
+
+      {{ if .Endpoints }}
+      <table class="endpoints" style="margin-top:.4rem">
+        {{ range .Endpoints }}
+        <tr><td>{{ .Label }}</td><td><a href="{{ .URL }}" target="_blank" rel="noopener"><code>{{ .URL }}</code></a></td></tr>
+        {{ end }}
+      </table>
+      {{ end }}
+
+      {{ template "save" . }}
+    </div>
+  </form>
+
+  <form method="post" action="/save/influx" data-block="influx">
+    <div class="card" id="influx">
+      <h2>{{ .T "settings.influx.title" }}</h2>
+      <div class="check">
+        <input type="checkbox" name="influx_push_enabled" id="influx_push_enabled" value="1" {{ if .Config.InfluxPushEnabled }}checked{{ end }}>
+        <label for="influx_push_enabled" style="margin:0"><span class="name">{{ .T "settings.influx.enabled" }}</span></label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.influx.url" }}</span>
+          <input type="text" name="influx_url" value="{{ .Config.InfluxURL }}" placeholder="http://influx.local:8086">
+          <span class="hint">{{ .H "settings.influx.urlHint" }}</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.influx.bucket" }}</span>
+          <input type="text" name="influx_bucket" value="{{ .Config.InfluxBucket }}" placeholder="gaming">
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.influx.org" }}</span>
+          <input type="text" name="influx_org" value="{{ .Config.InfluxOrg }}">
+          <span class="hint">{{ .T "settings.influx.orgHint" }}</span>
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.influx.measurement" }}</span>
+          <input type="text" name="influx_measurement" value="{{ .Config.InfluxMeasurement }}">
+        </label>
+      </div>
+      <label>
+        <span class="name">{{ .T "settings.influx.token" }}</span>
+        <input type="password" name="influx_token" autocomplete="new-password"
+               placeholder="{{ if .HasInfluxToken }}{{ .T "settings.keepSecret" }}{{ else }}{{ .T "settings.influx.tokenNone" }}{{ end }}">
+      </label>
+      {{ if .HasInfluxToken }}
+      <div class="check">
+        <input type="checkbox" name="clear_influx_token" id="clear_influx_token" value="1">
+        <label for="clear_influx_token" style="margin:0"><span class="name">{{ .T "settings.influx.clearToken" }}</span></label>
+      </div>
+      {{ end }}
+
+      {{ template "save" . }}
+    </div>
+  </form>
+
+  <form method="post" action="/save/app" data-block="app">
+    <div class="card" id="app">
+      <h2>{{ .T "settings.app.title" }}</h2>
+      <label>
+        <span class="name">{{ .T "settings.app.language" }}</span>
+        <select name="language">
+          {{ $lang := .Lang }}
+          {{ range .Languages }}
+          <option value="{{ .Code }}" {{ if eq .Code $lang }}selected{{ end }}>{{ .Name }}</option>
+          {{ end }}
+        </select>
+        <span class="hint">{{ .T "settings.app.languageHint" }}</span>
+      </label>
+      <label>
+        <span class="name">{{ .T "settings.app.webPort" }}</span>
+        <input type="number" name="web_port" value="{{ .Config.WebPort }}" min="1" max="65535">
+        <span class="hint">{{ .T "settings.app.webPortHint" }}</span>
+      </label>
+      <div class="check">
+        <input type="checkbox" name="autostart" id="autostart" value="1" {{ if .Status.Autostart }}checked{{ end }}>
+        <label for="autostart" style="margin:0"><span class="name">{{ .T "settings.app.autostart" }}</span></label>
+      </div>
+      <div class="check">
+        <input type="checkbox" name="debug" id="debug" value="1" {{ if .Config.Debug }}checked{{ end }}>
+        <label for="debug" style="margin:0"><span class="name">{{ .T "settings.app.debug" }}</span></label>
+      </div>
+
+      {{ template "save" . }}
+    </div>
+  </form>
+{{ end }}
+
+{{ define "save" }}
+<div class="cardfoot">
+  <button type="submit">{{ .T "settings.save" }}</button>
+  <span class="state clean">{{ .T "settings.unchanged" }}</span>
+  <span class="state pending">{{ .T "settings.unsaved" }}</span>
+</div>
+{{ end }}

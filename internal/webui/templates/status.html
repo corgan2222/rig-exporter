@@ -1,0 +1,206 @@
+{{ define "content" }}
+
+  <div id="rtss-banner" class="banner warn" hidden>
+    <strong>{{ .T "rtss.bannerTitle" }}</strong>
+    <span id="rtss-detail"></span><br>
+    {{ .T "rtss.bannerBody" }}
+    <a href="{{ .RTSSDownloadURL }}" target="_blank" rel="noopener">{{ .T "rtss.download" }}</a>
+    {{ .T "rtss.alsoInAfterburner" }}
+  </div>
+
+  <div class="card">
+    <h2>{{ .T "status.title" }}</h2>
+    <div class="tiles">
+      <div class="tile"><div class="label">{{ .T "status.fps" }}</div><div class="value" id="v-fps">&ndash;</div></div>
+      <div class="tile"><div class="label">{{ .T "status.frametime" }}</div><div class="value" id="v-frametime">&ndash;</div></div>
+      <div class="tile"><div class="label">{{ .T "status.game" }}</div><div class="value small" id="v-game">&ndash;</div></div>
+      <div class="tile"><div class="label">{{ .T "status.resolution" }}</div><div class="value small" id="v-resolution">&ndash;</div></div>
+      <div class="tile"><div class="label">{{ .T "status.cpu" }}</div><div class="value" id="v-cpu">&ndash;</div></div>
+      <div class="tile"><div class="label">{{ .T "status.ram" }}</div><div class="value" id="v-ram">&ndash;</div></div>
+    </div>
+    <div class="actions" style="margin-top:1.1rem">
+      <span class="badge"><span class="dot" id="d-rtss"></span><span id="t-rtss">RTSS</span></span>
+      <span class="badge"><span class="dot" id="d-pause"></span><span id="t-pause"></span></span>
+      <form method="post" action="/pause" style="margin-left:auto">
+        <button class="ghost" type="submit" id="pause-btn">{{ .T "status.pause" }}</button>
+      </form>
+    </div>
+    <div class="actions" id="export-badges" style="margin-top:.6rem"></div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>{{ .T "hardware.title" }}</h2>
+      <div class="segmented spacer">
+        <button type="button" id="by-metric">{{ .T "hardware.byMetric" }}</button>
+        <button type="button" id="by-device">{{ .T "hardware.byDevice" }}</button>
+      </div>
+    </div>
+    <div id="sensor-groups" class="groups"></div>
+  </div>
+
+  <div class="card">
+    <h2>{{ .T "endpoints.title" }}</h2>
+    {{ if .Endpoints }}
+    <table class="endpoints">
+      {{ range .Endpoints }}
+      <tr>
+        <td>{{ .Label }}</td>
+        <td><a href="{{ .URL }}" target="_blank" rel="noopener"><code>{{ .URL }}</code></a></td>
+      </tr>
+      {{ end }}
+    </table>
+    {{ if .HasDataToken }}
+    <p class="note" style="margin-bottom:0">{{ .H "endpoints.tokenNote" }}</p>
+    {{ end }}
+    {{ else }}
+    <p class="note" style="margin:0">{{ .T "endpoints.hint" }}</p>
+    {{ end }}
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// Every string the live view needs, handed over once so the script does not
+// have to know a second time which language is active.
+const L = {
+  pause: {{ .T "status.pause" }},
+  resume: {{ .T "status.resume" }},
+  exporting: {{ .T "status.exporting" }},
+  paused: {{ .T "status.paused" }},
+  noExport: {{ .T "status.noExport" }},
+  offline: {{ .T "status.offline" }},
+  noGame: {{ .T "status.noGame" }},
+  rtssConnected: {{ .T "rtss.connected" }},
+  rtssUnavailable: {{ .T "rtss.unavailable" }},
+  disabled: {{ .T "hardware.disabled" }},
+  noData: {{ .T "hardware.noData" }},
+  noGroups: {{ .T "hardware.none" }},
+};
+
+function setDot(el, state) {
+  el.className = "dot" + (state ? " " + state : "");
+}
+
+function escapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function renderExports(exports) {
+  const host = $("export-badges");
+  if (!exports || exports.length === 0) {
+    host.innerHTML = '<span class="badge"><span class="dot warn"></span>' + escapeHTML(L.noExport) + "</span>";
+    return;
+  }
+  host.innerHTML = exports.map((e) =>
+    '<span class="badge"><span class="dot ' + (e.healthy ? "ok" : "bad") + '"></span>' +
+    "<strong>" + escapeHTML(e.label) + "</strong> " + escapeHTML(e.detail) + "</span>"
+  ).join("");
+}
+
+// Readings can be listed by measurement — every card's temperature together —
+// or by device, which puts everything about GPU 0 in one block. The choice is
+// a view preference, so it lives in the browser rather than in the config.
+let byDevice = localStorage.getItem("rig.groupBy") === "device";
+
+function definitionList(rows, useShortLabels) {
+  return "<dl>" + rows.map((r) =>
+    "<dt>" + escapeHTML(useShortLabels ? r.short : r.label) + "</dt>" +
+    "<dd>" + escapeHTML(r.value) + "</dd>"
+  ).join("") + "</dl>";
+}
+
+function readings(rows) {
+  if (!byDevice) return definitionList(rows, false);
+
+  // Keep the order the server sent, which is already sorted, and split it
+  // into one block per device.
+  const devices = new Map();
+  for (const row of rows) {
+    const key = row.instance || "";
+    if (!devices.has(key)) devices.set(key, []);
+    devices.get(key).push(row);
+  }
+
+  let out = "";
+  for (const [instance, group] of devices) {
+    out += '<div class="device">';
+    if (instance) out += '<div class="name">' + escapeHTML(group[0].device || instance) + "</div>";
+    out += definitionList(group, true) + "</div>";
+  }
+  return out;
+}
+
+function renderGroups(groups) {
+  const host = $("sensor-groups");
+  if (!groups || groups.length === 0) {
+    host.innerHTML = '<p class="note">' + escapeHTML(L.noGroups) + "</p>";
+    return;
+  }
+
+  host.innerHTML = groups.map((g) => {
+    let state, body;
+    if (!g.enabled) {
+      state = '<span class="dot"></span>';
+      body = '<p class="note">' + escapeHTML(L.disabled) + "</p>";
+    } else if (!g.available) {
+      state = '<span class="dot warn"></span>';
+      body = '<p class="note">' + escapeHTML(L.noData) +
+        (g.error ? ": " + escapeHTML(g.error) : ".") + "</p>";
+    } else {
+      state = '<span class="dot ok"></span>';
+      body = readings(g.rows);
+    }
+    return '<div class="group"><h3>' + state + escapeHTML(g.label) + "</h3>" + body + "</div>";
+  }).join("");
+}
+
+function setGrouping(useDevice) {
+  byDevice = useDevice;
+  localStorage.setItem("rig.groupBy", useDevice ? "device" : "metric");
+  $("by-device").classList.toggle("active", useDevice);
+  $("by-metric").classList.toggle("active", !useDevice);
+  refresh();
+}
+
+$("by-device").addEventListener("click", () => setGrouping(true));
+$("by-metric").addEventListener("click", () => setGrouping(false));
+
+async function refresh() {
+  let s;
+  try {
+    s = await (await fetch("/api/status", { cache: "no-store" })).json();
+  } catch {
+    $("export-badges").innerHTML =
+      '<span class="badge"><span class="dot bad"></span>' + escapeHTML(L.offline) + "</span>";
+    return;
+  }
+
+  $("v-fps").textContent = s.rtss_status === "ok" ? Math.round(s.fps) : "–";
+  $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
+  $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
+  $("v-resolution").textContent = s.resolution + (s.refresh_rate ? " @ " + s.refresh_rate + " Hz" : "");
+  $("v-cpu").textContent = s.cpu.toFixed(1) + " %";
+  $("v-ram").textContent = s.ram.toFixed(1) + " %";
+
+  renderExports(s.exports);
+  renderGroups(s.groups);
+
+  const rtssOK = s.rtss_status === "ok";
+  setDot($("d-rtss"), rtssOK ? "ok" : "warn");
+  $("t-rtss").textContent = rtssOK ? "RTSS " + (s.rtss_version || L.rtssConnected) : L.rtssUnavailable;
+
+  setDot($("d-pause"), s.paused ? "warn" : "ok");
+  $("t-pause").textContent = s.paused ? L.paused : L.exporting;
+  $("pause-btn").textContent = s.paused ? L.resume : L.pause;
+
+  const banner = $("rtss-banner");
+  banner.hidden = rtssOK;
+  $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
+}
+
+setGrouping(byDevice);
+setInterval(refresh, {{ .RefreshMs }});
+</script>
+{{ end }}
