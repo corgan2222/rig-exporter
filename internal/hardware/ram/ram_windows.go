@@ -42,7 +42,15 @@ func (s *Source) Collect(set *metrics.Set) error {
 			metrics.Gauge(metrics.RAMUsed, "", float64(usage.UsedMB)),
 			metrics.Gauge(metrics.RAMFree, "", float64(usage.AvailableMB)),
 			metrics.Gauge(metrics.RAMTotal, "", float64(usage.TotalMB)),
+			metrics.Gauge(metrics.RAMUsedPercent, "", usage.UsedPercent),
 		)
+		// Free is derived from the amounts rather than from 100 minus the
+		// load: Windows rounds the load to whole percent, and the two would
+		// disagree by a percentage point at the edges.
+		if usage.TotalMB > 0 {
+			set.Add(metrics.Gauge(metrics.RAMFreePercent, "",
+				float64(usage.AvailableMB)/float64(usage.TotalMB)*100))
+		}
 	}
 
 	s.once.Do(func() {

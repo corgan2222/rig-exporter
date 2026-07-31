@@ -81,6 +81,29 @@ var (
 		Prom: "rig_memory_percent", Help: "Physical memory in use",
 		StateClass: "measurement", Icon: "mdi:memory",
 	}
+	// The Linux load average has no Windows equivalent — there is no run
+	// queue to read — so this counts processor-equivalents busy instead:
+	// utilisation times the number of logical processors, smoothed over the
+	// same three windows Linux uses. A load of 4 on a 16 thread machine means
+	// four threads' worth of work, exactly as it would on Linux.
+	CPULoad1 = Definition{
+		ID: "cpu_load_1", Name: i18n.Text{DE: "Load 1 min", EN: "Load 1 min"},
+		Kind: KindGauge, Precision: 2, Group: GroupCPU,
+		Prom: "rig_cpu_load1", Help: "Processor-equivalents busy, averaged over one minute",
+		StateClass: "measurement", Icon: "mdi:chart-line",
+	}
+	CPULoad5 = Definition{
+		ID: "cpu_load_5", Name: i18n.Text{DE: "Load 5 min", EN: "Load 5 min"},
+		Kind: KindGauge, Precision: 2, Group: GroupCPU,
+		Prom: "rig_cpu_load5", Help: "Processor-equivalents busy, averaged over five minutes",
+		StateClass: "measurement", Icon: "mdi:chart-line",
+	}
+	CPULoad15 = Definition{
+		ID: "cpu_load_15", Name: i18n.Text{DE: "Load 15 min", EN: "Load 15 min"},
+		Kind: KindGauge, Precision: 2, Group: GroupCPU,
+		Prom: "rig_cpu_load15", Help: "Processor-equivalents busy, averaged over fifteen minutes",
+		StateClass: "measurement", Icon: "mdi:chart-line",
+	}
 	// The overall load stays in the core group, next to the CPU load, because
 	// it is the headline number. Everything else about memory is its own
 	// group, which can be switched off.
@@ -95,6 +118,18 @@ var (
 		Unit: "MB", Kind: KindGauge, Group: GroupRAM,
 		Prom: "rig_memory_free_megabytes", Help: "Physical memory available",
 		StateClass: "measurement", Icon: "mdi:memory",
+	}
+	RAMUsedPercent = Definition{
+		ID: "ram_used_percent", Name: i18n.Text{DE: "Belegung", EN: "Usage"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupRAM,
+		Prom: "rig_memory_used_percent", Help: "Share of physical memory in use",
+		StateClass: "measurement", Icon: "mdi:chart-donut",
+	}
+	RAMFreePercent = Definition{
+		ID: "ram_free_percent", Name: i18n.Text{DE: "Frei", EN: "Free"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupRAM,
+		Prom: "rig_memory_free_percent", Help: "Share of physical memory available",
+		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	RAMTotal = Definition{
 		ID: "ram_total_mb", Name: i18n.Text{DE: "Gesamt", EN: "Total"},
@@ -254,6 +289,20 @@ var (
 		Prom: "rig_gpu_power_watts", Help: "Graphics card power draw",
 		DeviceClass: "power", StateClass: "measurement",
 	}
+	GPUPowerLimit = Definition{
+		ID: "gpu_power_limit", Name: i18n.Text{DE: "GPU-Leistungsgrenze", EN: "GPU power limit"},
+		Unit: "W", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_power_limit_watts", Help: "Board power limit the card is allowed to draw",
+		DeviceClass: "power", EntityCategory: "diagnostic",
+	}
+	GPUPowerPercent = Definition{
+		ID: "gpu_power_percent", Name: i18n.Text{DE: "GPU-Leistungsgrenze genutzt", EN: "GPU power limit used"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_power_percent", Help: "Power draw relative to the board power limit",
+		StateClass: "measurement", Icon: "mdi:flash",
+	}
 	GPUVoltage = Definition{
 		ID: "gpu_voltage", Name: i18n.Text{DE: "GPU-Spannung", EN: "GPU voltage"},
 		Unit: "mV", Kind: KindGauge,
@@ -358,6 +407,13 @@ var (
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_used_percent", Help: "Share of the volume in use",
+		StateClass: "measurement", Icon: "mdi:chart-donut",
+	}
+	DiskFreePercent = Definition{
+		ID: "disk_free_percent", Name: i18n.Text{DE: "Frei", EN: "Free"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupDisk, InstanceLabel: "disk",
+		Prom: "rig_disk_free_percent", Help: "Share of the volume available",
 		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	DiskRead = Definition{
@@ -470,18 +526,18 @@ var All = []Definition{
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime,
 
-	RAMUsed, RAMFree, RAMTotal, RAMClock, RAMClockMax, RAMType,
-	RAMModules, RAMSlots, RAMModule,
+	RAMUsed, RAMFree, RAMTotal, RAMUsedPercent, RAMFreePercent,
+	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
 
 	GPUName, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
 	GPUVRAMUsed, GPUVRAMTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
-	GPUVoltage, GPUSource,
+	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
 
 	CPUModel, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockMax,
-	CPUTemperature, CPUCoreLoad,
+	CPUTemperature, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
 
 	DiskLabel, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
-	DiskRead, DiskWrite, DiskBusy, DiskTemperature,
+	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,
 
 	NetType, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,
 	PingTarget, PingRTT, PingLoss,

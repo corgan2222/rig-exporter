@@ -150,7 +150,18 @@ func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) b
 		add(metrics.GPUVRAMUsed, card.VRAMUsedMB, card.hasVRAM)
 		add(metrics.GPUVRAMTotal, card.VRAMTotalMB, card.hasVRAM)
 		add(metrics.GPUPower, card.PowerW, card.hasPower)
+		add(metrics.GPUPowerLimit, card.PowerLimitW, card.hasLimit)
 		add(metrics.GPUFan, card.FanPercent, card.hasFan)
+
+		// How close the card is to its power ceiling is the number that says
+		// whether the limit is what is holding it back.
+		if card.hasPower && card.hasLimit && card.PowerLimitW > 0 {
+			if _, exists := set.Find(metrics.GPUPowerPercent.ID, instance); !exists {
+				set.Add(metrics.Gauge(metrics.GPUPowerPercent, instance,
+					card.PowerW/card.PowerLimitW*100))
+				added = true
+			}
+		}
 
 		// The percentage is derived rather than read, so it is only added when
 		// both halves are known and nothing has supplied it already.

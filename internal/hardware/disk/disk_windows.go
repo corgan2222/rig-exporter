@@ -101,6 +101,7 @@ func (s *Source) collectVolume(set *metrics.Set, letter string, previous, curren
 		metrics.Gauge(metrics.DiskUsed, instance, float64(used)/gb),
 		metrics.Gauge(metrics.DiskFree, instance, float64(free)/gb),
 		metrics.Gauge(metrics.DiskUsedPercent, instance, float64(used)/float64(total)*100),
+		metrics.Gauge(metrics.DiskFreePercent, instance, float64(free)/float64(total)*100),
 	)
 
 	if label, filesystem, err := volumeInfo(letter); err == nil {

@@ -140,6 +140,55 @@ func TestKeyAppendsTheInstance(t *testing.T) {
 	}
 }
 
+// A plain string sort puts core 10 between core 1 and core 2, which makes a
+// list of sixteen cores unreadable.
+func TestNumericInstancesSortAsNumbers(t *testing.T) {
+	var set Set
+	for _, core := range []string{"10", "2", "0", "1", "11"} {
+		set.Add(Gauge(CPUCoreLoad, core, 1))
+	}
+
+	got := set.GroupInstances(GroupCPU)
+	want := []string{"0", "1", "2", "10", "11"}
+	for i := range want {
+		if i >= len(got) || got[i] != want[i] {
+			t.Fatalf("GroupInstances = %v, want %v", got, want)
+		}
+	}
+
+	// Entities() sorts too, and has to agree.
+	var order []string
+	for _, r := range set.Entities() {
+		order = append(order, r.Instance)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Errorf("Entities order = %v, want %v", order, want)
+			break
+		}
+	}
+}
+
+// Names still sort as names, and numbers come before them.
+func TestNonNumericInstancesKeepTextOrder(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want bool
+	}{
+		{"C:", "D:", true},
+		{"D:", "C:", false},
+		{"0", "C:", true}, // numbers first
+		{"C:", "0", false},
+		{"2", "10", true},
+		{"Ethernet", "WLAN", true},
+	}
+	for _, tc := range cases {
+		if got := LessInstance(tc.a, tc.b); got != tc.want {
+			t.Errorf("LessInstance(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.want)
+		}
+	}
+}
+
 func TestSlug(t *testing.T) {
 	cases := map[string]string{
 		"C:":         "c",

@@ -227,6 +227,7 @@ var catalogue = map[string]Text{
 	"tray.noExport":        {DE: "Kein Export aktiv – siehe Einstellungen", EN: "No export target — see settings"},
 	"tray.rtssDownload":    {DE: "RivaTuner Statistics Server herunterladen…", EN: "Download RivaTuner Statistics Server…"},
 	"tray.rtssDownloadTip": {DE: "Öffnet die RTSS-Downloadseite im Browser", EN: "Opens the RTSS download page in the browser"},
+	"tray.openInterface":   {DE: "Oberfläche im Browser öffnen", EN: "Open the interface in the browser"},
 	"tray.pause":           {DE: "Senden pausieren", EN: "Pause exporting"},
 	"tray.pauseTip":        {DE: "Hält den Export an, ohne die Anwendung zu beenden", EN: "Stops exporting without quitting the application"},
 	"tray.settings":        {DE: "Einstellungen…", EN: "Settings…"},
