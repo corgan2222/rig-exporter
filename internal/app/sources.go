@@ -62,10 +62,23 @@ func (s *sensors) start() {
 	}
 }
 
-// stop releases those goroutines again.
+// stop releases those goroutines again, and anything a source holds open.
+//
+// A configuration change throws the whole set away and builds a new one, so a
+// source that owns an operating system handle — the processor source keeps a
+// PDH query open for the lifetime of the set — would otherwise leak one handle
+// per save.
 func (s *sensors) stop() {
 	if s.pinger != nil {
 		s.pinger.Stop()
+	}
+	// Matched against the method that exists rather than against io.Closer:
+	// there is nothing for these to report, and an error return that is always
+	// nil only invites a caller to check it.
+	for _, source := range s.sources {
+		if closer, ok := source.(interface{ Close() }); ok {
+			closer.Close()
+		}
 	}
 }
 
