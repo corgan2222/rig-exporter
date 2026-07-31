@@ -30,13 +30,22 @@ type Source struct {
 	load     LoadAverage
 	lastLoad time.Time
 
-	// Static facts are read once: the model name and core counts do not
-	// change while the machine is running.
+	// Static facts are read once: the model name, core counts and base clock
+	// do not change while the machine is running.
 	once      sync.Once
 	model     string
 	physical  int
 	logical   int
+	baseMHz   float64
 	staticErr error
+
+	// performance reports what the processor is actually clocked at, relative
+	// to its base frequency.
+	performance *perfCounter
+	// peakMHz is the highest effective clock seen since the process started,
+	// which is the only honest "maximum" available: Windows reports the base
+	// frequency as the maximum and never mentions the boost clock.
+	peakMHz float64
 
 	// Per-core utilisation is a difference between two samples, so the
 	// previous one has to be kept.
@@ -69,12 +78,7 @@ func (s *Source) Collect(set *metrics.Set) error {
 		set.Add(metrics.Gauge(metrics.CPUThreads, "", float64(s.logical)))
 	}
 
-	if current, max, err := clocks(); err == nil {
-		set.Add(
-			metrics.Gauge(metrics.CPUClock, "", current),
-			metrics.Gauge(metrics.CPUClockMax, "", max),
-		)
-	}
+	s.collectClock(set)
 
 	// Processor temperature needs a driver, which Windows does not provide.
 	// Afterburner does, when it happens to be running.
@@ -98,6 +102,7 @@ func (s *Source) Collect(set *metrics.Set) error {
 func (s *Source) readStatic() {
 	s.logical = int(logicalProcessors())
 	s.physical = physicalCores()
+	s.performance = newPerfCounter(`\Processor Information(_Total)\% Processor Performance`)
 
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE,
 		`HARDWARE\DESCRIPTION\System\CentralProcessor\0`, registry.QUERY_VALUE)
@@ -112,6 +117,54 @@ func (s *Source) readStatic() {
 		s.model = strings.Join(strings.Fields(name), " ")
 	} else {
 		s.staticErr = err
+	}
+	// ~MHz is the nominal frequency the performance counter is relative to.
+	if mhz, _, err := key.GetIntegerValue("~MHz"); err == nil {
+		s.baseMHz = float64(mhz)
+	}
+}
+
+// collectClock reports what the processor is running at.
+//
+// The performance counter gives a percentage of the base frequency and goes
+// well past a hundred when the part boosts, which is the whole point: the
+// power information API reports the base frequency and never moves off it.
+// When the counter is unavailable, that static value is still better than
+// nothing.
+func (s *Source) collectClock(set *metrics.Set) {
+	nominal, max, powerErr := clocks()
+	if s.baseMHz == 0 {
+		s.baseMHz = max
+	}
+	if s.baseMHz > 0 {
+		set.Add(metrics.Gauge(metrics.CPUClockBase, "", s.baseMHz))
+	}
+
+	current := nominal
+	if s.performance != nil && s.baseMHz > 0 {
+		if percent, err := s.performance.Value(); err == nil && percent > 0 {
+			current = s.baseMHz * percent / 100
+		}
+	}
+	if current <= 0 {
+		if powerErr != nil {
+			return
+		}
+		current = nominal
+	}
+
+	set.Add(metrics.Gauge(metrics.CPUClock, "", current))
+
+	if current > s.peakMHz {
+		s.peakMHz = current
+	}
+	set.Add(metrics.Gauge(metrics.CPUClockMax, "", s.peakMHz))
+}
+
+// Close releases the performance counter.
+func (s *Source) Close() {
+	if s.performance != nil {
+		s.performance.Close()
 	}
 }
 

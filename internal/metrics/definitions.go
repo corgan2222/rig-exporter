@@ -69,15 +69,17 @@ var (
 		Prom: "rig_display_height_pixels", Help: "Vertical resolution of the primary display",
 		NoEntity: true,
 	}
+	// Collected as core readings so the dashboard tiles always have them, but
+	// shown on the processor and memory panels, where they belong.
 	CPULoad = Definition{
-		ID: "cpu", Name: i18n.Text{DE: "CPU", EN: "CPU"},
-		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore,
+		ID: "cpu", Name: i18n.Text{DE: "Auslastung", EN: "Utilisation"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore, Panel: GroupCPU,
 		Prom: "rig_cpu_percent", Help: "System-wide CPU utilisation",
 		StateClass: "measurement", Icon: "mdi:cpu-64-bit",
 	}
 	RAMLoad = Definition{
-		ID: "ram", Name: i18n.Text{DE: "RAM", EN: "RAM"},
-		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore,
+		ID: "ram", Name: i18n.Text{DE: "Belegung", EN: "Usage"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore, Panel: GroupRAM,
 		Prom: "rig_memory_percent", Help: "Physical memory in use",
 		StateClass: "measurement", Icon: "mdi:memory",
 	}
@@ -118,12 +120,6 @@ var (
 		Unit: "MB", Kind: KindGauge, Group: GroupRAM,
 		Prom: "rig_memory_free_megabytes", Help: "Physical memory available",
 		StateClass: "measurement", Icon: "mdi:memory",
-	}
-	RAMUsedPercent = Definition{
-		ID: "ram_used_percent", Name: i18n.Text{DE: "Belegung", EN: "Usage"},
-		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupRAM,
-		Prom: "rig_memory_used_percent", Help: "Share of physical memory in use",
-		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	RAMFreePercent = Definition{
 		ID: "ram_free_percent", Name: i18n.Text{DE: "Frei", EN: "Free"},
@@ -340,15 +336,23 @@ var (
 		EntityCategory: "diagnostic", Icon: "mdi:chip",
 	}
 	CPUClock = Definition{
-		ID: "cpu_clock", Name: i18n.Text{DE: "CPU-Takt", EN: "CPU clock"},
+		ID: "cpu_clock", Name: i18n.Text{DE: "Takt", EN: "Clock"},
 		Unit: "MHz", Kind: KindGauge, Group: GroupCPU,
-		Prom: "rig_cpu_clock_megahertz", Help: "Current processor clock, averaged over all cores",
+		Prom: "rig_cpu_clock_megahertz", Help: "Effective processor clock, averaged over all cores",
 		StateClass: "measurement", Icon: "mdi:speedometer-medium",
 	}
-	CPUClockMax = Definition{
-		ID: "cpu_clock_max", Name: i18n.Text{DE: "CPU-Takt max.", EN: "CPU clock max."},
+	CPUClockBase = Definition{
+		ID: "cpu_clock_base", Name: i18n.Text{DE: "Basistakt", EN: "Base clock"},
 		Unit: "MHz", Kind: KindGauge, Group: GroupCPU,
-		Prom: "rig_cpu_clock_max_megahertz", Help: "Maximum processor clock reported by Windows",
+		Prom: "rig_cpu_clock_base_megahertz", Help: "Nominal processor frequency",
+		EntityCategory: "diagnostic", Icon: "mdi:speedometer-slow",
+	}
+	// Windows reports the base frequency as the maximum and never mentions
+	// the boost clock, so the highest reading seen is the only honest answer.
+	CPUClockMax = Definition{
+		ID: "cpu_clock_max", Name: i18n.Text{DE: "Takt max. (beobachtet)", EN: "Clock peak (observed)"},
+		Unit: "MHz", Kind: KindGauge, Group: GroupCPU,
+		Prom: "rig_cpu_clock_peak_megahertz", Help: "Highest effective clock observed since start",
 		EntityCategory: "diagnostic", Icon: "mdi:speedometer",
 	}
 	CPUTemperature = Definition{
@@ -526,14 +530,14 @@ var All = []Definition{
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime,
 
-	RAMUsed, RAMFree, RAMTotal, RAMUsedPercent, RAMFreePercent,
+	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
 
 	GPUName, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
 	GPUVRAMUsed, GPUVRAMTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
 	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
 
-	CPUModel, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockMax,
+	CPUModel, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,
 	CPUTemperature, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
 
 	DiskLabel, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,

@@ -128,7 +128,7 @@ func runProbe(configPath string) error {
 		}
 		fmt.Printf("--- %s ---\n", group.Label(lang))
 		for _, reading := range snap.Entities() {
-			if reading.Def.Group == group {
+			if reading.Def.PanelGroup() == group {
 				fmt.Printf("  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
 			}
 		}
