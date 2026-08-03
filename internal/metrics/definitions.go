@@ -12,6 +12,28 @@ import "github.com/corgan/rig-exporter/internal/i18n"
 //
 // Entity ids come from ID plus the instance and the node id, so keep IDs short
 // and lowercase — and never let them depend on the language.
+//
+// EntityCategory decides where Home Assistant files an entity, and the rule is:
+//
+//	diagnostic  Facts about the machine rather than measurements of it —
+//	            model, vendor, file system, capacity, slot count, the clock a
+//	            part is rated for, the limit it is held to, the operating
+//	            system. Anything looked at while troubleshooting, and anything
+//	            that does not move on its own. Home Assistant keeps these out
+//	            of the device's main list and out of auto-generated dashboards.
+//	primary     What the machine is doing right now, and what this program
+//	            exists to report: frames, temperatures, load, free space,
+//	            throughput, power.
+//
+// The awkward cases are decided by use, not by shape. Display mode is
+// configuration in the abstract, but on a gaming PC a refresh rate that
+// silently dropped to 60 is exactly what someone wants on a dashboard, so it
+// stays primary. Idle time drives presence automations and stays primary, while
+// uptime answers "how long since the last reboot" and is diagnostic — the same
+// shape, a different job.
+//
+// The choice is recorded in testdata/catalogue.txt, so moving a measurement
+// between the two shows up in review rather than surprising a user.
 
 // Core: always collected, never optional.
 var (
