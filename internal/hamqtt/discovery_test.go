@@ -40,6 +40,12 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	if want := "homeassistant/sensor/rig_corganpc2/fps/config"; topic != want {
 		t.Errorf("topic = %q, want %q", topic, want)
 	}
+	// This is the field that decides the entity id in Home Assistant 2026;
+	// object_id was removed from the MQTT component and is only still sent for
+	// older versions. It carries the domain, so it is a whole entity id.
+	if payload.DefaultEntityID != "sensor.re_corganpc2_fps" {
+		t.Errorf("default_entity_id = %q, want sensor.re_corganpc2_fps", payload.DefaultEntityID)
+	}
 	if payload.ObjectID != "re_corganpc2_fps" {
 		t.Errorf("object_id = %q, want re_corganpc2_fps", payload.ObjectID)
 	}
@@ -57,6 +63,16 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	}
 }
 
+// A binary sensor lives in its own domain, and the entity id carries it — a
+// sensor. prefix on a binary_sensor would name an entity that never exists.
+func TestTheDefaultEntityIdCarriesTheRightDomain(t *testing.T) {
+	_, payload := decode(t, metrics.Bool(metrics.RTSSUp, "", true))
+
+	if payload.DefaultEntityID != "binary_sensor.re_corganpc2_rtss" {
+		t.Errorf("default_entity_id = %q, want the binary_sensor domain", payload.DefaultEntityID)
+	}
+}
+
 // An instanced reading must reach the value template and the entity id under
 // the same key, or the entity shows up permanently unknown.
 func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
@@ -64,6 +80,9 @@ func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 
 	if !strings.HasSuffix(topic, "/diskc_used_percent/config") {
 		t.Errorf("topic = %q", topic)
+	}
+	if payload.DefaultEntityID != "sensor.re_corganpc2_diskc_used_percent" {
+		t.Errorf("default_entity_id = %q", payload.DefaultEntityID)
 	}
 	if payload.ObjectID != "re_corganpc2_diskc_used_percent" {
 		t.Errorf("object_id = %q", payload.ObjectID)
