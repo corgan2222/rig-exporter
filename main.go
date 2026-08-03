@@ -191,14 +191,23 @@ func runProbe(configPath string, out io.Writer) error {
 		if group == metrics.GroupCore {
 			continue
 		}
-		if err := snap.SourceErrors[group]; err != "" {
-			fmt.Fprintf(out, "--- %s: unavailable (%s) ---\n\n", group.Label(lang), err)
+		failure := snap.SourceErrors[group]
+		if failure != "" && !snap.HasGroup(group) {
+			fmt.Fprintf(out, "--- %s: unavailable (%s) ---\n\n", group.Label(lang), failure)
 			continue
 		}
 		if !snap.HasGroup(group) {
 			continue
 		}
+
+		// A group can have several sources, and one of them failing says
+		// nothing about the others. Reporting the failure while still showing
+		// what was collected beats hiding a working processor reading because
+		// an optional second source could not be reached.
 		fmt.Fprintf(out, "--- %s ---\n", group.Label(lang))
+		if failure != "" {
+			fmt.Fprintf(out, "  (a source failed: %s)\n", failure)
+		}
 		for _, reading := range snap.Entities() {
 			if reading.Def.PanelGroup() == group {
 				fmt.Fprintf(out, "  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
