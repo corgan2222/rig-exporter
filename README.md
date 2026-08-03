@@ -57,6 +57,14 @@ Ist beides nicht da, entfällt die GPU-Gruppe. Ohne Kernel-Treiber sind
 Gehäuselüfter, Netzteil-Telemetrie und Spannungen grundsätzlich nicht
 erreichbar.
 
+Beide zählen unabhängig voneinander durch, verbunden werden sie deshalb über
+den Kartennamen — und der ist nicht eindeutig, zwei gleiche Karten heißen
+gleich. Zugeordnet wird darum in Indexreihenfolge, jede Instanz höchstens
+einmal, und eine Karte, für die sich kein Name findet, bekommt eine eigene
+Instanz, statt eine fremde zu überschreiben. Auf einem Notebook, dessen
+integrierte Grafik bei Afterburner Karte 0 ist, wäre sonst deren Eintrag mit dem
+VRAM und der Leistungsgrenze der dedizierten Karte überschrieben worden.
+
 ### Der aktive Netzwerkadapter
 
 Standardmäßig wird nur der Adapter gemeldet, über den die Default-Route läuft.
@@ -78,8 +86,33 @@ Default-Gateway.
 * [MSI Afterburner](https://www.msi.com/Landing/afterburner/graphics-cards) für GPU- und CPU-Temperaturen
 * Zum Bauen: Go 1.22 oder neuer. Kein CGO, kein C-Compiler.
 
-Fehlt RTSS beim Start, erscheint ein Hinweis mit Downloadlink. Alle übrigen
-Gruppen laufen ohne RTSS weiter.
+Fehlt RTSS, erscheint **beim ersten Start** ein Hinweis mit Downloadlink —
+danach nicht mehr. Alle übrigen Gruppen laufen ohne RTSS weiter, und der Zustand
+steht im Tray und auf der Anzeigeseite. Ein Rechner ohne RTSS ist für alles
+andere ein völlig brauchbarer Rechner, und nichts wartet hier auf einen Dialog.
+
+Nichts am Programm braucht Administratorrechte. Läuft RTSS oder Afterburner
+allerdings eleviert und dieses Programm nicht, verweigert Windows den Zugriff
+auf deren Shared Memory — dann fehlen FPS beziehungsweise die Temperaturen.
+
+### Was auf anderen Maschinen anders ist
+
+Getestet wird auf einem Rechner: Windows 10, deutsch, Ryzen, zwei
+NVIDIA-Karten, amd64. Was bekannt ist:
+
+* **Sprache** — die Oberfläche folgt beim ersten Start der Windows-Sprache und
+  ist danach umschaltbar. Gemeldete *Werte* bleiben englisch (`Ethernet`,
+  `Wi-Fi`, `Other`, `DDR4`, `Type 126`), damit eine Automatisierung in Home
+  Assistant nicht davon abhängt, welche Sprache gerade eingestellt ist.
+* **Hybrid-CPUs** (Intel 12th gen und neuer, P- und E-Kerne) — der gemeldete
+  Takt ist dort **systematisch zu hoch**. Der Leistungsindikator mittelt
+  Verhältnisse gegen je eigene Nominalfrequenzen, hier wird aber mit einem
+  einzigen Basistakt multipliziert. Ungetestet, weil keine solche Maschine da
+  ist; alle übrigen CPU-Werte stimmen.
+* **Mehr als 64 logische Prozessoren** — Kernzahl und Auslastung stimmen; nur
+  die optionale Liste je Kern deckt eine Prozessorgruppe ab.
+* **Andere Architekturen** — `arm64` und `386` übersetzen, sind aber nie
+  gelaufen, und das Symbol der Exe gibt es nur für `amd64`.
 
 ## Bauen
 

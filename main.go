@@ -213,10 +213,6 @@ func run(configPath string) error {
 
 	application := app.New(cfg, configPath, log)
 
-	// Check RTSS before anything else is shown, so the user finds out why
-	// there are no FPS values instead of staring at an empty sensor.
-	warnIfRTSSMissing(application, log, cfg.Lang())
-
 	settings, err := webui.New(application, log)
 	if err != nil {
 		return err
@@ -228,6 +224,11 @@ func run(configPath string) error {
 	}
 
 	application.Start()
+
+	// Only now, with the exporters running and the settings page reachable: a
+	// machine without RTSS is a perfectly good machine for everything else this
+	// tool does, and nothing it does should wait behind a dialog.
+	warnIfRTSSMissing(application, log, cfg.Lang(), created)
 
 	trayUI := tray.New(application, log, tray.Options{
 		SettingsURL: settings.URL,
@@ -244,16 +245,25 @@ func run(configPath string) error {
 }
 
 // warnIfRTSSMissing tells the user where to get RTSS when the shared memory
-// cannot be read. The prompt is shown on the first run and whenever RTSS is
-// missing entirely; a permission problem gets its own wording because
+// cannot be read. A permission problem gets its own wording, because
 // downloading RTSS again would not help.
-func warnIfRTSSMissing(application *app.App, log *slog.Logger, lang i18n.Lang) {
+//
+// The prompt appears on the first run only. RTSS is missing on every machine
+// that is not a gaming PC — a server, a virtual machine, a laptop — and this
+// used to mean a modal dialog at every single logon, before the exporters or
+// the settings page had started. Once the user has been told, the tray icon and
+// the status page carry the state; both render collector.RTSSStatus already,
+// which is where someone wondering about missing FPS will look.
+func warnIfRTSSMissing(application *app.App, log *slog.Logger, lang i18n.Lang, firstRun bool) {
 	err := application.CheckRTSS()
 	if err == nil {
 		log.Info("rtss shared memory available")
 		return
 	}
 	log.Warn("rtss unavailable at startup", "error", err)
+	if !firstRun {
+		return
+	}
 
 	if errors.Is(err, rtss.ErrAccessDenied) {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.rtssDenied"),

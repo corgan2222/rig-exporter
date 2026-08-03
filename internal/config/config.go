@@ -169,7 +169,9 @@ func Defaults() Config {
 		PublishIntervalMs: 2000,
 		IdleTimeoutMs:     3000,
 
-		Language: string(i18n.Default),
+		// Follows Windows, and falls back to the default for a language the
+		// catalogue does not have yet.
+		Language: string(i18n.Parse(osLanguage())),
 		WebPort:  8787,
 	}
 }

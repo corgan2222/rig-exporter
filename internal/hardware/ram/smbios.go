@@ -213,11 +213,15 @@ func meaningful(value string) string {
 	}
 }
 
+// memoryTypeName names the memory technology, e.g. "DDR4".
+//
+// The fallback stays English: this is a published sensor value, not interface
+// text, and it must not change when the user switches language.
 func memoryTypeName(value byte) string {
 	if name, ok := memoryTypes[value]; ok {
 		return name
 	}
-	return fmt.Sprintf("Typ %d", value)
+	return fmt.Sprintf("Type %d", value)
 }
 
 // structure is one SMBIOS record: the fixed part plus its string table.

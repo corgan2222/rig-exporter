@@ -286,14 +286,20 @@ func allActiveAdapters() ([]Adapter, error) {
 	return adapters, nil
 }
 
+// adapterKind names the link technology.
+//
+// These strings are published as a sensor value, so they are machine-facing and
+// stay English like every other value in the export. Translating them would
+// change what a Home Assistant automation compares against whenever the user
+// switches language.
 func adapterKind(ifType uint32) string {
 	switch ifType {
 	case ifTypeEthernet:
 		return "Ethernet"
 	case ifTypeWifi:
-		return "WLAN"
+		return "Wi-Fi"
 	default:
-		return "Sonstige"
+		return "Other"
 	}
 }
 
