@@ -199,6 +199,30 @@ Deshalb wird jeder alte Name ausdrücklich mit einer leeren Nachricht
 zurückgenommen. In ein Topic zu schreiben, das es nie gab, tut nichts, also
 braucht das kein Migrationsflag und kein Gedächtnis.
 
+### Wo Home Assistant die Werte einsortiert
+
+45 Messwerte stehen im Hauptbereich, 29 unter **Diagnose**, 7 werden gar nicht
+als Entität veröffentlicht. Die Regel dahinter:
+
+* **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
+  Hersteller, Dateisystem, Kapazität, Steckplätze, Nenn- und Grenzwerte,
+  Windows-Version. Alles, was man beim Fehlersuchen ansieht und was sich nicht
+  von selbst bewegt. Home Assistant hält das aus der Hauptliste und aus
+  automatisch erzeugten Dashboards heraus.
+* **Hauptbereich** — was der Rechner gerade tut: Bilder pro Sekunde,
+  Temperaturen, Auslastung, freier Platz, Durchsatz, Leistung.
+
+Die Grenzfälle entscheidet der Verwendungszweck, nicht die Form. Der
+Anzeigemodus ist im Prinzip Konfiguration, aber eine still auf 60 Hz gefallene
+Bildwiederholrate ist genau das, was auf ein Dashboard gehört — also
+Hauptbereich. Leerlaufzeit treibt Anwesenheits-Automatisierungen und bleibt
+ebenfalls oben, während Laufzeit die Frage „wie lange seit dem letzten
+Neustart" beantwortet und Diagnose ist. Gleiche Form, andere Aufgabe.
+
+Festgeschrieben ist die Einordnung in `testdata/catalogue.txt`: einen Wert
+umzusortieren verschiebt ihn in Home Assistant aus der Hauptliste heraus, und
+das soll im Review auffallen statt beim Nutzer.
+
 ### Wer welchen Wert geliefert hat
 
 Die Anzeigeseite hat ein Panel **Datenquellen**, und `-probe` denselben

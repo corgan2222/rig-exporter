@@ -76,12 +76,29 @@ and say in the commit message which consumers have to be repointed.`,
 func renderContract() string {
 	lines := make([]string, 0, len(All))
 	for _, d := range All {
-		lines = append(lines, fmt.Sprintf("%-24s %-10s %-6s prec=%d group=%-5s panel=%-5s prom=%s",
+		lines = append(lines, fmt.Sprintf("%-24s %-10s %-6s prec=%d group=%-5s panel=%-5s cat=%-10s prom=%s",
 			d.ID, unitOrNone(d.Unit), kindName(d.Kind), d.Precision,
-			d.Group, d.PanelGroup(), promOrNone(d.Prom)))
+			d.Group, d.PanelGroup(), categoryOrPrimary(d), promOrNone(d.Prom)))
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// categoryOrPrimary is where Home Assistant files the entity.
+//
+// Pinned here because it is not cosmetic: moving a measurement between primary
+// and diagnostic moves it out of the device's main list and out of every
+// auto-generated dashboard. That is a change every user sees, and it should
+// never happen as a side effect of editing a definition.
+func categoryOrPrimary(d Definition) string {
+	switch {
+	case d.NoEntity:
+		return "none"
+	case d.EntityCategory == "":
+		return "primary"
+	default:
+		return d.EntityCategory
+	}
 }
 
 func unitOrNone(u string) string {
