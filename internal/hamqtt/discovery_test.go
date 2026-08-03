@@ -32,7 +32,7 @@ func decode(t *testing.T, reading metrics.Reading) (string, discoveryPayload) {
 	return topic, payload
 }
 
-// The entity naming the whole thing is built around: sensor.fps_corganpc2.
+// The entity naming the whole thing is built around: sensor.re_corganpc2_fps.
 func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	cfg := testConfig()
 	topic, payload := decode(t, metrics.Gauge(metrics.FPS, "", 143.2))
@@ -40,10 +40,10 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	if want := "homeassistant/sensor/rig_corganpc2/fps/config"; topic != want {
 		t.Errorf("topic = %q, want %q", topic, want)
 	}
-	if payload.ObjectID != "fps_corganpc2" {
-		t.Errorf("object_id = %q, want fps_corganpc2", payload.ObjectID)
+	if payload.ObjectID != "re_corganpc2_fps" {
+		t.Errorf("object_id = %q, want re_corganpc2_fps", payload.ObjectID)
 	}
-	if payload.UniqueID != "rig_corganpc2_fps" {
+	if payload.UniqueID != "re_corganpc2_fps" {
 		t.Errorf("unique_id = %q", payload.UniqueID)
 	}
 	if payload.StateTopic != cfg.StateTopic() || payload.AvailabilityTopic != cfg.AvailabilityTopic() {
@@ -62,13 +62,13 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 	topic, payload := decode(t, metrics.Gauge(metrics.DiskUsedPercent, "C:", 61.2))
 
-	if !strings.HasSuffix(topic, "/disk_c_used_percent/config") {
+	if !strings.HasSuffix(topic, "/diskc_used_percent/config") {
 		t.Errorf("topic = %q", topic)
 	}
-	if payload.ObjectID != "disk_c_used_percent_corganpc2" {
+	if payload.ObjectID != "re_corganpc2_diskc_used_percent" {
 		t.Errorf("object_id = %q", payload.ObjectID)
 	}
-	if payload.ValueTemplate != "{{ value_json.disk_c_used_percent }}" {
+	if payload.ValueTemplate != "{{ value_json.diskc_used_percent }}" {
 		t.Errorf("value_template = %q", payload.ValueTemplate)
 	}
 	if payload.Name != "Belegung C:" {

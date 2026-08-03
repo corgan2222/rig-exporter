@@ -85,7 +85,7 @@ func TestEveryDefinitionIsTranslated(t *testing.T) {
 func TestLanguageDoesNotAffectIdentifiers(t *testing.T) {
 	reading := Gauge(GPUTemperature, "0", 61)
 
-	if reading.Key() != "gpu_0_temperature" {
+	if reading.Key() != "gpu0_temperature" {
 		t.Errorf("Key = %q", reading.Key())
 	}
 	if reading.DisplayName(i18n.DE) == reading.DisplayName(i18n.EN) {
@@ -99,7 +99,7 @@ func TestLanguageDoesNotAffectIdentifiers(t *testing.T) {
 
 	var set Set
 	set.Add(reading)
-	if _, ok := set.JSON()["gpu_0_temperature"]; !ok {
+	if _, ok := set.JSON()["gpu0_temperature"]; !ok {
 		t.Error("the JSON key changed with the language")
 	}
 }
@@ -132,12 +132,15 @@ func TestTheInstanceFollowsTheThingBeingEnumerated(t *testing.T) {
 	cases := map[string]Reading{
 		"fps": Gauge(FPS, "", 1),
 
-		// Enumerated dimensions: the instance moves to the front.
-		"gpu_0_temperature":   Gauge(GPUTemperature, "0", 1),
-		"gpu_1_vram_used":     Gauge(GPUVRAMUsed, "1", 1),
-		"disk_c_used_percent": Gauge(DiskUsedPercent, "C:", 1),
-		"disk_d_free":         Gauge(DiskFree, "D:", 1),
-		"net_ethernet_2_rx":   Gauge(NetRx, "Ethernet 2", 1),
+		// The hardware reads as one word: gpu0, diskc.
+		"gpu0_temperature":   Gauge(GPUTemperature, "0", 1),
+		"gpu1_vram_used":     Gauge(GPUVRAMUsed, "1", 1),
+		"diskc_used_percent": Gauge(DiskUsedPercent, "C:", 1),
+		"diskd_free":         Gauge(DiskFree, "D:", 1),
+
+		// Unless the instance is several words itself, where netethernet_2
+		// would be unreadable.
+		"net_ethernet_2_rx": Gauge(NetRx, "Ethernet 2", 1),
 
 		// A processor core is enumerated by the noun cpu_core, which already
 		// reads correctly — cpu_5_core would not. Same for a memory module.
@@ -155,42 +158,51 @@ func TestTheInstanceFollowsTheThingBeingEnumerated(t *testing.T) {
 	}
 }
 
-// The previous identifier has to be reconstructible, because a retained
-// discovery message published under it would otherwise leave Home Assistant
-// with an entity nothing ever updates again.
-func TestThePreviousIdentifierIsStillDerivable(t *testing.T) {
-	for _, tc := range []struct{ current, legacy string }{
-		{"gpu_0_temperature", "gpu_temperature_0"},
-		{"disk_c_used_percent", "disk_used_percent_c"},
-		{"net_ethernet_2_rx", "net_rx_ethernet_2"},
+// Every name a reading has ever been published under has to stay derivable. A
+// retained discovery message outlives this program and survives deleting the
+// entity by hand — it simply comes back when Home Assistant restarts.
+func TestEveryPreviousIdentifierIsStillDerivable(t *testing.T) {
+	for _, tc := range []struct {
+		reading Reading
+		current string
+		legacy  []string
+	}{
+		{Gauge(GPUTemperature, "0", 1), "gpu0_temperature",
+			[]string{"gpu_temperature_0", "gpu_0_temperature"}},
+		{Gauge(DiskUsedPercent, "C:", 1), "diskc_used_percent",
+			[]string{"disk_used_percent_c", "disk_c_used_percent"}},
+		// The network form never changed, so there is only the original.
+		{Gauge(NetRx, "Ethernet 2", 1), "net_ethernet_2_rx",
+			[]string{"net_rx_ethernet_2"}},
 	} {
-		var reading Reading
-		switch tc.current {
-		case "gpu_0_temperature":
-			reading = Gauge(GPUTemperature, "0", 1)
-		case "disk_c_used_percent":
-			reading = Gauge(DiskUsedPercent, "C:", 1)
-		default:
-			reading = Gauge(NetRx, "Ethernet 2", 1)
-		}
-		if got := reading.Key(); got != tc.current {
+		if got := tc.reading.Key(); got != tc.current {
 			t.Errorf("Key() = %q, want %q", got, tc.current)
 		}
-		if got := reading.LegacyKey(); got != tc.legacy {
-			t.Errorf("LegacyKey() = %q, want %q", got, tc.legacy)
+		got := tc.reading.LegacyKeys()
+		if len(got) != len(tc.legacy) {
+			t.Errorf("%s: LegacyKeys() = %v, want %v", tc.current, got, tc.legacy)
+			continue
+		}
+		for i := range tc.legacy {
+			if got[i] != tc.legacy[i] {
+				t.Errorf("%s: LegacyKeys()[%d] = %q, want %q", tc.current, i, got[i], tc.legacy[i])
+			}
 		}
 	}
 
-	// Where nothing moved, the two must agree — otherwise a perfectly good
-	// entity would be retired and immediately re-announced on every connect.
+	// The current name must never appear among the old ones: retiring it would
+	// delete the entity that was just announced.
 	for _, reading := range []Reading{
 		Gauge(FPS, "", 1),
 		Gauge(CPUCoreLoad, "5", 1),
 		Gauge(PingRTT, "", 1),
+		Gauge(GPUTemperature, "0", 1),
+		Gauge(NetRx, "Ethernet 2", 1),
 	} {
-		if reading.Key() != reading.LegacyKey() {
-			t.Errorf("%s: Key %q and LegacyKey %q differ although nothing moved",
-				reading.Def.ID, reading.Key(), reading.LegacyKey())
+		for _, legacy := range reading.LegacyKeys() {
+			if legacy == reading.Key() {
+				t.Errorf("%s would retire its own current name %q", reading.Def.ID, legacy)
+			}
 		}
 	}
 }
@@ -409,10 +421,10 @@ func TestJSONKeysEveryReading(t *testing.T) {
 	if document["fps"] != 143.2 {
 		t.Errorf("fps = %v", document["fps"])
 	}
-	if document["gpu_0_temperature"] != 61.5 {
-		t.Errorf("gpu_0_temperature = %v", document["gpu_0_temperature"])
+	if document["gpu0_temperature"] != 61.5 {
+		t.Errorf("gpu0_temperature = %v", document["gpu0_temperature"])
 	}
-	if document["disk_c_used_percent"] != 61.2 || document["disk_d_used_percent"] != 12.7 {
+	if document["diskc_used_percent"] != 61.2 || document["diskd_used_percent"] != 12.7 {
 		t.Errorf("two disks collapsed into one key: %v", document)
 	}
 	if document["rtss"] != PayloadOn {

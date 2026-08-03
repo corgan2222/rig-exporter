@@ -79,7 +79,7 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 			Identifiers:  []string{cfg.DeviceIdentifier()},
 			Name:         cfg.DeviceName,
 			Manufacturer: config.AppName,
-			Model:        "Gaming PC telemetry",
+			Model:        "PC telemetry",
 			SWVersion:    config.Version,
 			ConfigURL:    cfg.WebURL(),
 		},

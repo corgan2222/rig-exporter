@@ -6,7 +6,38 @@ import (
 	"testing"
 
 	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan/rig-exporter/internal/metrics"
 )
+
+// An entity id has to read left to right: which program put this here, which
+// machine it came from, which piece of hardware, what is measured. Scanning a
+// list of a hundred entities, that is the order the questions arrive in — and
+// the hostname trailing at the end was no help at all in telling two PCs apart.
+func TestTheEntityIdNamesItsOriginFirst(t *testing.T) {
+	cfg := Config{NodeID: "corgan_pc3"}
+
+	for _, tc := range []struct {
+		reading metrics.Reading
+		want    string
+	}{
+		{metrics.Text(metrics.GPUVendor, "0", "NVIDIA"), "re_corgan_pc3_gpu0_vendor"},
+		{metrics.Text(metrics.GPUVendor, "1", "NVIDIA"), "re_corgan_pc3_gpu1_vendor"},
+		{metrics.Gauge(metrics.DiskFree, "C:", 1), "re_corgan_pc3_diskc_free"},
+		{metrics.Gauge(metrics.NetRx, "Ethernet 2", 1), "re_corgan_pc3_net_ethernet_2_rx"},
+		{metrics.Gauge(metrics.FPS, "", 1), "re_corgan_pc3_fps"},
+	} {
+		key := tc.reading.Key()
+		if got := cfg.ObjectID(key); got != tc.want {
+			t.Errorf("ObjectID = %q, want %q", got, tc.want)
+		}
+		// Home Assistant keys identity on the unique id and the displayed id on
+		// the object id; having them agree means what a person reads is exactly
+		// what the integration knows the entity as.
+		if cfg.UniqueID(key) != cfg.ObjectID(key) {
+			t.Errorf("UniqueID %q and ObjectID %q disagree", cfg.UniqueID(key), cfg.ObjectID(key))
+		}
+	}
+}
 
 func TestSlug(t *testing.T) {
 	cases := map[string]string{
@@ -129,15 +160,17 @@ func TestTopicsAndIdentifiers(t *testing.T) {
 	if got, want := cfg.DiscoveryTopic("sensor", "fps"), "homeassistant/sensor/rig_corganpc2/fps/config"; got != want {
 		t.Errorf("DiscoveryTopic = %q, want %q", got, want)
 	}
-	// This is the naming the entities are requested with: sensor.fps_corganpc2.
-	if got, want := cfg.ObjectID("fps"), "fps_corganpc2"; got != want {
+	// This is the naming the entities are requested with:
+	// sensor.re_corganpc2_fps.
+	if got, want := cfg.ObjectID("fps"), "re_corganpc2_fps"; got != want {
 		t.Errorf("ObjectID = %q, want %q", got, want)
 	}
-	if got, want := cfg.UniqueID("fps"), "rig_corganpc2_fps"; got != want {
+	if got, want := cfg.UniqueID("fps"), "re_corganpc2_fps"; got != want {
 		t.Errorf("UniqueID = %q, want %q", got, want)
 	}
-	// Instanced entities keep the same shape: sensor.disk_used_percent_c_corganpc2.
-	if got, want := cfg.ObjectID("disk_used_percent_c"), "disk_used_percent_c_corganpc2"; got != want {
+	// Instanced entities keep the same shape:
+	// sensor.re_corganpc2_diskc_used_percent.
+	if got, want := cfg.ObjectID("diskc_used_percent"), "re_corganpc2_diskc_used_percent"; got != want {
 		t.Errorf("ObjectID = %q, want %q", got, want)
 	}
 }

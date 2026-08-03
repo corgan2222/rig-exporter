@@ -20,9 +20,12 @@ const (
 	// topic prefix and the autostart registry value.
 	AppName = "rig-exporter"
 	// IDPrefix goes into identifiers that must not contain a hyphen or that
-	// read better short: unique ids, the device identifier and the InfluxDB
-	// measurement.
+	// read better short: the device identifier and the InfluxDB measurement.
 	IDPrefix = "rig"
+	// EntityPrefix opens every Home Assistant entity id, so that a glance at an
+	// entity list says which program owns it. Short on purpose: it is repeated
+	// on every one of a hundred entities.
+	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
 	Version = "1.1.0"
 
@@ -542,14 +545,25 @@ func (c Config) LegacyDiscoveryTopic(component, key string) string {
 	return fmt.Sprintf("%s/%s/%s_%s/%s/config", c.DiscoveryPrefix, component, LegacyAppName, c.NodeID, key)
 }
 
-// ObjectID is the entity id Home Assistant should suggest, e.g. "fps_corganpc2".
+// ObjectID is the entity id Home Assistant should suggest, e.g.
+// "re_corganpc2_gpu0_vendor".
+//
+// Read left to right it answers, in the order somebody scanning a list of a
+// hundred entities wants them: which program put this here, which machine it
+// came from, which piece of hardware, and finally what is measured. The
+// hostname used to trail at the end, where it was no help at all in telling two
+// PCs apart at a glance.
 func (c Config) ObjectID(key string) string {
-	return key + "_" + c.NodeID
+	return fmt.Sprintf("%s_%s_%s", EntityPrefix, c.NodeID, key)
 }
 
 // UniqueID identifies an entity across renames and restarts.
+//
+// The same string as the object id. Home Assistant keys an entity's identity on
+// this and its displayed id on the other, and having them agree means what a
+// person reads in the interface is exactly what the integration knows it as.
 func (c Config) UniqueID(key string) string {
-	return fmt.Sprintf("%s_%s_%s", IDPrefix, c.NodeID, key)
+	return c.ObjectID(key)
 }
 
 // DeviceIdentifier groups every entity under one Home Assistant device.
