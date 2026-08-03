@@ -18,6 +18,20 @@ import (
 
 const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
 
+// BackgroundFlag is passed to the copy Windows starts at logon.
+//
+// Started by hand, the program opens its interface, because somebody who
+// double-clicked it wants to see something. Started at logon it must not: a
+// browser window appearing unasked every morning is the fastest way to have the
+// autostart switched off again.
+const BackgroundFlag = "-background"
+
+// command is what the Run key holds: the executable, quoted so a path with
+// spaces is not split, followed by the flag that keeps it quiet.
+func command(exe string) string {
+	return `"` + exe + `" ` + BackgroundFlag
+}
+
 // Enabled reports whether the current executable is registered to start with
 // Windows. A stale entry pointing at a different path counts as disabled, so
 // moving the exe shows up in the UI as "off" instead of silently not working.
@@ -43,7 +57,11 @@ func Enabled(valueName string) (bool, error) {
 		}
 		return false, fmt.Errorf("read %s: %w", valueName, err)
 	}
-	return strings.EqualFold(strings.Trim(value, `"`), exe), nil
+	// Compared against both spellings: an entry written before the background
+	// flag existed is still this program starting itself, and reporting it as
+	// "off" would leave the user with two autostart entries after one click.
+	return strings.EqualFold(value, command(exe)) ||
+		strings.EqualFold(strings.Trim(value, `"`), exe), nil
 }
 
 // Set adds or removes the autostart entry.
@@ -65,8 +83,7 @@ func Set(valueName string, enabled bool) error {
 	if err != nil {
 		return err
 	}
-	// Quoted so a path containing spaces is not split into arguments.
-	if err := key.SetStringValue(valueName, `"`+exe+`"`); err != nil {
+	if err := key.SetStringValue(valueName, command(exe)); err != nil {
 		return fmt.Errorf("write %s: %w", valueName, err)
 	}
 	return nil

@@ -199,7 +199,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		Active:          active,
 		TitleKey:        titleKey,
 		AppName:         config.AppName,
-		Version:         config.Version,
+		Version:         config.VersionString(),
 		ConfigDir:       configDir(),
 		Config:          cfg,
 		Status:          status,

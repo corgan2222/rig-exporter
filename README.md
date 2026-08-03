@@ -275,6 +275,19 @@ NVIDIA-Karten, amd64. Was bekannt ist:
 aus und baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 `rig-exporter.exe` (~11 MB) ohne weitere Dateien.
 
+Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
+
+```
+rig-exporter 1.2.0+51.dbf8412
+```
+
+Also Commit-Anzahl und Kurz-Hash, bei uncommitteten Änderungen zusätzlich
+`.dirty`. Abgeleitet statt gepflegt, damit sie nicht von dem Code abweichen
+kann, den sie beschreibt. Eine Versionsnummer allein beantwortet nie „ist das
+das Binary mit der Korrektur" — sie bewegt sich zwischen Commits nicht. Ein
+schlichtes `go build` lässt die Kennung leer, was ehrlich ist: dieses Binary kam
+nicht aus dem Skript.
+
 `tools/genicon` erzeugt zwei Dinge aus derselben Zeichnung: `icon.ico` für den
 Infobereich und `rsrc_windows_amd64.syso`, die Windows-Ressourcendatei, die der
 ausführbaren Datei ihr Symbol in Explorer, Taskleiste und Alt-Tab gibt. Beide
@@ -284,11 +297,17 @@ installieren muss.
 
 ## Erster Start
 
-1. `rig-exporter.exe` starten — ein Tacho-Symbol erscheint im Infobereich.
-2. Rechtsklick → **Einstellungen…** öffnet <http://127.0.0.1:8787> im Browser.
-3. Exportziel und Sensorgruppen wählen, **Speichern & übernehmen**.
+1. `rig-exporter.exe` starten — ein Tacho-Symbol erscheint im Infobereich, und
+   die Oberfläche öffnet sich im Standardbrowser.
+2. Exportziel und Sensorgruppen wählen, **Speichern & übernehmen**.
 
 Konfiguration und Log liegen in `%APPDATA%\rig-exporter`.
+
+Der Browser öffnet sich **nur beim Start von Hand**. Der Autostart-Eintrag
+trägt `-background`, und damit bleibt es beim Tray-Symbol: ein ungefragtes
+Browserfenster bei jeder Anmeldung ist der schnellste Weg, den Autostart wieder
+abzuschalten. Wer das Verhalten nachstellen will, startet selbst mit
+`-background`.
 
 ## Oberfläche
 
@@ -307,13 +326,18 @@ eine Abschnitt: ein Formular trägt keinen Beleg über Kästchen, die es gar nic
 enthält, und eine Teilübernahme würde sonst alles auf der anderen Seite
 abschalten.
 
-In den Hardware-Panels lässt sich zwischen zwei Sortierungen umschalten: **nach
-Messwert** listet gleichartige Werte untereinander, **nach Gerät** stellt alles
-zu GPU 0 zusammen, dann alles zu GPU 1, jede Platte für sich, jeder Adapter für
-sich. Die Wahl bleibt im Browser gespeichert.
+In den Hardware-Panels lässt sich zwischen zwei Sortierungen umschalten.
+Voreingestellt ist **nach Gerät**: alles zu GPU 0 zusammen, dann alles zu GPU 1,
+jede Platte für sich, jeder Adapter für sich. **Nach Messwert** listet
+stattdessen gleichartige Werte untereinander und ist der Sonderfall — beim
+Vergleichen zweier Karten nützlich, sonst nicht. Die Wahl bleibt im Browser
+gespeichert.
 
-Rechts in der Kopfzeile steht der Sprachumschalter. Er wirkt sofort und auf
-alles: Oberfläche, Tray-Menü, Dialoge und die Entity-Namen in Home Assistant.
+Rechts in der Kopfzeile steht der Sprachumschalter. Er wirkt auf Oberfläche,
+Tray-Menü, Dialoge und die angezeigten Entity-Namen in Home Assistant. Was er
+ausdrücklich **nicht** anfasst, sind die Kennungen: `default_entity_id`,
+`object_id`, `unique_id` und die Wertvorlage bleiben gleich, weil Dashboards und
+Automatisierungen daran hängen.
 Entity-IDs bleiben davon unberührt — `sensor.fps_corganpc2` heißt in beiden
 Sprachen gleich, nur der angezeigte Name wechselt. Dashboards und Automationen
 überleben einen Sprachwechsel also unbeschadet.
