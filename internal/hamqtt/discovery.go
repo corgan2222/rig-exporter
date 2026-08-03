@@ -115,8 +115,10 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 		payload.PayloadOff = metrics.PayloadOff
 	case metrics.KindGauge:
 		// Display precision only applies to numbers; setting it on a text
-		// entity makes Home Assistant reject the discovery.
-		precision := r.Def.Precision
+		// entity makes Home Assistant reject the discovery. It is what we
+		// actually send, not what the definition would like: promising a
+		// decimal that never arrives just renders every value as x.0.
+		precision := r.Def.EffectivePrecision()
 		payload.SuggestedPrecision = &precision
 	}
 	return payload

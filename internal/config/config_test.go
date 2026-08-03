@@ -116,27 +116,76 @@ func TestNormalizeClampsAndFillsIn(t *testing.T) {
 // Reading is what feeds the tray; publishing is what leaves the machine.
 // Publishing faster than reading would only repeat the same numbers, and a
 // publish interval that is not a whole number of reads would drift.
-func TestPublishIntervalIsAWholeNumberOfReads(t *testing.T) {
+// Both publish rates get the same treatment: the loop counts reads rather than
+// running a timer of its own, so an interval that is not a whole number of
+// reads simply cannot be honoured.
+func TestBothPublishIntervalsAreAWholeNumberOfReads(t *testing.T) {
 	cases := []struct{ poll, publish, wantPublish int }{
 		{500, 2000, 2000}, // already a multiple
 		{500, 300, 500},   // shorter than a read: raised to one read
 		{500, 1700, 2000}, // not a multiple: rounded up
 		{1000, 1000, 1000},
+		{500, 10000, 10000}, // the idle default
+		{300, 10000, 10200}, // an odd read rate rounds the idle pace up too
 	}
 
 	for _, tc := range cases {
-		cfg := Defaults()
-		cfg.PollIntervalMs = tc.poll
-		cfg.PublishIntervalMs = tc.publish
-		cfg.Normalize()
+		for _, field := range []string{"game", "idle"} {
+			cfg := Defaults()
+			cfg.PollIntervalMs = tc.poll
+			cfg.PublishIntervalMs = tc.publish
+			cfg.IdlePublishIntervalMs = tc.publish
+			cfg.Normalize()
 
-		if cfg.PublishIntervalMs != tc.wantPublish {
-			t.Errorf("poll %d, publish %d → %d, want %d",
-				tc.poll, tc.publish, cfg.PublishIntervalMs, tc.wantPublish)
+			got := cfg.PublishIntervalMs
+			if field == "idle" {
+				got = cfg.IdlePublishIntervalMs
+			}
+			if got != tc.wantPublish {
+				t.Errorf("%s: poll %d, publish %d → %d, want %d",
+					field, tc.poll, tc.publish, got, tc.wantPublish)
+			}
+			if got%cfg.PollIntervalMs != 0 {
+				t.Errorf("%s: publish %d is not a multiple of poll %d", field, got, cfg.PollIntervalMs)
+			}
 		}
-		if cfg.PublishIntervalMs%cfg.PollIntervalMs != 0 {
-			t.Errorf("publish %d is not a multiple of poll %d", cfg.PublishIntervalMs, cfg.PollIntervalMs)
-		}
+	}
+}
+
+// The two rates are independent. Nothing stops someone publishing faster when
+// idle than in a game, and Normalize must not quietly reorder them.
+func TestTheTwoPublishRatesDoNotConstrainEachOther(t *testing.T) {
+	cfg := Defaults()
+	cfg.PollIntervalMs = 500
+	cfg.PublishIntervalMs = 10000
+	cfg.IdlePublishIntervalMs = 1000
+	cfg.Normalize()
+
+	if cfg.PublishIntervalMs != 10000 || cfg.IdlePublishIntervalMs != 1000 {
+		t.Errorf("game %d / idle %d, want them left as given",
+			cfg.PublishIntervalMs, cfg.IdlePublishIntervalMs)
+	}
+}
+
+// An older configuration file predates both settings. The idle rate has to
+// arrive at its default, and decimals must not silently switch themselves off
+// just because the key is absent.
+func TestAConfigurationWithoutTheNewKeysGetsTheDefaults(t *testing.T) {
+	path := t.TempDir() + `\config.json`
+	if err := os.WriteFile(path, []byte(`{"interval_ms":2000,"poll_interval_ms":500}`), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, _, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IdlePublishIntervalMs != Defaults().IdlePublishIntervalMs {
+		t.Errorf("idle interval = %d, want the default %d",
+			cfg.IdlePublishIntervalMs, Defaults().IdlePublishIntervalMs)
+	}
+	if !cfg.Decimals {
+		t.Error("decimals switched themselves off for a file that never mentioned them")
 	}
 }
 

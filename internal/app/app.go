@@ -19,6 +19,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/export/dataserver"
 	"github.com/corgan/rig-exporter/internal/export/influxpush"
 	"github.com/corgan/rig-exporter/internal/hamqtt"
+	"github.com/corgan/rig-exporter/internal/metrics"
 	"github.com/corgan/rig-exporter/internal/rtss"
 	"github.com/corgan/rig-exporter/internal/sysinfo"
 )
@@ -77,6 +78,7 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger) *App {
 		restart: make(chan struct{}, 1),
 		done:    make(chan struct{}),
 	}
+	metrics.SetDecimals(cfg.Decimals)
 	a.collector, a.sensors = buildCollector(cfg, a.reader, a.system, log)
 	a.runners = buildRunners(cfg, log)
 	return a
@@ -160,8 +162,12 @@ func (a *App) loop() {
 	ticker := time.NewTicker(a.pollInterval())
 	defer ticker.Stop()
 
+	// polls counts reads since the last export rather than reads overall. The
+	// two publish intervals differ by a factor of five, so counting from the
+	// last export is what lets a game starting take effect at the next read
+	// instead of at the end of the idle interval that happened to be running.
 	polls := uint64(0)
-	a.tick(true) // export immediately instead of waiting out the first interval
+	a.tick(0) // export immediately instead of waiting out the first interval
 
 	for {
 		select {
@@ -170,10 +176,12 @@ func (a *App) loop() {
 		case <-a.restart:
 			ticker.Reset(a.pollInterval())
 			polls = 0
-			a.tick(true)
+			a.tick(0)
 		case <-ticker.C:
 			polls++
-			a.tick(polls%a.pollsPerPublish() == 0)
+			if a.tick(polls) {
+				polls = 0
+			}
 		}
 	}
 }
@@ -185,24 +193,45 @@ func (a *App) pollInterval() time.Duration {
 }
 
 // pollsPerPublish is how many reads happen per export. Normalize guarantees
-// the publish interval is a whole multiple of the poll interval.
-func (a *App) pollsPerPublish() uint64 {
+// both publish intervals are a whole multiple of the poll interval.
+//
+// Which of the two applies is decided per reading rather than once at startup:
+// a game starting is exactly the moment the faster pace becomes worth its
+// traffic, and a game closing exactly the moment it stops being.
+func (a *App) pollsPerPublish(rendering bool) uint64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
 	if a.cfg.PollIntervalMs <= 0 {
 		return 1
 	}
-	every := uint64(a.cfg.PublishIntervalMs / a.cfg.PollIntervalMs)
+	interval := a.cfg.IdlePublishIntervalMs
+	if rendering {
+		interval = a.cfg.PublishIntervalMs
+	}
+	every := uint64(interval / a.cfg.PollIntervalMs)
 	if every == 0 {
 		return 1
 	}
 	return every
 }
 
-// tick takes one reading. It is exported onward only when publish is set and
-// the user has not paused.
-func (a *App) tick(publish bool) {
+// rendering reports whether a game is actually producing frames, which is what
+// picks between the two publish intervals. Both halves matter: RTSS keeps an
+// entry alive for a moment after the last frame, and a game sitting at zero
+// frames a second has nothing to say that is worth a fast series.
+func rendering(snap collector.Snapshot) bool {
+	return snap.GameRunning() && snap.FPS() > 0
+}
+
+// tick takes one reading and reports whether it reached the export targets.
+// polls is how many reads have happened since the last export, this one
+// included; zero forces an export whatever the interval says.
+//
+// Whether an export is due can only be decided after the reading, because the
+// pace depends on whether a game is rendering — which is one of the things the
+// reading tells us.
+func (a *App) tick(polls uint64) bool {
 	a.mu.RLock()
 	c, runners, paused := a.collector, a.runners, a.paused
 	a.mu.RUnlock()
@@ -214,12 +243,16 @@ func (a *App) tick(publish bool) {
 	a.updatedAt = time.Now()
 	a.mu.Unlock()
 
-	if publish && !paused {
+	// While paused the counter keeps running, so lifting the pause exports at
+	// once rather than after another full interval of silence.
+	due := polls == 0 || polls >= a.pollsPerPublish(rendering(snap))
+	if due && !paused {
 		for _, r := range runners {
 			r.export(snap)
 		}
 	}
 	a.notify()
+	return due && !paused
 }
 
 // Status returns the latest reading together with every target's state.
@@ -316,6 +349,9 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 	rebuildSensors := sensorsChanged(oldCfg, newCfg)
 
 	a.cfg = newCfg
+	// Precision is package state in metrics, so it changes for the next
+	// reading without rebuilding anything.
+	metrics.SetDecimals(newCfg.Decimals)
 	if rebuildSensors {
 		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log)
 	}
@@ -383,8 +419,12 @@ func clearDiscovery(runners []*runner) {
 // exportsChanged reports whether any target needs to be rebuilt.
 func exportsChanged(a, b config.Config) bool {
 	// The language is in here because entity names follow it: rebuilding the
-	// publisher makes it re-announce every entity under its new name.
+	// publisher makes it re-announce every entity under its new name. Decimals
+	// is in here for the same reason — the discovery payload carries the
+	// display precision, and promising a decimal that no longer arrives would
+	// render every value as x.0 until the next restart.
 	return a.Language != b.Language ||
+		a.Decimals != b.Decimals ||
 		a.MQTTEnabled != b.MQTTEnabled ||
 		a.MQTTHost != b.MQTTHost ||
 		a.MQTTPort != b.MQTTPort ||

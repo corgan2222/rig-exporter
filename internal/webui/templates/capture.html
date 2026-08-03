@@ -108,6 +108,12 @@
                  min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
           <span class="hint">{{ .T "settings.capture.publishHint" }}</span>
         </label>
+        <label>
+          <span class="name">{{ .T "settings.capture.publishIdle" }}</span>
+          <input type="number" name="idle_interval_ms" value="{{ .Config.IdlePublishIntervalMs }}"
+                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+          <span class="hint">{{ .T "settings.capture.publishIdleHint" }}</span>
+        </label>
       </div>
       <label>
         <span class="name">{{ .T "settings.capture.idle" }}</span>
@@ -115,6 +121,12 @@
                min="{{ .MinIdleMs }}" max="{{ .MaxIdleMs }}" step="500">
         <span class="hint">{{ .T "settings.capture.idleHint" }}</span>
       </label>
+
+      <div class="check">
+        <input type="checkbox" name="decimals" id="decimals" value="1" {{ if .Config.Decimals }}checked{{ end }}>
+        <label for="decimals" style="margin:0"><span class="name">{{ .T "settings.capture.decimals" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.capture.decimalsHint" }}</p>
 
       {{ template "save" . }}
     </div>
