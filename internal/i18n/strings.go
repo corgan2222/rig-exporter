@@ -186,10 +186,20 @@ var catalogue = map[string]Text{
 		DE: "Wie oft die Hardware abgefragt wird. Bestimmt, wie flüssig Tray und diese Seite laufen; kostet etwas CPU.",
 		EN: "How often the hardware is read. Sets how smoothly the tray and this page update, at a little CPU cost.",
 	},
-	"settings.capture.publish": {DE: "Sendeintervall (ms)", EN: "Publish interval (ms)"},
+	"settings.capture.publish": {DE: "Sendeintervall im Spiel (ms)", EN: "Publish interval in game (ms)"},
 	"settings.capture.publishHint": {
-		DE: "Wie oft die Messwerte exportiert werden. Wird auf das Auslese-Intervall aufgerundet und darf nicht kleiner sein.",
-		EN: "How often readings are exported. Rounded up to the read interval, and never shorter than it.",
+		DE: "Wie oft die Messwerte exportiert werden, solange ein Spiel Bilder liefert. Wird auf das Auslese-Intervall aufgerundet und darf nicht kleiner sein.",
+		EN: "How often readings are exported while a game is delivering frames. Rounded up to the read interval, and never shorter than it.",
+	},
+	"settings.capture.publishIdle": {DE: "Sendeintervall im Leerlauf (ms)", EN: "Publish interval when idle (ms)"},
+	"settings.capture.publishIdleHint": {
+		DE: "Gilt, solange kein Spiel läuft. Ein Rechner im Leerlauf hat nichts zu sagen, wofür sich jede Sekunde eine Zeile in der Datenbank lohnt.",
+		EN: "Applies while no game is running. An idle machine has nothing to say that is worth a database row every second.",
+	},
+	"settings.capture.decimals": {DE: "Berechne Nachkommastellen", EN: "Calculate decimal places"},
+	"settings.capture.decimalsHint": {
+		DE: "Ausgeschaltet werden alle Zahlen ganzzahlig gesendet. Ein Wert muss sich dann um eine ganze Einheit bewegen, bevor er überhaupt als geändert zählt — und was sich nicht ändert, kostet in Home Assistant keinen Speicher.",
+		EN: "Switched off, every number is sent whole. A value then has to move by a full unit before it counts as changed at all — and what does not change costs no storage in Home Assistant.",
 	},
 	"settings.capture.idle": {DE: "Idle-Timeout (ms)", EN: "Idle timeout (ms)"},
 	"settings.capture.idleHint": {

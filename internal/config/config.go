@@ -131,11 +131,22 @@ type Config struct {
 	// PollIntervalMs is how often the hardware is read. It sets how smoothly
 	// the tray and the settings page move.
 	PollIntervalMs int `json:"poll_interval_ms"`
-	// PublishIntervalMs is how often a reading is handed to the export
-	// targets. It is never shorter than the poll interval. The JSON name is
-	// the historical one, so an older configuration keeps working.
+	// PublishIntervalMs is how often a reading is handed to the export targets
+	// while a game is rendering. It is never shorter than the poll interval.
+	// The JSON name is the historical one, so an older configuration keeps
+	// working.
 	PublishIntervalMs int `json:"interval_ms"`
-	IdleTimeoutMs     int `json:"idle_timeout_ms"`
+	// IdlePublishIntervalMs is the same for a machine that is rendering
+	// nothing. A second-by-second series of an idle PC has no reader, and
+	// every export is a row in somebody's database, so the idle pace is
+	// deliberately much slower.
+	IdlePublishIntervalMs int `json:"idle_interval_ms"`
+	// Decimals keeps the fractional part of numeric readings. Switching it off
+	// publishes whole numbers throughout, which cuts how often a value changes
+	// at all — and a value that does not change costs no row in the Home
+	// Assistant database.
+	Decimals      bool `json:"decimals"`
+	IdleTimeoutMs int  `json:"idle_timeout_ms"`
 
 	Language  string `json:"language"`
 	WebPort   int    `json:"web_port"`
@@ -191,12 +202,15 @@ func Defaults() Config {
 		PingCount:        3,
 		PingIntervalMs:   15000,
 
-		// Read four times as often as we publish: the tray and the settings
-		// page stay lively without putting four times the traffic on the
-		// broker.
-		PollIntervalMs:    500,
-		PublishIntervalMs: 2000,
-		IdleTimeoutMs:     3000,
+		// Read four times as often as we publish while a game runs: the tray
+		// and the settings page stay lively without putting four times the
+		// traffic on the broker. With nothing rendering, five times slower
+		// again — an idle machine has nothing to say every two seconds.
+		PollIntervalMs:        500,
+		PublishIntervalMs:     2000,
+		IdlePublishIntervalMs: 10000,
+		Decimals:              true,
+		IdleTimeoutMs:         3000,
 
 		// Follows Windows, and falls back to the default for a language the
 		// catalogue does not have yet.
@@ -413,15 +427,12 @@ func (c *Config) Normalize() {
 	}
 
 	c.PollIntervalMs = clampInt(c.PollIntervalMs, MinIntervalMs, MaxIntervalMs, Defaults().PollIntervalMs)
-	c.PublishIntervalMs = clampInt(c.PublishIntervalMs, MinIntervalMs, MaxIntervalMs, Defaults().PublishIntervalMs)
-	// Publishing more often than reading would only repeat the same numbers,
-	// and a publish interval that is not a whole number of reads would drift.
-	if c.PublishIntervalMs < c.PollIntervalMs {
-		c.PublishIntervalMs = c.PollIntervalMs
-	}
-	if remainder := c.PublishIntervalMs % c.PollIntervalMs; remainder != 0 {
-		c.PublishIntervalMs += c.PollIntervalMs - remainder
-	}
+	c.PublishIntervalMs = snapToPoll(
+		clampInt(c.PublishIntervalMs, MinIntervalMs, MaxIntervalMs, Defaults().PublishIntervalMs),
+		c.PollIntervalMs)
+	c.IdlePublishIntervalMs = snapToPoll(
+		clampInt(c.IdlePublishIntervalMs, MinIntervalMs, MaxIntervalMs, Defaults().IdlePublishIntervalMs),
+		c.PollIntervalMs)
 
 	c.IdleTimeoutMs = clampInt(c.IdleTimeoutMs, MinIdleMs, MaxIdleMs, Defaults().IdleTimeoutMs)
 	c.Language = string(i18n.Parse(c.Language))
@@ -518,6 +529,19 @@ func (c Config) InfluxWriteURL() string {
 // AnyExportEnabled reports whether the snapshot goes anywhere at all.
 func (c Config) AnyExportEnabled() bool {
 	return c.MQTTEnabled || c.DataServerEnabled || c.InfluxPushEnabled
+}
+
+// snapToPoll rounds a publish interval up to a whole number of reads.
+// Publishing more often than reading would only repeat the same numbers, and an
+// interval that is not a whole multiple of the read rate would drift against it.
+func snapToPoll(interval, poll int) int {
+	if poll <= 0 || interval < poll {
+		return max(interval, poll)
+	}
+	if remainder := interval % poll; remainder != 0 {
+		interval += poll - remainder
+	}
+	return interval
 }
 
 func clampInt(v, lo, hi, fallback int) int {

@@ -129,6 +129,32 @@ func TestSavingOneBlockLeavesTheOthersAlone(t *testing.T) {
 	}
 }
 
+// The two publish rates are separate fields on the same card, and the decimals
+// box travels with them.
+func TestTheCaptureBlockCarriesBothPublishRatesAndTheDecimals(t *testing.T) {
+	server, ts := newServer(t, func(c *config.Config) { c.Decimals = true })
+
+	resp := post(t, ts.URL, "/save/capture", url.Values{
+		"poll_interval_ms": {"500"},
+		"interval_ms":      {"2000"},
+		"idle_interval_ms": {"10000"},
+		"idle_timeout_ms":  {"3000"},
+		// "decimals" absent: an unticked box submits nothing at all.
+	})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", resp.StatusCode)
+	}
+
+	cfg := server.app.Config()
+	if cfg.PublishIntervalMs != 2000 || cfg.IdlePublishIntervalMs != 10000 {
+		t.Errorf("rates = %d/%d, want 2000 in game and 10000 idle",
+			cfg.PublishIntervalMs, cfg.IdlePublishIntervalMs)
+	}
+	if cfg.Decimals {
+		t.Error("decimals stayed on although the box was not submitted")
+	}
+}
+
 // Within its own block an absent checkbox does mean off, which is how a box
 // gets unticked at all.
 func TestAnAbsentCheckboxWithinTheBlockMeansOff(t *testing.T) {

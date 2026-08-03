@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/corgan/rig-exporter/internal/i18n"
 )
@@ -162,9 +163,41 @@ type Reading struct {
 	Bool   bool
 }
 
+// decimals decides whether numeric readings keep their fractional part.
+//
+// It is package state rather than a parameter because Gauge is called from
+// every hardware source, and precision is a presentation choice that has no
+// business being threaded through a dozen collectors that do not otherwise
+// know the configuration exists. Atomic because the settings page writes it
+// while the collector goroutine reads it.
+var decimals atomic.Bool
+
+func init() { decimals.Store(true) }
+
+// SetDecimals turns the fractional part of numeric readings on or off for
+// every export at once. Off means a value has to move by a whole unit before
+// it counts as changed, which is what keeps it out of a time series database.
+func SetDecimals(on bool) { decimals.Store(on) }
+
+// Decimals reports whether numeric readings currently keep decimals.
+func Decimals() bool { return decimals.Load() }
+
+// EffectivePrecision is the decimal count a reading is actually rendered with:
+// the definition's own, or none while decimals are switched off.
+func (d Definition) EffectivePrecision() int {
+	if !decimals.Load() {
+		return 0
+	}
+	return d.Precision
+}
+
 // Gauge builds a numeric reading, rounded to the definition's precision.
+//
+// Rounding happens here rather than in each exporter so that every format
+// agrees on the number. A reading that reaches MQTT as 37 must not reach
+// Prometheus as 37.4, or the two disagree about when it last changed.
 func Gauge(def Definition, instance string, value float64) Reading {
-	return Reading{Def: def, Instance: instance, Number: Round(value, def.Precision)}
+	return Reading{Def: def, Instance: instance, Number: Round(value, def.EffectivePrecision())}
 }
 
 // Text builds a string reading.

@@ -154,6 +154,23 @@ func TestNumericEntitiesCarryTheirUnitAndPrecision(t *testing.T) {
 	}
 }
 
+// With decimals switched off the discovery has to say so too. Promising two
+// decimals that never arrive would render every frametime as x.00.
+func TestTheAdvertisedPrecisionFollowsWhatIsActuallySent(t *testing.T) {
+	metrics.SetDecimals(false)
+	t.Cleanup(func() { metrics.SetDecimals(true) })
+
+	reading := metrics.Gauge(metrics.Frametime, "", 6.98)
+	if reading.Number != 7 {
+		t.Errorf("the reading itself kept its decimals: %v", reading.Number)
+	}
+
+	_, payload := decode(t, reading)
+	if payload.SuggestedPrecision == nil || *payload.SuggestedPrecision != 0 {
+		t.Errorf("suggested_display_precision = %v, want 0", payload.SuggestedPrecision)
+	}
+}
+
 // Home Assistant rejects a text entity that advertises a unit, a state class
 // or a display precision.
 func TestTextEntitiesOmitNumericAttributes(t *testing.T) {

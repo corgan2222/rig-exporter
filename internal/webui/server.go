@@ -396,7 +396,9 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	case "capture":
 		cfg.PollIntervalMs = formInt(r, "poll_interval_ms", cfg.PollIntervalMs)
 		cfg.PublishIntervalMs = formInt(r, "interval_ms", cfg.PublishIntervalMs)
+		cfg.IdlePublishIntervalMs = formInt(r, "idle_interval_ms", cfg.IdlePublishIntervalMs)
 		cfg.IdleTimeoutMs = formInt(r, "idle_timeout_ms", cfg.IdleTimeoutMs)
+		cfg.Decimals = r.FormValue("decimals") != ""
 
 	case "app":
 		cfg.Language = r.FormValue("language")
@@ -730,7 +732,7 @@ func formatValue(r metrics.Reading) string {
 		}
 		return "0"
 	default:
-		value := strconv.FormatFloat(r.Number, 'f', r.Def.Precision, 64)
+		value := strconv.FormatFloat(r.Number, 'f', r.Def.EffectivePrecision(), 64)
 		if r.Def.Unit == "" {
 			return value
 		}

@@ -351,21 +351,40 @@ den Ordner darum. Der Umweg über den Server ist nötig, weil ein Browser einem
 
 ## Auslesen und Senden
 
-Zwei getrennte Takte:
+Ein Takt fürs Auslesen, zwei fürs Senden:
 
 | Einstellung | Bedeutung | Standard |
 |---|---|---|
 | **Auslese-Intervall** | wie oft die Hardware abgefragt wird | 500 ms |
-| **Sendeintervall** | wie oft ein Messwert die Maschine verlässt | 2000 ms |
+| **Sendeintervall im Spiel** | wie oft ein Messwert die Maschine verlässt, solange ein Spiel Bilder liefert | 2000 ms |
+| **Sendeintervall im Leerlauf** | dasselbe, wenn nichts gerendert wird | 10000 ms |
+| **Berechne Nachkommastellen** | ob Zahlen mit Nachkommastellen gesendet werden | an |
 
 Das Auslesen bestimmt, wie flüssig Tray und Anzeige laufen; das Senden
 bestimmt, wie viel bei Broker und Zeitreihendatenbank ankommt. Wer im Tray eine
-lebendige FPS-Zahl will, ohne Home Assistant mit vier Werten pro Sekunde zu
-fluten, stellt 250 ms und 2000 ms ein.
+lebendige FPS-Zahl will, ohne Home Assistant zu fluten, stellt das Auslesen auf
+250 ms und lässt das Senden, wo es ist.
 
-Das Sendeintervall wird auf ein ganzzahliges Vielfaches des Auslese-Intervalls
-aufgerundet und ist nie kürzer als dieses. Gezählt wird in Messungen, nicht in
-einer zweiten Uhr — die beiden können also nicht auseinanderdriften.
+Welcher der beiden Sendetakte gilt, wird bei jeder Messung neu entschieden und
+nicht einmal beim Start: ein startendes Spiel schaltet beim nächsten Auslesen
+auf den schnellen Takt, ein geschlossenes beim nächsten zurück. Als „Spiel
+läuft" zählt nur, was auch Bilder liefert — RTSS hält einen Eintrag nach dem
+letzten Bild noch einen Moment offen, und ein stehendes Spiel hat nichts zu
+sagen, was einen schnellen Takt wert wäre.
+
+Beide Sendeintervalle werden auf ein ganzzahliges Vielfaches des
+Auslese-Intervalls aufgerundet und sind nie kürzer als dieses. Gezählt wird in
+Messungen, nicht in einer zweiten Uhr — die Takte können also nicht
+auseinanderdriften. Untereinander sind sie unabhängig; wer im Leerlauf häufiger
+senden will als im Spiel, darf das.
+
+**Berechne Nachkommastellen** ist der zweite Hebel gegen eine volllaufende
+Datenbank. Ausgeschaltet werden alle Zahlen ganzzahlig gerechnet und gesendet —
+in jedem Format, nicht nur in MQTT, damit Prometheus und Home Assistant sich
+nicht über denselben Messwert uneinig sind. Ein Wert muss sich dann um eine
+ganze Einheit bewegen, bevor er überhaupt als geändert zählt, und Home
+Assistant schreibt nur Änderungen in seine Datenbank. Die Discovery meldet die
+Genauigkeit passend mit, sonst stünde in der Oberfläche überall `x.0`.
 
 ---
 
@@ -671,7 +690,10 @@ tools/genicon                    erzeugt internal/assets/icon.ico
 
 Ein neuer Messwert wird einmal in `internal/metrics` eingetragen und erscheint
 danach in allen vier Formaten — inklusive Home-Assistant-Darstellung, denn
-Einheit, Device-Class und Icon stehen in derselben Definition. Der Name steht
+Einheit, Device-Class und Icon stehen in derselben Definition. Die einzige
+Stelle, an der eine Einstellung in die Definition hineinreicht, ist die
+Nachkommastelle: sie lässt sich global auf null ziehen, dann aber in allen vier
+Formaten gleich, damit kein Format eine andere Zahl zeigt als das andere. Der Name steht
 dort gleich zweisprachig, statt in einer entfernten Tabelle; Oberflächentexte
 ohne natürlichen Ort liegen im Katalog in `internal/i18n`. Ein Test bricht,
 sobald eine Übersetzung fehlt.

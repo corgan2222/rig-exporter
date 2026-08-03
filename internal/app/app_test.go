@@ -60,6 +60,11 @@ func newTestApp(t *testing.T, poll, publish int) (*App, *countingTarget) {
 	cfg.NetEnabled = false
 	cfg.PollIntervalMs = poll
 	cfg.PublishIntervalMs = publish
+	// Both paces are set to the same value on purpose. These tests are about
+	// the timing of the loop, not about the game/idle split, and the split
+	// would otherwise make them depend on whether RTSS happens to see a
+	// rendering application on the machine running the test.
+	cfg.IdlePublishIntervalMs = publish
 	cfg.Normalize()
 
 	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard())
@@ -166,6 +171,7 @@ func TestApplyConfigRetimesTheLoop(t *testing.T) {
 	cfg := application.Config()
 	cfg.PollIntervalMs = 250
 	cfg.PublishIntervalMs = 250
+	cfg.IdlePublishIntervalMs = 250
 	if err := application.ApplyConfig(cfg); err != nil {
 		t.Fatalf("ApplyConfig: %v", err)
 	}
