@@ -210,6 +210,14 @@ var (
 		Prom: "rig_gpu_info", PromLabel: "name", Help: "Graphics card model",
 		EntityCategory: "diagnostic", Icon: "mdi:expansion-card",
 	}
+	// GPUVendor is who made the card. Derived from the name rather than asked
+	// of a driver, because the name is the one thing every source supplies.
+	GPUVendor = Definition{
+		ID: "gpu_vendor", Name: i18n.Text{DE: "GPU-Hersteller", EN: "GPU vendor"},
+		Kind: KindText, InstanceLabel: "gpu", Group: GroupGPU,
+		Prom: "rig_gpu_vendor_info", PromLabel: "vendor", Help: "Graphics card manufacturer",
+		EntityCategory: "diagnostic", Icon: "mdi:factory",
+	}
 	GPULoad = Definition{
 		ID: "gpu_load", Name: i18n.Text{DE: "GPU-Auslastung", EN: "GPU load"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
@@ -359,6 +367,15 @@ var (
 	// energy counter it is derived from sits in a model-specific register.
 	// Paired with the graphics card's power draw it gives the two numbers that
 	// account for most of what a machine burns.
+	// CPUVendor is who made the processor, as a value of its own rather than
+	// something to be read out of the model string. An automation that wants to
+	// branch on the vendor should not have to match on substrings.
+	CPUVendor = Definition{
+		ID: "cpu_vendor", Name: i18n.Text{DE: "CPU-Hersteller", EN: "CPU vendor"},
+		Kind: KindText, Group: GroupCPU,
+		Prom: "rig_cpu_vendor_info", PromLabel: "vendor", Help: "Processor manufacturer",
+		EntityCategory: "diagnostic", Icon: "mdi:factory",
+	}
 	CPUPower = Definition{
 		ID: "cpu_power", Name: i18n.Text{DE: "CPU-Leistung", EN: "CPU power"},
 		Unit: "W", Kind: KindGauge, Precision: 1,
@@ -402,6 +419,25 @@ var (
 		Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_total_gigabytes", Help: "Volume capacity",
 		EntityCategory: "diagnostic", Icon: "mdi:harddisk",
+	}
+	// DiskFilesystem used to be glued onto the label as "Windows (NTFS)". Two
+	// facts in one string is one too many: nothing can filter on it, and the
+	// label alone is what a person recognises the drive by.
+	DiskFilesystem = Definition{
+		ID: "disk_filesystem", Name: i18n.Text{DE: "Dateisystem", EN: "File system"},
+		Kind: KindText, InstanceLabel: "disk", Group: GroupDisk,
+		Prom: "rig_disk_filesystem_info", PromLabel: "filesystem",
+		Help: "Volume file system, e.g. NTFS", EntityCategory: "diagnostic", Icon: "mdi:file-tree",
+	}
+	// DiskVendor is what the drive reports about itself, which is not always a
+	// manufacturer: NVMe drives often leave the vendor field empty and put the
+	// whole model into the product string.
+	DiskVendor = Definition{
+		ID: "disk_vendor", Name: i18n.Text{DE: "Hersteller", EN: "Vendor"},
+		Kind: KindText, InstanceLabel: "disk", Group: GroupDisk,
+		Prom: "rig_disk_vendor_info", PromLabel: "vendor",
+		Help:           "Drive manufacturer as the device reports it",
+		EntityCategory: "diagnostic", Icon: "mdi:factory",
 	}
 	DiskUsed = Definition{
 		ID: "disk_used", Name: i18n.Text{DE: "Belegt", EN: "Used"},
@@ -544,14 +580,14 @@ var All = []Definition{
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
 
-	GPUName, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
+	GPUName, GPUVendor, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
 	GPUVRAMUsed, GPUVRAMTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
 	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
 
-	CPUModel, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,
+	CPUModel, CPUVendor, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,
 	CPUTemperature, CPUPower, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
 
-	DiskLabel, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
+	DiskLabel, DiskFilesystem, DiskVendor, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
 	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,
 
 	NetType, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,

@@ -58,9 +58,44 @@ func (s *Source) Collect(set *metrics.Set) error {
 		return fmt.Errorf("no graphics telemetry source: neither MSI Afterburner nor NVML is available")
 	}
 
+	// Derived once per card from the name, after both collectors have had their
+	// say, so the answer does not depend on which of them named the card.
+	for instance, name := range cards {
+		if vendor := vendorOf(name); vendor != "" {
+			set.Add(metrics.Text(metrics.GPUVendor, instance, vendor))
+		}
+	}
+
 	s.lastSource = strings.Join(sources, " + ")
 	set.Add(metrics.Text(metrics.GPUSource, "", s.lastSource))
 	return nil
+}
+
+// vendorOf reads the manufacturer out of a card name.
+//
+// Neither Afterburner nor NVML publishes a vendor field, and the name is the
+// one thing both always supply. Matched on the marketing names people actually
+// see, with the vendor spelled the way the vendor spells it — a value somebody
+// will compare against in an automation should not be a surprise.
+func vendorOf(name string) string {
+	lower := strings.ToLower(name)
+	for _, candidate := range []struct{ match, vendor string }{
+		{"nvidia", "NVIDIA"},
+		{"geforce", "NVIDIA"},
+		{"quadro", "NVIDIA"},
+		{"tesla", "NVIDIA"},
+		{"radeon", "AMD"},
+		{"amd", "AMD"},
+		{"firepro", "AMD"},
+		{"intel", "Intel"},
+		{"arc ", "Intel"},
+		{"iris", "Intel"},
+	} {
+		if strings.Contains(lower, candidate.match) {
+			return candidate.vendor
+		}
+	}
+	return ""
 }
 
 // SourceName is what produced the most recent readings, empty when none did.

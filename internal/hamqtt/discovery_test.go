@@ -62,13 +62,13 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 	topic, payload := decode(t, metrics.Gauge(metrics.DiskUsedPercent, "C:", 61.2))
 
-	if !strings.HasSuffix(topic, "/disk_used_percent_c/config") {
+	if !strings.HasSuffix(topic, "/disk_c_used_percent/config") {
 		t.Errorf("topic = %q", topic)
 	}
-	if payload.ObjectID != "disk_used_percent_c_corganpc2" {
+	if payload.ObjectID != "disk_c_used_percent_corganpc2" {
 		t.Errorf("object_id = %q", payload.ObjectID)
 	}
-	if payload.ValueTemplate != "{{ value_json.disk_used_percent_c }}" {
+	if payload.ValueTemplate != "{{ value_json.disk_c_used_percent }}" {
 		t.Errorf("value_template = %q", payload.ValueTemplate)
 	}
 	if payload.Name != "Belegung C:" {

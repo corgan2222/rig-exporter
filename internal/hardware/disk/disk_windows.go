@@ -9,6 +9,7 @@
 package disk
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -104,15 +105,22 @@ func (s *Source) collectVolume(set *metrics.Set, letter string, previous, curren
 		metrics.Gauge(metrics.DiskFreePercent, instance, float64(free)/float64(total)*100),
 	)
 
+	// Label and file system are separate facts and are reported separately. They
+	// used to be glued together as "Windows (NTFS)", which read well and could
+	// not be filtered, compared or graphed.
 	if label, filesystem, err := volumeInfo(letter); err == nil {
-		description := filesystem
 		if label != "" {
-			description = label + " (" + filesystem + ")"
+			set.Add(metrics.Text(metrics.DiskLabel, instance, label))
 		}
-		set.Add(metrics.Text(metrics.DiskLabel, instance, description))
+		if filesystem != "" {
+			set.Add(metrics.Text(metrics.DiskFilesystem, instance, filesystem))
+		}
 	}
 	if media := mediaKind(letter); media != "" {
 		set.Add(metrics.Text(metrics.DiskMedia, instance, media))
+	}
+	if vendor := driveVendor(letter); vendor != "" {
+		set.Add(metrics.Text(metrics.DiskVendor, instance, vendor))
 	}
 
 	now, err := performanceOf(letter)
@@ -350,6 +358,76 @@ func mediaKind(letter string) string {
 		return "SSD"
 	}
 	return "HDD"
+}
+
+// driveVendor reports who made the drive, as far as the drive will say.
+//
+// The device descriptor carries a vendor and a product string, and which one
+// holds the manufacturer depends on the bus. SATA drives fill in the vendor;
+// NVMe drives very often leave it empty and put everything into the product
+// string, where the manufacturer is the first word — "Samsung SSD 980 PRO 1TB".
+// Taking that first word is a guess, but a well-founded one, and an empty
+// result is returned rather than a wrong one whenever nothing usable is there.
+func driveVendor(letter string) string {
+	handle, err := openVolume(letter)
+	if err != nil {
+		return ""
+	}
+	defer windows.CloseHandle(handle)
+
+	query := storagePropertyQuery{PropertyID: storageDeviceProperty, QueryType: propertyStandardQuery}
+	buf := make([]byte, 1024)
+	var returned uint32
+
+	err = windows.DeviceIoControl(handle, ioctlStorageQueryProperty,
+		(*byte)(unsafe.Pointer(&query)), uint32(unsafe.Sizeof(query)),
+		&buf[0], uint32(len(buf)),
+		&returned, nil)
+	if err != nil || returned < uint32(unsafe.Sizeof(storageDeviceDescriptor{})) {
+		return ""
+	}
+
+	descriptor := (*storageDeviceDescriptor)(unsafe.Pointer(&buf[0]))
+	if vendor := descriptorString(buf[:returned], descriptor.VendorIDOffset); vendor != "" {
+		return vendor
+	}
+	return brandOf(descriptorString(buf[:returned], descriptor.ProductIDOffset))
+}
+
+// brandOf picks the manufacturer out of a product string, or gives up.
+//
+// "Samsung SSD 980 PRO 1TB" starts with its maker, so the first word is right.
+// "WDS200T1X0E-00AFY0" is a part number and starts with nothing of the sort —
+// publishing it as the manufacturer would be a wrong answer where no answer was
+// available. A leading token carrying digits is a part number, not a brand, and
+// no brand needs digits to be recognised.
+func brandOf(product string) string {
+	word := firstWord(product)
+	if word == "" || strings.ContainsAny(word, "0123456789") {
+		return ""
+	}
+	return word
+}
+
+// descriptorString reads one of the NUL-terminated strings the descriptor
+// points at by offset. The offsets come from the driver, so they are checked
+// against the buffer rather than trusted.
+func descriptorString(buf []byte, offset uint32) string {
+	if offset == 0 || int(offset) >= len(buf) {
+		return ""
+	}
+	rest := buf[offset:]
+	if end := bytes.IndexByte(rest, 0); end >= 0 {
+		rest = rest[:end]
+	}
+	return strings.TrimSpace(string(rest))
+}
+
+func firstWord(s string) string {
+	if fields := strings.Fields(s); len(fields) > 0 {
+		return fields[0]
+	}
+	return ""
 }
 
 func busType(handle windows.Handle) (uint32, bool) {

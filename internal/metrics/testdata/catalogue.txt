@@ -11,7 +11,9 @@ cpu_model                -          text   prec=0 group=cpu   panel=cpu   prom=r
 cpu_power                W          gauge  prec=1 group=cpu   panel=cpu   prom=rig_cpu_power_watts
 cpu_temperature          °C         gauge  prec=1 group=cpu   panel=cpu   prom=rig_cpu_temperature_celsius
 cpu_threads              -          gauge  prec=0 group=cpu   panel=cpu   prom=rig_cpu_threads
+cpu_vendor               -          text   prec=0 group=cpu   panel=cpu   prom=rig_cpu_vendor_info
 disk_busy                %          gauge  prec=1 group=disk  panel=disk  prom=rig_disk_busy_percent
+disk_filesystem          -          text   prec=0 group=disk  panel=disk  prom=rig_disk_filesystem_info
 disk_free                GB         gauge  prec=1 group=disk  panel=disk  prom=rig_disk_free_gigabytes
 disk_free_percent        %          gauge  prec=1 group=disk  panel=disk  prom=rig_disk_free_percent
 disk_label               -          text   prec=0 group=disk  panel=disk  prom=rig_disk_info
@@ -21,6 +23,7 @@ disk_temperature         °C         gauge  prec=1 group=disk  panel=disk  prom=
 disk_total               GB         gauge  prec=1 group=disk  panel=disk  prom=rig_disk_total_gigabytes
 disk_used                GB         gauge  prec=1 group=disk  panel=disk  prom=rig_disk_used_gigabytes
 disk_used_percent        %          gauge  prec=1 group=disk  panel=disk  prom=rig_disk_used_percent
+disk_vendor              -          text   prec=0 group=disk  panel=disk  prom=rig_disk_vendor_info
 disk_write               MB/s       gauge  prec=2 group=disk  panel=disk  prom=rig_disk_write_megabytes_per_second
 fps                      fps        gauge  prec=1 group=core  panel=core  prom=rig_fps
 frametime                ms         gauge  prec=2 group=core  panel=core  prom=rig_frametime_milliseconds
@@ -39,6 +42,7 @@ gpu_power_limit          W          gauge  prec=1 group=gpu   panel=gpu   prom=r
 gpu_power_percent        %          gauge  prec=1 group=gpu   panel=gpu   prom=rig_gpu_power_percent
 gpu_source               -          text   prec=0 group=gpu   panel=gpu   prom=rig_gpu_source_info
 gpu_temperature          °C         gauge  prec=1 group=gpu   panel=gpu   prom=rig_gpu_temperature_celsius
+gpu_vendor               -          text   prec=0 group=gpu   panel=gpu   prom=rig_gpu_vendor_info
 gpu_voltage              mV         gauge  prec=0 group=gpu   panel=gpu   prom=rig_gpu_voltage_millivolts
 gpu_vram_percent         %          gauge  prec=1 group=gpu   panel=gpu   prom=rig_gpu_vram_percent
 gpu_vram_total           MB         gauge  prec=0 group=gpu   panel=gpu   prom=rig_gpu_vram_total_megabytes
