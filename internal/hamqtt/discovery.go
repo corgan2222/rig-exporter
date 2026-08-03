@@ -35,7 +35,20 @@ type originInfo struct {
 // discoveryPayload is the JSON published to the discovery topic. Fields are
 // omitted when empty so a text entity does not advertise a unit.
 type discoveryPayload struct {
-	Name                string     `json:"name"`
+	Name string `json:"name"`
+	// DefaultEntityID is what actually decides the entity id, and it carries
+	// the domain: "sensor.re_corganpc2_diskc_busy".
+	//
+	// object_id used to do this and no longer exists — Home Assistant 2026
+	// removed it from the MQTT component altogether, so a payload carrying only
+	// object_id gets an entity id built from the device name and the entity
+	// name instead. That is how "sensor.corganpc3_busy_c" came about while the
+	// payload asked for "re_corganpc3_diskc_busy".
+	//
+	// Both are sent. Older Home Assistant reads object_id and ignores this;
+	// newer reads this and ignores object_id. Neither ever sees a key it
+	// understands differently.
+	DefaultEntityID     string     `json:"default_entity_id"`
 	ObjectID            string     `json:"object_id"`
 	UniqueID            string     `json:"unique_id"`
 	StateTopic          string     `json:"state_topic"`
@@ -63,6 +76,7 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 		// The entity id is language independent; only the name a person reads
 		// follows the setting, so switching language renames nothing.
 		Name:                r.DisplayName(cfg.Lang()),
+		DefaultEntityID:     r.Def.Component() + "." + cfg.ObjectID(key),
 		ObjectID:            cfg.ObjectID(key),
 		UniqueID:            cfg.UniqueID(key),
 		StateTopic:          cfg.StateTopic(),
