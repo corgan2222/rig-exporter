@@ -51,6 +51,7 @@ height                   px         gauge  prec=0 group=core  panel=core  cat=no
 idle_seconds             s          gauge  prec=0 group=core  panel=core  cat=primary    prom=rig_input_idle_seconds
 net_discards             1/s        gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_discards_per_second
 net_errors               1/s        gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_errors_per_second
+net_ip                   -          text   prec=0 group=net   panel=net   cat=diagnostic prom=rig_net_ip_info
 net_link                 Mbit/s     gauge  prec=0 group=net   panel=net   cat=diagnostic prom=rig_net_link_megabits_per_second
 net_rx                   Mbit/s     gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_receive_megabits_per_second
 net_tx                   Mbit/s     gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_transmit_megabits_per_second
@@ -78,4 +79,5 @@ rtss                     -          bool   prec=0 group=core  panel=core  cat=di
 rtss_status              -          text   prec=0 group=core  panel=core  cat=none       prom=rig_rtss_status_info
 rtss_version             -          text   prec=0 group=core  panel=core  cat=none       prom=rig_rtss_version_info
 uptime                   h          gauge  prec=2 group=core  panel=core  cat=diagnostic prom=rig_uptime_hours
+version                  -          text   prec=0 group=core  panel=core  cat=diagnostic prom=rig_exporter_version_info
 width                    px         gauge  prec=0 group=core  panel=core  cat=none       prom=rig_display_width_pixels

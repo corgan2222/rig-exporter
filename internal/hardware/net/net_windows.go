@@ -87,6 +87,9 @@ func (s *Source) Collect(set *metrics.Set) error {
 	for _, adapter := range adapters {
 		instance := adapter.Name
 		set.Add(metrics.Text(metrics.NetType, instance, adapter.Description()))
+		if adapter.IP != "" {
+			set.Add(metrics.Text(metrics.NetIP, instance, adapter.IP))
+		}
 
 		if adapter.LinkMbit > 0 {
 			set.Add(metrics.Gauge(metrics.NetLinkSpeed, instance, adapter.LinkMbit))
@@ -195,12 +198,11 @@ type Adapter struct {
 }
 
 // Description is what the diagnostic entity shows.
-func (a Adapter) Description() string {
-	if a.IP == "" {
-		return a.Kind
-	}
-	return a.Kind + " · " + a.IP
-}
+// Description used to glue the kind and the address together as
+// "Ethernet · 192.168.2.30". Two facts in one string, and neither could be
+// filtered, compared or used in an automation — the same mistake the drive
+// label made with its file system. They are reported separately now.
+func (a Adapter) Description() string { return a.Kind }
 
 const (
 	ifTypeEthernet = 6
