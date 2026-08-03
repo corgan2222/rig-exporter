@@ -76,7 +76,7 @@
         <label>
           <span class="name">{{ .T "settings.ha.nodeId" }}</span>
           <input type="text" name="node_id" value="{{ .Config.NodeID }}">
-          <span class="hint">{{ .T "settings.ha.nodeHint" }} <code>sensor.fps_{{ .Config.NodeID }}</code></span>
+          <span class="hint">{{ .T "settings.ha.nodeHint" }} <code>sensor.{{ .Config.ObjectPrefix }}fps</code></span>
         </label>
       </div>
       <div class="row">
