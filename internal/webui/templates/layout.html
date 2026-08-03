@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ .AppName }} &mdash; {{ .T .TitleKey }}</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
 <style>
   :root {
     color-scheme: dark;
@@ -100,6 +101,13 @@
   .banner.warn { border-color: #78500a; background: #2b1e05; }
   .banner a { color: var(--accent); }
   code { background: var(--panel-2); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+  /* A snippet meant to be copied out: it scrolls rather than wraps, because a
+     wrapped line of YAML is a broken line of YAML. */
+  pre.snippet {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: .75rem .9rem; margin: .6rem 0; overflow-x: auto;
+    font-size: .8rem; line-height: 1.45; white-space: pre; tab-size: 2;
+  }
   table.endpoints { width: 100%; border-collapse: collapse; }
   table.endpoints td { padding: .3rem .6rem .3rem 0; vertical-align: top; }
   table.endpoints td:first-child { color: var(--muted); white-space: nowrap; font-size: .85rem; }

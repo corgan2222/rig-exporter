@@ -103,6 +103,31 @@ var catalogue = map[string]Text{
 		EN: "Changing the node id or a prefix retires the old entities in Home Assistant automatically.",
 	},
 
+	// Settings, Home Assistant long-term storage. Nothing here changes a
+	// setting of this program: it says what to change in Home Assistant, and
+	// hands over the exact text for it.
+	"settings.recorder.title": {
+		DE: "Langzeitspeicherung in Home Assistant",
+		EN: "Long-term storage in Home Assistant",
+	},
+	"settings.recorder.nav": {DE: "Speicherung", EN: "Storage"},
+	"settings.recorder.why": {
+		DE: "Home Assistant schreibt jede Wertänderung in seine Datenbank. Ein PC, der hundert Messwerte im Sekundentakt meldet, füllt sie schneller, als der nächtliche Aufräumlauf sie kürzt. Unveränderte Werte kosten nichts — es kommt also darauf an, für wie viele Entities überhaupt ein Verlauf geführt wird.",
+		EN: "Home Assistant writes every change of value into its database. A PC reporting a hundred readings a second fills it faster than the nightly purge empties it. Unchanged values cost nothing, so what matters is how many entities keep a history at all.",
+	},
+	"settings.recorder.where": {
+		DE: "Der Recorder wird in <code>configuration.yaml</code> eingestellt, nicht in einer Oberfläche. Trage den folgenden Block dort ein — ist bereits ein <code>recorder:</code> vorhanden, ergänze dessen <code>exclude:</code> und <code>include:</code>, statt einen zweiten anzulegen — und starte Home Assistant neu.",
+		EN: "The recorder is configured in <code>configuration.yaml</code>, not in any user interface. Add the block below — if a <code>recorder:</code> already exists, extend its <code>exclude:</code> and <code>include:</code> rather than adding a second one — and restart Home Assistant.",
+	},
+	"settings.recorder.what": {
+		DE: "Der Block hält alle Entities dieses PCs aus dem Verlauf heraus und lässt die wenigen wieder herein, deren Verlauf über Monate etwas aussagt. Die Namen sind an deine Einstellungen angepasst: eine abgeschaltete Sensorgruppe taucht nicht auf, zwei Grafikkarten ergeben zwei Zeilen. <code>purge_keep_days</code> ist die Aufbewahrungsdauer für alles Übrige.",
+		EN: "The block keeps every entity of this PC out of the history and lets back in the few whose history says something over months. The names follow your settings: a switched-off sensor group does not appear, two graphics cards give two lines. <code>purge_keep_days</code> is how long everything else is kept.",
+	},
+	"settings.recorder.caveat": {
+		DE: "Ein Ausschluss trifft auch die Langzeitstatistik: eine ausgeschlossene Entity hat weder Verlauf noch Stunden- und Tagesmittelwerte. Beides zusammen oder gar nicht — was später einmal in einem Monatsdiagramm stehen soll, gehört in die include-Liste.",
+		EN: "An exclusion also removes long-term statistics: an excluded entity keeps neither history nor hourly and daily averages. It is both or neither — anything that should appear in a monthly chart later belongs in the include list.",
+	},
+
 	// Settings, data server.
 	"settings.data.title":     {DE: "Datenserver — Home Assistant und Prometheus holen ab", EN: "Data server — Home Assistant and Prometheus pull"},
 	"settings.data.nav":       {DE: "Datenserver", EN: "Data server"},
