@@ -105,11 +105,6 @@ var (
 		Prom: "rig_memory_percent", Help: "Physical memory in use",
 		StateClass: "measurement", Icon: "mdi:memory",
 	}
-	// The Linux load average has no Windows equivalent — there is no run
-	// queue to read — so this counts processor-equivalents busy instead:
-	// utilisation times the number of logical processors, smoothed over the
-	// same three windows Linux uses. A load of 4 on a 16 thread machine means
-	// four threads' worth of work, exactly as it would on Linux.
 	// OSVersion is the operating system a reading was taken on, which is the
 	// first thing anyone asks when a value looks wrong on someone else's PC.
 	OSVersion = Definition{
@@ -117,6 +112,17 @@ var (
 		Kind: KindText, Group: GroupCore,
 		Prom: "rig_os_version_info", PromLabel: "version", Help: "Windows edition, release and build",
 		EntityCategory: "diagnostic", Icon: "mdi:microsoft-windows",
+	}
+	// ExporterVersion is which build produced a reading. The device block in
+	// Home Assistant already carries it, but nothing else does — a Prometheus
+	// or InfluxDB series had no way to say which version wrote it, which is the
+	// first question when two machines disagree.
+	ExporterVersion = Definition{
+		ID: "version", Name: i18n.Text{DE: "Version", EN: "Version"},
+		Kind: KindText, Group: GroupCore,
+		Prom: "rig_exporter_version_info", PromLabel: "version",
+		Help:           "Version and build of rig-exporter that produced this reading",
+		EntityCategory: "diagnostic", Icon: "mdi:tag-outline",
 	}
 	// Processes is a coarse but useful measure of what the machine is carrying;
 	// a number that climbs and never falls is the shape of a leak.
@@ -126,6 +132,11 @@ var (
 		Prom: "rig_processes", Help: "Number of running processes",
 		StateClass: "measurement", Icon: "mdi:format-list-numbered",
 	}
+	// The Linux load average has no Windows equivalent — there is no run queue
+	// to read — so this counts processor-equivalents busy instead: utilisation
+	// times the number of logical processors, smoothed over the same three
+	// windows Linux uses. A load of 4 on a 16 thread machine means four
+	// threads' worth of work, exactly as it would on Linux.
 	CPULoad1 = Definition{
 		ID: "cpu_load_1", Name: i18n.Text{DE: "Load 1 min", EN: "Load 1 min"},
 		Kind: KindGauge, Precision: 2, Group: GroupCPU,
@@ -546,6 +557,14 @@ var (
 	// "Link" rather than "Verbindungsgeschwindigkeit": the adapter name is
 	// appended to it, and the compound is long enough that no panel column can
 	// hold it without breaking mid-word.
+	// NetIP is the adapter's IPv4 address, its own value rather than something
+	// glued onto the connection type.
+	NetIP = Definition{
+		ID: "net_ip", Name: i18n.Text{DE: "IP-Adresse", EN: "IP address"},
+		Kind: KindText, InstanceLabel: "nic", Group: GroupNet,
+		Prom: "rig_net_ip_info", PromLabel: "ip", Help: "IPv4 address of the adapter",
+		EntityCategory: "diagnostic", Icon: "mdi:ip-network",
+	}
 	NetLinkSpeed = Definition{
 		ID: "net_link", Name: i18n.Text{DE: "Link", EN: "Link"},
 		Unit: "Mbit/s", Kind: KindGauge,
@@ -614,6 +633,7 @@ var All = []Definition{
 	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion, Processes,
+	ExporterVersion,
 
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
@@ -628,7 +648,7 @@ var All = []Definition{
 	DiskLabel, DiskFilesystem, DiskVendor, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
 	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,
 
-	NetType, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,
+	NetType, NetIP, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,
 	PingTarget, PingRTT, PingLoss,
 }
 

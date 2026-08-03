@@ -86,6 +86,7 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger) *App {
 // configuration asks for.
 func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger) (*collector.Collector, *sensors) {
 	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
+	c.ReportVersion(config.VersionString())
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
 	return c, s

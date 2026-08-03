@@ -121,7 +121,14 @@ type Collector struct {
 	// read once rather than on every collection.
 	osOnce    sync.Once
 	osVersion string
+
+	// version is this program's own build, reported alongside the readings so
+	// a series can say what wrote it.
+	version string
 }
+
+// ReportVersion makes the collector publish which build produced its readings.
+func (c *Collector) ReportVersion(version string) { c.version = version }
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
 // entry may go without a new frame before it stops counting as the game.
@@ -175,7 +182,11 @@ type OriginNamer interface {
 	OriginName() string
 }
 
-const originWindows = "Windows"
+const (
+	originWindows = "Windows"
+	// originExporter credits the one reading the program makes up itself.
+	originExporter = "rig-exporter"
+)
 
 func originOf(source Source) string {
 	if named, ok := source.(OriginNamer); ok {
@@ -262,6 +273,14 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 		metrics.Gauge(metrics.IdleTime, "", c.system.IdleSeconds()),
 		metrics.Gauge(metrics.Uptime, "", c.system.UptimeHours()),
 	)
+
+	// Not a machine reading: this is the program saying which build produced
+	// everything else, so it is credited to the program rather than to Windows.
+	if c.version != "" {
+		reading := metrics.Text(metrics.ExporterVersion, "", c.version)
+		reading.Origin = originExporter
+		snap.Add(reading)
+	}
 
 	// The operating system cannot change while the process runs, so it is read
 	// once and kept.
