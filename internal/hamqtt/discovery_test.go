@@ -63,10 +63,13 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	}
 }
 
-// Nothing a consumer sees may move with the interface language: not the entity
-// id, not the name. Both reach dashboards and automation conditions, and
-// switching the settings page to German must not rename them.
-func TestNothingPublishedFollowsTheInterfaceLanguage(t *testing.T) {
+// The language may change what a person reads and nothing else.
+//
+// The name is free to translate because default_entity_id pins the entity id at
+// creation: a dashboard, an automation condition and a voice assistant all
+// reference that id, and none of them notices a renamed label. An identifier
+// that moved with the language would break every one of them.
+func TestOnlyTheNameFollowsTheInterfaceLanguage(t *testing.T) {
 	reading := metrics.Gauge(metrics.GPUTemperature, "0", 61)
 
 	german := testConfig()
@@ -77,14 +80,18 @@ func TestNothingPublishedFollowsTheInterfaceLanguage(t *testing.T) {
 	de := discoveryFor(german, reading)
 	en := discoveryFor(english, reading)
 
-	if de.Name != en.Name {
-		t.Errorf("the name changed with the language: %q vs %q", de.Name, en.Name)
+	if de.Name != "GPU 0 Temperatur" || en.Name != "GPU 0 Temperature" {
+		t.Errorf("names = %q / %q, want them translated", de.Name, en.Name)
 	}
-	if de.Name != "GPU 0 Temperature" {
-		t.Errorf("name = %q, want the English name", de.Name)
+	if de.DefaultEntityID != en.DefaultEntityID {
+		t.Errorf("default_entity_id changed with the language: %q vs %q",
+			de.DefaultEntityID, en.DefaultEntityID)
 	}
-	if de.DefaultEntityID != en.DefaultEntityID || de.UniqueID != en.UniqueID {
+	if de.UniqueID != en.UniqueID || de.ObjectID != en.ObjectID {
 		t.Error("an identifier changed with the language")
+	}
+	if de.ValueTemplate != en.ValueTemplate {
+		t.Error("the value template changed with the language")
 	}
 }
 
@@ -115,11 +122,11 @@ func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 	if payload.ValueTemplate != "{{ value_json.diskc_used_percent }}" {
 		t.Errorf("value_template = %q", payload.ValueTemplate)
 	}
-	// The hardware leads, so a device page sorts one drive's readings together —
-	// and the name is English even though this configuration is German, because
-	// an entity name reaches dashboards and automations.
-	if payload.Name != "Drive C: Usage" {
-		t.Errorf("name = %q, want the English name with the hardware first", payload.Name)
+	// The hardware leads, so a device page sorts one drive's readings together.
+	// This configuration is German, and the name follows it — only identifiers
+	// stay put.
+	if payload.Name != "Laufwerk C: Belegung" {
+		t.Errorf("name = %q, want the hardware first", payload.Name)
 	}
 }
 
