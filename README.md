@@ -112,7 +112,42 @@ laut eigenem SDK „zur Freigabe markiert". Das wird als „läuft nicht" gemeld
 nicht als Fehler. Startet RTSS später, verbindet sich das Programm von selbst:
 die Zuordnung wird bei jedem Auslesen neu geöffnet, ein Neustart ist nie nötig.
 
-**CPU-Temperatur gibt es nur mit Afterburner.** Das ist keine Bequemlichkeit:
+### PawnIO
+
+PawnIO ist ein signierter Kerneltreiber, der geprüften Bytecode ausführt — der
+sichere Nachfolger von WinRing0, das wegen freien Registerzugriffs auf
+Microsofts Treiber-Sperrliste steht. Damit wären Prozessortemperatur und
+-leistung auch ohne Afterburner lesbar.
+
+Erkannt wird es ohne jedes Recht: `PawnIOLib.dll` lädt und meldet ihre Version
+auch aus einem gewöhnlichen Prozess. **Benutzen** lässt sie sich so aber nicht.
+PawnIOs Gerät trägt eine geschützte ACL, `D:P(A;;GA;;;SY)(A;;GA;;;BA)` — nur
+LocalSystem und Administratoren. Nachgemessen: `pawnio_open` liefert aus einem
+nicht-elevierten Prozess `0x80070005`, E_ACCESSDENIED.
+
+Daraus folgt die Aufteilung. Erkennung läuft immer und unterscheidet vier
+Zustände, weil sie zu vier verschiedenen Ratschlägen führen: nicht installiert,
+installiert aber ohne Adminrechte erreichbar, Treiber antwortet nicht, nutzbar.
+Jemandem „installier es" zu sagen, der es längst hat, ist schlechter als
+schweigen.
+
+Eingeschaltet wird es nur bewusst, in den Einstellungen. Aus, solange niemand
+zustimmt: es einzuschalten heißt, rig-exporter mit Administratorrechten laufen
+zu lassen, und das ist eine Entscheidung über den Rechner, keine Einstellung.
+
+Beim ersten Start und nur dann, wenn PawnIO fehlt, erscheint ein Angebot. Es
+sagt ausdrücklich, dass ein Kerneltreiber installiert wird und dass danach
+Adminrechte nötig sind, und es nennt MSI Afterburner als treiberfreie
+Alternative. Wer zustimmt, bekommt das Installationsprogramm heruntergeladen —
+geprüft wird dabei, dass die Weiterleitungskette wirklich auf einem
+GitHub-Release-Host per HTTPS endet. Ausgeführt wird es **nicht** von diesem
+Programm: es geht per `ShellExecute` an Windows, damit Signaturprüfung,
+SmartScreen und die Rechteabfrage dort stattfinden, wo man sie sieht.
+
+PawnIO wird nicht mitgeliefert. Es steht unter GPL-2.0, die Module unter
+LGPL-2.1; installiert wird es vom Nutzer, dieses Programm sucht es nur.
+
+**CPU-Temperatur gibt es sonst nur mit Afterburner.** Das ist keine Bequemlichkeit:
 Ryzen liefert Tctl über den SMU, Intel über ein MSR, und beides liegt in Ring 0.
 Kein Programm ohne Kerneltreiber kommt daran — deshalb bringt Afterburner einen
 mit. Die treiberfreien Wege sind nachgemessen und alle tot: ACPI-Thermalzonen
