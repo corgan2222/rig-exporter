@@ -26,6 +26,16 @@ var (
 // attachParentProcess asks for the console of the process that started us.
 const attachParentProcess = ^uintptr(0) // (DWORD)-1
 
+// IsElevated reports whether this process runs with administrator rights.
+//
+// Worth stating in a diagnostic rather than leaving to be inferred. Whether a
+// kernel-backed sensor source can work at all turns on this, and a reading
+// taken without elevation looks exactly like one taken with it — except for the
+// values that are quietly missing.
+func IsElevated() bool {
+	return windows.GetCurrentProcessToken().IsElevated()
+}
+
 // AttachConsole gives this process somewhere to print, and reports whether it
 // found one.
 //
