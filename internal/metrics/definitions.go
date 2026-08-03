@@ -275,7 +275,7 @@ var (
 		ID: "gpu_fan_rpm", Name: i18n.Text{DE: "GPU-Lüfterdrehzahl", EN: "GPU fan speed"},
 		Unit: "rpm", Kind: KindGauge,
 		Group: GroupGPU, InstanceLabel: "gpu",
-		Prom: "rig_gpu_fan_rpm", Help: "Graphics card fan speed in revolutions per minute",
+		Prom: "rig_gpu_fan_rpm", Help: "Fastest fan on the graphics card, in revolutions per minute",
 		StateClass: "measurement", Icon: "mdi:fan",
 	}
 	GPUPower = Definition{

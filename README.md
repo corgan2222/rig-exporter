@@ -51,7 +51,17 @@ Treiber. Deshalb:
    AMD und Intel ab, liefert Lüfter, Spannung und Hotspot. RTSS gehört ohnehin
    dazu, ein für den FPS-Overlay eingerichteter Rechner hat das also schon.
 2. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
-   VRAM-Gesamtausbau. Ohne Afterburner reicht es allein für NVIDIA-Karten.
+   VRAM-Gesamtausbau und die Lüfterdrehzahl. Ohne Afterburner reicht es allein
+   für NVIDIA-Karten.
+
+Ohne Afterburner fehlen von der GPU nur Hotspot-Temperatur und Spannung — den
+Rest liefert NVML, Lüfterdrehzahl eingeschlossen (`nvmlDeviceGetFanSpeedRPM`,
+gemeldet wird der schnellste Lüfter der Karte). NVML wächst mit jeder
+Treibergeneration um neue Einsprungpunkte, und `LazyProc.Call` löst das Symbol
+über `mustFind` auf — das **panict**, wenn es fehlt. In einem Binary mit
+`-H windowsgui` stirbt damit das Tray wortlos. Deshalb wird jeder Einsprungpunkt
+einmal aufgelöst und vor dem ersten Aufruf geprüft; ein alter Treiber verliert
+einen Wert, nicht das Programm.
 
 Ist beides nicht da, entfällt die GPU-Gruppe. Ohne Kernel-Treiber sind
 Gehäuselüfter, Netzteil-Telemetrie und Spannungen grundsätzlich nicht
@@ -94,6 +104,21 @@ andere ein völlig brauchbarer Rechner, und nichts wartet hier auf einen Dialog.
 Nichts am Programm braucht Administratorrechte. Läuft RTSS oder Afterburner
 allerdings eleviert und dieses Programm nicht, verweigert Windows den Zugriff
 auf deren Shared Memory — dann fehlen FPS beziehungsweise die Temperaturen.
+
+Wird RTSS geschlossen, verschwindet sein Shared Memory **nicht**: RTSSHooks
+bleibt in jeder eingeklinkten Anwendung geladen, der Abschnitt überlebt den
+Prozess, und RTSS überschreibt beim Beenden seine Signatur mit `0xDEAD` —
+laut eigenem SDK „zur Freigabe markiert". Das wird als „läuft nicht" gemeldet,
+nicht als Fehler. Startet RTSS später, verbindet sich das Programm von selbst:
+die Zuordnung wird bei jedem Auslesen neu geöffnet, ein Neustart ist nie nötig.
+
+**CPU-Temperatur gibt es nur mit Afterburner.** Das ist keine Bequemlichkeit:
+Ryzen liefert Tctl über den SMU, Intel über ein MSR, und beides liegt in Ring 0.
+Kein Programm ohne Kerneltreiber kommt daran — deshalb bringt Afterburner einen
+mit. Die treiberfreien Wege sind nachgemessen und alle tot: ACPI-Thermalzonen
+(über PDH, SetupDi und WMI je null Instanzen), `Win32_TemperatureProbe` (braucht
+eine SMBIOS-Struktur, die Consumer-Boards nicht schreiben) und
+`CallNtPowerInformation` (hat kein Temperaturfeld).
 
 ### Was auf anderen Maschinen anders ist
 
