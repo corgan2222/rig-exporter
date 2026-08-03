@@ -148,6 +148,14 @@ type Reading struct {
 	// Instance identifies which GPU, volume, adapter or core this is, and is
 	// empty for measurements that exist only once.
 	Instance string
+	// Origin names what supplied this number — Windows, MSI Afterburner, NVML,
+	// PawnIO. It is for the person looking at the interface, who has a real
+	// reason to know which of their programs a reading depends on.
+	//
+	// It never reaches an export. The same measurement has to look identical
+	// whatever produced it, or a dashboard would start depending on which
+	// helpers happen to run on a given machine. Nothing in render.go reads it.
+	Origin string
 
 	Number float64
 	Text   string
@@ -219,6 +227,12 @@ const (
 // Set is one complete collection pass.
 type Set struct {
 	Readings []Reading
+	// Origin is stamped onto everything added from here on. The collector sets
+	// it around each source, and a source that draws on more than one backing
+	// program sets it again as it switches — which is how the graphics group
+	// can say that the temperature came from Afterburner and the memory total
+	// from NVML.
+	Origin string
 }
 
 // Add appends readings, skipping any whose definition is empty. That lets a
@@ -228,8 +242,61 @@ func (s *Set) Add(readings ...Reading) {
 		if r.Def.ID == "" {
 			continue
 		}
+		if r.Origin == "" {
+			r.Origin = s.Origin
+		}
 		s.Readings = append(s.Readings, r)
 	}
+}
+
+// Origins lists what supplied readings in this set, and what each supplied, in
+// presentation order.
+func (s Set) Origins() []OriginSummary {
+	order := []string{}
+	byName := map[string][]Reading{}
+
+	for _, r := range s.Readings {
+		name := r.Origin
+		if name == "" {
+			continue
+		}
+		if _, seen := byName[name]; !seen {
+			order = append(order, name)
+		}
+		byName[name] = append(byName[name], r)
+	}
+	sort.Strings(order)
+
+	out := make([]OriginSummary, 0, len(order))
+	for _, name := range order {
+		readings := byName[name]
+		sortReadings(readings)
+		out = append(out, OriginSummary{Name: name, Readings: readings})
+	}
+	return out
+}
+
+// OriginSummary is one supplier and everything it produced.
+type OriginSummary struct {
+	Name     string
+	Readings []Reading
+}
+
+// Names lists the distinct measurements this supplier produced, without
+// repeating one name per graphics card or per drive.
+func (o OriginSummary) Names(lang i18n.Lang) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range o.Readings {
+		name := r.Def.Name.In(lang)
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Find returns the reading for a definition and instance.
