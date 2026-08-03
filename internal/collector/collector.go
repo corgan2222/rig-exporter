@@ -9,6 +9,7 @@ package collector
 import (
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/corgan/rig-exporter/internal/metrics"
@@ -102,6 +103,8 @@ type SystemSource interface {
 	TickCount() uint32
 	IdleSeconds() float64
 	UptimeHours() float64
+	WindowsVersion() string
+	ProcessCount() (int, error)
 }
 
 // Collector produces snapshots.
@@ -113,6 +116,11 @@ type Collector struct {
 
 	idleMs    uint32
 	lastDispl sysinfo.Display
+
+	// The operating system cannot change under a running process, so it is
+	// read once rather than on every collection.
+	osOnce    sync.Once
+	osVersion string
 }
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
@@ -254,6 +262,16 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 		metrics.Gauge(metrics.IdleTime, "", c.system.IdleSeconds()),
 		metrics.Gauge(metrics.Uptime, "", c.system.UptimeHours()),
 	)
+
+	// The operating system cannot change while the process runs, so it is read
+	// once and kept.
+	c.osOnce.Do(func() { c.osVersion = c.system.WindowsVersion() })
+	if c.osVersion != "" {
+		snap.Add(metrics.Text(metrics.OSVersion, "", c.osVersion))
+	}
+	if processes, err := c.system.ProcessCount(); err == nil {
+		snap.Add(metrics.Gauge(metrics.Processes, "", float64(processes)))
+	}
 }
 
 func classify(err error) (RTSSStatus, string) {

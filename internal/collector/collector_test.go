@@ -17,6 +17,49 @@ type fakeRTSS struct {
 
 func (f fakeRTSS) Read() (rtss.Snapshot, error) { return f.snap, f.err }
 
+// The operating system is read once and kept, because it cannot change under a
+// running process. A count that fails is simply not reported — a machine that
+// will not say how many processes it has is not a reason to lose the reading.
+func TestSystemFactsAreCollectedAndCached(t *testing.T) {
+	system := newSystem()
+	c := New(fakeRTSS{}, system, 3000, nil)
+
+	got := c.Collect()
+	if version := got.Str(metrics.OSVersion.ID); version != system.osVersion {
+		t.Errorf("os version = %q, want %q", version, system.osVersion)
+	}
+	if processes := got.Number(metrics.Processes.ID); processes != 312 {
+		t.Errorf("processes = %v, want 312", processes)
+	}
+
+	// Changing the answer must not change the reading: it was taken once.
+	system.osVersion = "Windows 95"
+	// The process count is live, so that one must follow.
+	system.processes = 400
+
+	again := c.Collect()
+	if version := again.Str(metrics.OSVersion.ID); version != "Windows 11 Pro 24H2 (26100.2314)" {
+		t.Errorf("os version was read again: %q", version)
+	}
+	if processes := again.Number(metrics.Processes.ID); processes != 400 {
+		t.Errorf("processes = %v, want the fresh 400", processes)
+	}
+}
+
+func TestAFailedProcessCountIsSimplyAbsent(t *testing.T) {
+	system := newSystem()
+	system.processesErr = errors.New("nope")
+
+	got := New(fakeRTSS{}, system, 3000, nil).Collect()
+	if got.Has(metrics.Processes.ID) {
+		t.Error("a failed count was reported anyway")
+	}
+	// Everything else still arrives.
+	if got.Str(metrics.OSVersion.ID) == "" {
+		t.Error("one failure took the other system facts with it")
+	}
+}
+
 type fakeSystem struct {
 	cpu        float64
 	cpuErr     error
@@ -27,6 +70,10 @@ type fakeSystem struct {
 	tick       uint32
 	idle       float64
 	uptime     float64
+
+	osVersion    string
+	processes    int
+	processesErr error
 }
 
 func (f *fakeSystem) CPUPercent() (float64, error)      { return f.cpu, f.cpuErr }
@@ -36,15 +83,19 @@ func (f *fakeSystem) ForegroundPID() uint32             { return f.foreground }
 func (f *fakeSystem) TickCount() uint32                 { return f.tick }
 func (f *fakeSystem) IdleSeconds() float64              { return f.idle }
 func (f *fakeSystem) UptimeHours() float64              { return f.uptime }
+func (f *fakeSystem) WindowsVersion() string            { return f.osVersion }
+func (f *fakeSystem) ProcessCount() (int, error)        { return f.processes, f.processesErr }
 
 func newSystem() *fakeSystem {
 	return &fakeSystem{
-		cpu:     24.46,
-		memory:  sysinfo.Memory{UsedPercent: 51.27, TotalMB: 32000, UsedMB: 16400},
-		display: sysinfo.Display{Width: 2560, Height: 1440, RefreshHz: 165},
-		tick:    10_000,
-		idle:    12, // whole seconds: the idle reading has no decimals
-		uptime:  3.25,
+		cpu:       24.46,
+		memory:    sysinfo.Memory{UsedPercent: 51.27, TotalMB: 32000, UsedMB: 16400},
+		display:   sysinfo.Display{Width: 2560, Height: 1440, RefreshHz: 165},
+		osVersion: "Windows 11 Pro 24H2 (26100.2314)",
+		processes: 312,
+		tick:      10_000,
+		idle:      12, // whole seconds: the idle reading has no decimals
+		uptime:    3.25,
 	}
 }
 

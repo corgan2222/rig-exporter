@@ -88,6 +88,22 @@ var (
 	// utilisation times the number of logical processors, smoothed over the
 	// same three windows Linux uses. A load of 4 on a 16 thread machine means
 	// four threads' worth of work, exactly as it would on Linux.
+	// OSVersion is the operating system a reading was taken on, which is the
+	// first thing anyone asks when a value looks wrong on someone else's PC.
+	OSVersion = Definition{
+		ID: "os_version", Name: i18n.Text{DE: "Windows-Version", EN: "Windows version"},
+		Kind: KindText, Group: GroupCore,
+		Prom: "rig_os_version_info", PromLabel: "version", Help: "Windows edition, release and build",
+		EntityCategory: "diagnostic", Icon: "mdi:microsoft-windows",
+	}
+	// Processes is a coarse but useful measure of what the machine is carrying;
+	// a number that climbs and never falls is the shape of a leak.
+	Processes = Definition{
+		ID: "processes", Name: i18n.Text{DE: "Prozesse", EN: "Processes"},
+		Kind: KindGauge, Group: GroupCore,
+		Prom: "rig_processes", Help: "Number of running processes",
+		StateClass: "measurement", Icon: "mdi:format-list-numbered",
+	}
 	CPULoad1 = Definition{
 		ID: "cpu_load_1", Name: i18n.Text{DE: "Load 1 min", EN: "Load 1 min"},
 		Kind: KindGauge, Precision: 2, Group: GroupCPU,
@@ -575,7 +591,7 @@ var (
 var All = []Definition{
 	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
-	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime,
+	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion, Processes,
 
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,

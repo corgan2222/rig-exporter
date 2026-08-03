@@ -92,6 +92,13 @@ func (p *Provider) IdleSeconds() float64 { return winapi.IdleSeconds() }
 // UptimeHours is how long the machine has been running.
 func (p *Provider) UptimeHours() float64 { return winapi.UptimeHours() }
 
+// WindowsVersion describes the operating system, e.g. "Windows 10 Pro 22H2
+// (19045.7548)". Empty when it could not be determined.
+func (p *Provider) WindowsVersion() string { return winapi.WindowsVersion() }
+
+// ProcessCount is how many processes are running.
+func (p *Provider) ProcessCount() (int, error) { return winapi.ProcessCount() }
+
 func clamp(v, lo, hi float64) float64 {
 	if v < lo {
 		return lo

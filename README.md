@@ -26,7 +26,7 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 
 | Gruppe | Werte | Quelle |
 |---|---|---|
-| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Laufzeit, Leerlaufzeit | RTSS + Windows |
+| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
 | **Grafikkarte** | Name, Hersteller, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung über PawnIO |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
@@ -495,6 +495,20 @@ verschiedener Hersteller würden sonst vertauscht.
 
 **Auflösung und Hz** kommen von `EnumDisplaySettingsW` des primären Monitors,
 also aus dem Anzeigetreiber — unabhängig von der DPI-Skalierung des Prozesses.
+
+**Windows-Version** ist zusammengesetzt, weil keine einzelne Quelle sie hat: die
+Buildnummer aus `RtlGetVersion` (`GetVersionEx` lügt Programme ohne Manifest an
+und nennt jedes Windows seit 8.1 „6.2"), Edition und Release aus der Registry.
+Der Haken dabei ist, dass `ProductName` dort auch auf Windows 11 noch
+„Windows 10 Pro" sagt — Microsoft hat den Wert nie nachgezogen. Wer ihm glaubt,
+nennt der Hälfte seiner Nutzer das falsche Betriebssystem, also entscheidet die
+Buildnummer: ab 22000 ist es Windows 11. Gelesen wird das einmal pro Start, denn
+es kann sich unter einem laufenden Prozess nicht ändern.
+
+**Anzahl der Prozesse** über `EnumProcesses`. Die Funktion meldet nicht, dass
+der Puffer zu klein war — sie füllt, was hineinpasst, und sagt es nur dadurch,
+dass sie genau so viele Bytes zurückgibt wie angeboten. Der Puffer wächst
+deshalb, bis die Antwort kleiner ist als der Platz dafür.
 
 **CPU-Last** ist die Differenz zweier `GetSystemTimes`-Abfragen, die Last je
 Thread kommt aus `NtQuerySystemInformation`.
