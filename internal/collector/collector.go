@@ -236,6 +236,10 @@ func classify(err error) (RTSSStatus, string) {
 	switch {
 	case errors.Is(err, rtss.ErrNotRunning):
 		return RTSSNotRunning, rtss.ErrNotRunning.Error()
+	// A section left behind by a closed RTSS means the same thing to a reader
+	// as no section at all, and saying so beats explaining a signature.
+	case errors.Is(err, rtss.ErrShutDown):
+		return RTSSNotRunning, rtss.ErrShutDown.Error()
 	case errors.Is(err, rtss.ErrAccessDenied):
 		return RTSSAccessDenied, rtss.ErrAccessDenied.Error()
 	default:

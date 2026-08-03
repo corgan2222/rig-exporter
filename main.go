@@ -24,6 +24,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/tray"
 	"github.com/corgan/rig-exporter/internal/webui"
 	"github.com/corgan/rig-exporter/internal/winapi"
+	"golang.org/x/sys/windows/registry"
 )
 
 // singleInstanceMutex is per-session, so one instance per logged-in user.
@@ -271,6 +272,15 @@ func warnIfRTSSMissing(application *app.App, log *slog.Logger, lang i18n.Lang, f
 		return
 	}
 
+	// Telling someone to download software they already have is worse than
+	// saying nothing, so the download prompt is only for machines that really
+	// do not have it.
+	if rtssInstalled() {
+		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.rtssNotRunning"),
+			winapi.MBOK|winapi.MBIconInformation|winapi.MBSetForeground)
+		return
+	}
+
 	answer := winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.rtssMissing"),
 		winapi.MBYesNo|winapi.MBIconWarning|winapi.MBSetForeground)
 
@@ -279,4 +289,29 @@ func warnIfRTSSMissing(application *app.App, log *slog.Logger, lang i18n.Lang, f
 			log.Error("could not open the RTSS download page", "error", err)
 		}
 	}
+}
+
+// rtssInstalled reports whether RTSS is on this machine, however it got here —
+// on its own or carried in by MSI Afterburner.
+//
+// RTSS is a 32-bit program, so on 64-bit Windows its key sits under
+// WOW6432Node and the plain path finds nothing. Both are tried, since the plain
+// one is right on a 32-bit Windows.
+//
+// The key existing is the whole answer. Its values are read from one RTSS
+// version here and a future one may rename them, so a missing value must never
+// be mistaken for a missing installation.
+func rtssInstalled() bool {
+	for _, path := range []string{
+		`SOFTWARE\WOW6432Node\Unwinder\RTSS`,
+		`SOFTWARE\Unwinder\RTSS`,
+	} {
+		key, err := registry.OpenKey(registry.LOCAL_MACHINE, path, registry.QUERY_VALUE)
+		if err != nil {
+			continue
+		}
+		key.Close()
+		return true
+	}
+	return false
 }

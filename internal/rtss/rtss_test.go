@@ -3,6 +3,7 @@ package rtss
 import (
 	"encoding/binary"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -36,6 +37,63 @@ func buildSharedMemory(version uint32, entrySize, arrOffset int, entries []Entry
 	}
 	return buf
 }
+
+// Closing RTSS does not remove its shared memory: RTSSHooks stays loaded inside
+// every hooked application, so the section survives and RTSS marks it with
+// 0xDEAD on the way out. Reported as an unexpected signature, that read to the
+// user as "something is wrong" when the truth was "RTSS was closed".
+//
+// Both entry points are checked because the reader calls MappingSize first: a
+// fix applied only to Parse would never run.
+func TestAClosedRTSSReadsAsNotRunning(t *testing.T) {
+	buf := buildSharedMemory(0x00020015, 512, 4096, []Entry{{ProcessID: 1234}})
+	binary.LittleEndian.PutUint32(buf[offSignature:], signatureDead)
+
+	for name, err := range map[string]error{
+		"MappingSize": second(MappingSize(buf)),
+		"Parse":       second(Parse(buf)),
+	} {
+		if !errors.Is(err, ErrShutDown) {
+			t.Errorf("%s = %v, want ErrShutDown", name, err)
+		}
+		// Callers branch on these separately; conflating them is the bug.
+		if errors.Is(err, ErrBadSignature) {
+			t.Errorf("%s reports a shutdown as a bad signature", name)
+		}
+	}
+}
+
+// A genuinely foreign mapping still has to be reported, and has to say what was
+// actually there — otherwise nobody can tell you.
+func TestAForeignSignatureIsReportedWithItsValue(t *testing.T) {
+	buf := buildSharedMemory(0x00020015, 512, 4096, nil)
+	binary.LittleEndian.PutUint32(buf[offSignature:], 0x12345678)
+
+	_, err := MappingSize(buf)
+	if !errors.Is(err, ErrBadSignature) {
+		t.Fatalf("MappingSize = %v, want ErrBadSignature", err)
+	}
+	if !strings.Contains(err.Error(), "12345678") {
+		t.Errorf("error %q does not name the signature it found", err)
+	}
+}
+
+// In the 1.x layout the offsets read here hold tick counts, which parse into
+// nonsense rather than failing. The version has to be checked before they are
+// trusted.
+func TestAnOldLayoutIsRefusedRatherThanMisread(t *testing.T) {
+	buf := buildSharedMemory(0x00010005, 512, 4096, []Entry{{ProcessID: 1234}})
+
+	if _, err := MappingSize(buf); !errors.Is(err, ErrUnsupportedVersion) {
+		t.Errorf("MappingSize = %v, want ErrUnsupportedVersion", err)
+	}
+	if _, err := Parse(buf); !errors.Is(err, ErrUnsupportedVersion) {
+		t.Errorf("Parse = %v, want ErrUnsupportedVersion", err)
+	}
+}
+
+// second drops the value so the two entry points can be compared in one table.
+func second[T any](_ T, err error) error { return err }
 
 func TestParseReadsEntries(t *testing.T) {
 	buf := buildSharedMemory(0x00020007, 512, 4096, []Entry{

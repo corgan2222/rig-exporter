@@ -154,6 +154,7 @@ func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) b
 		add(metrics.GPUPower, card.PowerW, card.hasPower)
 		add(metrics.GPUPowerLimit, card.PowerLimitW, card.hasLimit)
 		add(metrics.GPUFan, card.FanPercent, card.hasFan)
+		add(metrics.GPUFanRPM, card.FanRPM, card.hasFanRPM)
 
 		// How close the card is to its power ceiling is the number that says
 		// whether the limit is what is holding it back.

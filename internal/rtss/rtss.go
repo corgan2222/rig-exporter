@@ -51,18 +51,68 @@ const (
 	maxMapping   = 256 << 20
 )
 
+const (
+	// signatureDead is what RTSS writes over its own signature on shutdown, to
+	// mark the section for deallocation.
+	//
+	// The section outlives the process: RTSSHooks lives on inside every hooked
+	// application, so the mapping still opens and reads cleanly long after RTSS
+	// itself is gone. Without this case a perfectly ordinary "RTSS was closed"
+	// looked exactly like memory belonging to some other program.
+	signatureDead = 0x0000DEAD
+
+	// minVersion is the layout this package reads. Every field it touches has
+	// existed since 2.0; in the 1.x layout the same offsets hold tick counts,
+	// which parse into nonsense rather than failing.
+	minVersion = 0x00020000
+)
+
 // Errors callers are expected to branch on.
 var (
 	// ErrNotRunning means the shared memory object does not exist, which in
 	// practice means RTSS is not running.
 	ErrNotRunning = errors.New("RivaTuner Statistics Server is not running")
+	// ErrShutDown means RTSS marked its shared memory for deallocation, which
+	// is what a clean shutdown leaves behind. Also means: not running.
+	ErrShutDown = errors.New("RivaTuner Statistics Server has shut down")
 	// ErrAccessDenied means RTSS runs at a higher integrity level than us.
 	ErrAccessDenied = errors.New("access to the RTSS shared memory was denied")
 	// ErrBadSignature means something else owns that shared memory name.
 	ErrBadSignature = errors.New("RTSS shared memory has an unexpected signature")
+	// ErrUnsupportedVersion means the layout predates the one this package reads.
+	ErrUnsupportedVersion = errors.New("RTSS shared memory is too old to read")
+	// ErrImplausibleHeader means the header parsed but describes nothing sane.
+	ErrImplausibleHeader = errors.New("RTSS shared memory header is implausible")
 	// ErrTruncated means the mapping is smaller than the header it advertises.
 	ErrTruncated = errors.New("RTSS shared memory is truncated")
 )
+
+// checkHeader validates what both MappingSize and Parse depend on.
+//
+// Kept in one place because the two used to disagree: the reader calls
+// MappingSize first, so a fix applied only to Parse would never have run.
+func checkHeader(header []byte) error {
+	if len(header) < headerSize {
+		return ErrTruncated
+	}
+	le := binary.LittleEndian
+
+	switch sig := le.Uint32(header[offSignature:]); sig {
+	case signature:
+	case signatureDead:
+		return ErrShutDown
+	default:
+		// The observed value goes in the message: without it nobody can say
+		// what was actually there.
+		return fmt.Errorf("%w (0x%08X)", ErrBadSignature, sig)
+	}
+
+	if version := le.Uint32(header[offVersion:]); version < minVersion {
+		return fmt.Errorf("%w: v%d.%d, need v2.0 or newer",
+			ErrUnsupportedVersion, version>>16, version&0xFFFF)
+	}
+	return nil
+}
 
 // Entry is one process RTSS has hooked.
 type Entry struct {
@@ -126,21 +176,18 @@ func (s Snapshot) VersionString() string {
 // MappingSize reports how many bytes of the mapping Parse needs, based on the
 // header alone. It is used to size the copy taken out of shared memory.
 func MappingSize(header []byte) (int, error) {
-	if len(header) < headerSize {
-		return 0, ErrTruncated
+	if err := checkHeader(header); err != nil {
+		return 0, err
 	}
 	le := binary.LittleEndian
-	if le.Uint32(header[offSignature:]) != signature {
-		return 0, ErrBadSignature
-	}
 
 	entrySize := le.Uint32(header[offAppEntrySize:])
 	arrOffset := le.Uint32(header[offAppArrOffset:])
 	arrCount := le.Uint32(header[offAppArrSize:])
 
 	if entrySize > maxEntrySize || arrCount > maxEntries {
-		return 0, fmt.Errorf("%w: implausible app array (%d entries of %d bytes)",
-			ErrBadSignature, arrCount, entrySize)
+		return 0, fmt.Errorf("%w: app array of %d entries of %d bytes",
+			ErrImplausibleHeader, arrCount, entrySize)
 	}
 
 	total := uint64(arrOffset) + uint64(arrCount)*uint64(entrySize)
@@ -148,7 +195,7 @@ func MappingSize(header []byte) (int, error) {
 		total = headerSize
 	}
 	if total > maxMapping {
-		return 0, fmt.Errorf("%w: mapping would be %d bytes", ErrBadSignature, total)
+		return 0, fmt.Errorf("%w: mapping would be %d bytes", ErrImplausibleHeader, total)
 	}
 	return int(total), nil
 }
@@ -157,13 +204,10 @@ func MappingSize(header []byte) (int, error) {
 // buf are skipped rather than treated as an error, because RTSS writes the
 // block concurrently and the tail can be short-lived garbage.
 func Parse(buf []byte) (Snapshot, error) {
-	if len(buf) < headerSize {
-		return Snapshot{}, ErrTruncated
+	if err := checkHeader(buf); err != nil {
+		return Snapshot{}, err
 	}
 	le := binary.LittleEndian
-	if le.Uint32(buf[offSignature:]) != signature {
-		return Snapshot{}, ErrBadSignature
-	}
 
 	snap := Snapshot{Version: le.Uint32(buf[offVersion:])}
 

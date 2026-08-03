@@ -269,6 +269,18 @@ var catalogue = map[string]Text{
 			"administrator, or start RTSS without elevation.\n\n" +
 			"Every other reading keeps being reported.",
 	},
+	"dialog.rtssNotRunning": {
+		DE: "RivaTuner Statistics Server (RTSS) ist installiert, läuft aber nicht.\n\n" +
+			"Ohne laufendes RTSS können keine FPS gelesen werden. Alle übrigen Messwerte " +
+			"werden trotzdem gemeldet.\n\n" +
+			"Starte RTSS – oder MSI Afterburner, das RTSS mitstartet. rig-exporter verbindet " +
+			"sich dann von selbst, ohne Neustart.",
+		EN: "RivaTuner Statistics Server (RTSS) is installed but not running.\n\n" +
+			"Without RTSS there are no FPS to read. Every other measurement is still " +
+			"reported.\n\n" +
+			"Start RTSS — or MSI Afterburner, which starts RTSS with it. rig-exporter will " +
+			"connect on its own, with no restart.",
+	},
 	"dialog.rtssMissing": {
 		DE: "RivaTuner Statistics Server (RTSS) wurde nicht gefunden.\n\n" +
 			"Ohne RTSS können keine FPS gelesen werden. Alle übrigen Messwerte werden trotzdem gemeldet.\n\n" +
