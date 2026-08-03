@@ -247,27 +247,84 @@ func TestTheHardwareLeadsTheDisplayName(t *testing.T) {
 	}
 }
 
-// The group name must not appear twice. "GPU 0 GPU-Temperatur" is what happens
-// when the device label and the measurement name both claim it.
-func TestTheDisplayNameNeverRepeatsTheGroup(t *testing.T) {
+// The hardware must not be named twice. "GPU 0 GPU-Temperatur" and "CPU
+// CPU-Modell" are what happens when the prefix and the measurement name both
+// claim it — which is exactly what the catalogue used to do.
+func TestTheDisplayNameNeverRepeatsTheHardware(t *testing.T) {
 	for _, def := range All {
-		if def.InstanceLabel == "" {
-			continue
-		}
-		label, ok := deviceLabels[def.InstanceLabel]
-		if !ok {
+		if def.NoEntity {
 			continue
 		}
 		for _, lang := range []i18n.Lang{i18n.DE, i18n.EN} {
-			prefix := label.In(lang)
+			var prefix string
+			if def.InstanceLabel != "" {
+				prefix = deviceLabels[def.InstanceLabel].In(lang)
+			} else {
+				prefix = groupPrefixes[def.PanelGroup()].In(lang)
+			}
 			if prefix == "" {
 				continue
 			}
 			if strings.HasPrefix(def.Name.In(lang), prefix) {
-				t.Errorf("%s (%s) is called %q, which repeats the device label %q",
+				t.Errorf("%s (%s) is called %q, which repeats the prefix %q",
 					def.ID, lang, def.Name.In(lang), prefix)
 			}
 		}
+	}
+}
+
+// Readings that exist only once still need grouping: a device page listing
+// "Takt" and "Belegt" among ninety others tells nobody which part they describe.
+func TestSingletonsAreGroupedByTheirPanel(t *testing.T) {
+	for _, tc := range []struct {
+		reading Reading
+		want    string
+	}{
+		{Gauge(CPULoad, "", 24.5), "CPU Auslastung"},
+		{Gauge(CPUClock, "", 4200), "CPU Takt"},
+		{Gauge(CPUClockBase, "", 3394), "CPU Basistakt"},
+		{Gauge(CPUClockMax, "", 4300), "CPU Takt max. (beobachtet)"},
+		{Text(CPUModel, "", "x"), "CPU Modell"},
+		{Gauge(RAMLoad, "", 51), "RAM Belegung"},
+		{Gauge(RAMUsed, "", 1), "RAM Belegt"},
+		{Gauge(RAMFree, "", 1), "RAM Frei"},
+		{Gauge(RAMTotal, "", 1), "RAM Gesamt"},
+		{Text(RAMType, "", "DDR4"), "RAM Typ"},
+		{Text(GPUSource, "", "x"), "GPU Datenquelle"},
+
+		// The headline values carry no prefix; they are what the tool is for.
+		{Gauge(FPS, "", 143), "FPS"},
+		{Text(Game, "", "x"), "Spiel"},
+		{Text(Resolution, "", "x"), "Auflösung"},
+	} {
+		if got := tc.reading.DisplayName(i18n.DE); got != tc.want {
+			t.Errorf("DisplayName = %q, want %q", got, tc.want)
+		}
+	}
+}
+
+// An entity name reaches dashboards, automation conditions and voice
+// assistants. Switching the settings page to German must not rename any of them.
+func TestTheExportedNameIsAlwaysEnglish(t *testing.T) {
+	for _, reading := range []Reading{
+		Gauge(GPUTemperature, "0", 61),
+		Gauge(DiskFree, "C:", 1),
+		Gauge(CPUClockBase, "", 3394),
+		Gauge(RAMUsed, "", 1),
+		Gauge(FPS, "", 143),
+	} {
+		if got, want := reading.ExportName(), reading.DisplayName(i18n.EN); got != want {
+			t.Errorf("ExportName = %q, want the English name %q", got, want)
+		}
+		// The German interface still translates; only the export is fixed.
+		if reading.Def.Name.DE != reading.Def.Name.EN &&
+			reading.DisplayName(i18n.DE) == reading.DisplayName(i18n.EN) {
+			t.Errorf("%s does not translate in the interface at all", reading.Def.ID)
+		}
+	}
+
+	if got := (Gauge(GPUTemperature, "0", 61)).ExportName(); got != "GPU 0 Temperature" {
+		t.Errorf("ExportName = %q, want %q", got, "GPU 0 Temperature")
 	}
 }
 

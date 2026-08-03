@@ -172,19 +172,19 @@ var (
 		EntityCategory: "diagnostic", Icon: "mdi:memory",
 	}
 	RAMClock = Definition{
-		ID: "ram_clock", Name: i18n.Text{DE: "RAM-Takt", EN: "Memory clock"},
+		ID: "ram_clock", Name: i18n.Text{DE: "Takt", EN: "Clock"},
 		Unit: "MT/s", Kind: KindGauge, Group: GroupRAM,
 		Prom: "rig_memory_clock_megatransfers", Help: "Speed the memory modules are running at",
 		EntityCategory: "diagnostic", Icon: "mdi:speedometer-medium",
 	}
 	RAMClockMax = Definition{
-		ID: "ram_clock_max", Name: i18n.Text{DE: "RAM-Takt max.", EN: "Memory clock max."},
+		ID: "ram_clock_max", Name: i18n.Text{DE: "Takt max.", EN: "Clock max."},
 		Unit: "MT/s", Kind: KindGauge, Group: GroupRAM,
 		Prom: "rig_memory_clock_max_megatransfers", Help: "Speed the memory modules are rated for",
 		EntityCategory: "diagnostic", Icon: "mdi:speedometer",
 	}
 	RAMType = Definition{
-		ID: "ram_type", Name: i18n.Text{DE: "RAM-Typ", EN: "Memory type"},
+		ID: "ram_type", Name: i18n.Text{DE: "Typ", EN: "Type"},
 		Kind: KindText, Group: GroupRAM,
 		Prom: "rig_memory_type_info", PromLabel: "type", Help: "Memory technology, e.g. DDR5",
 		EntityCategory: "diagnostic", Icon: "mdi:memory",
@@ -353,7 +353,7 @@ var (
 		StateClass: "measurement", NoEntity: true,
 	}
 	GPUSource = Definition{
-		ID: "gpu_source", Name: i18n.Text{DE: "GPU-Datenquelle", EN: "GPU data source"},
+		ID: "gpu_source", Name: i18n.Text{DE: "Datenquelle", EN: "Data source"},
 		Kind: KindText, Group: GroupGPU,
 		Prom: "rig_gpu_source_info", PromLabel: "source",
 		Help:           "Where the graphics telemetry came from",
@@ -364,19 +364,19 @@ var (
 // CPU: detail beyond the overall load, which lives in the core group.
 var (
 	CPUModel = Definition{
-		ID: "cpu_model", Name: i18n.Text{DE: "CPU-Modell", EN: "CPU model"},
+		ID: "cpu_model", Name: i18n.Text{DE: "Modell", EN: "Model"},
 		Kind: KindText, Group: GroupCPU,
 		Prom: "rig_cpu_info", PromLabel: "model", Help: "Processor model name",
 		EntityCategory: "diagnostic", Icon: "mdi:chip",
 	}
 	CPUCoresPhysical = Definition{
-		ID: "cpu_cores", Name: i18n.Text{DE: "CPU-Kerne", EN: "CPU cores"},
+		ID: "cpu_cores", Name: i18n.Text{DE: "Kerne", EN: "Cores"},
 		Kind: KindGauge, Group: GroupCPU,
 		Prom: "rig_cpu_cores", Help: "Number of physical processor cores",
 		EntityCategory: "diagnostic", Icon: "mdi:chip",
 	}
 	CPUThreads = Definition{
-		ID: "cpu_threads", Name: i18n.Text{DE: "CPU-Threads", EN: "CPU threads"},
+		ID: "cpu_threads", Name: i18n.Text{DE: "Threads", EN: "Threads"},
 		Kind: KindGauge, Group: GroupCPU,
 		Prom: "rig_cpu_threads", Help: "Number of logical processors",
 		EntityCategory: "diagnostic", Icon: "mdi:chip",
@@ -409,20 +409,20 @@ var (
 	// something to be read out of the model string. An automation that wants to
 	// branch on the vendor should not have to match on substrings.
 	CPUVendor = Definition{
-		ID: "cpu_vendor", Name: i18n.Text{DE: "CPU-Hersteller", EN: "CPU vendor"},
+		ID: "cpu_vendor", Name: i18n.Text{DE: "Hersteller", EN: "Vendor"},
 		Kind: KindText, Group: GroupCPU,
 		Prom: "rig_cpu_vendor_info", PromLabel: "vendor", Help: "Processor manufacturer",
 		EntityCategory: "diagnostic", Icon: "mdi:factory",
 	}
 	CPUPower = Definition{
-		ID: "cpu_power", Name: i18n.Text{DE: "CPU-Leistung", EN: "CPU power"},
+		ID: "cpu_power", Name: i18n.Text{DE: "Leistung", EN: "Power"},
 		Unit: "W", Kind: KindGauge, Precision: 1,
 		Group: GroupCPU,
 		Prom:  "rig_cpu_power_watts", Help: "Processor package power draw, when a source provides it",
 		DeviceClass: "power", StateClass: "measurement", Icon: "mdi:cpu-64-bit",
 	}
 	CPUTemperature = Definition{
-		ID: "cpu_temperature", Name: i18n.Text{DE: "CPU-Temperatur", EN: "CPU temperature"},
+		ID: "cpu_temperature", Name: i18n.Text{DE: "Temperatur", EN: "Temperature"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
 		Group: GroupCPU,
 		Prom:  "rig_cpu_temperature_celsius", Help: "Processor temperature, when a source provides it",

@@ -73,9 +73,11 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 	key := r.Key()
 
 	payload := discoveryPayload{
-		// The entity id is language independent; only the name a person reads
-		// follows the setting, so switching language renames nothing.
-		Name:                r.DisplayName(cfg.Lang()),
+		// Neither the id nor the name follows the interface language. Both
+		// reach dashboards, automation conditions and voice assistants, and
+		// renaming those because somebody switched the settings page to German
+		// is not a thing an integration may do.
+		Name:                r.ExportName(),
 		DefaultEntityID:     r.Def.Component() + "." + cfg.ObjectID(key),
 		ObjectID:            cfg.ObjectID(key),
 		UniqueID:            cfg.UniqueID(key),
