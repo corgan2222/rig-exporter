@@ -155,6 +155,29 @@ mit. Die treiberfreien Wege sind nachgemessen und alle tot: ACPI-Thermalzonen
 eine SMBIOS-Struktur, die Consumer-Boards nicht schreiben) und
 `CallNtPowerInformation` (hat kein Temperaturfeld).
 
+### Wer welchen Wert geliefert hat
+
+Die Anzeigeseite hat ein Panel **Datenquellen**, und `-probe` denselben
+Abschnitt: welche Quelle, wie viele Werte, und welche. Auf dem
+Entwicklungsrechner etwa Windows 79, MSI Afterburner 14, NVIDIA NVML 13,
+RivaTuner 7.
+
+Das entsteht nicht aus einer Tabelle, sondern jede Messung wird beim Hinzufügen
+gestempelt. Eine Tabelle beschriebe den gedachten Aufbau; so beschrieben wird
+der Rechner vor dem Nutzer, einschließlich des Falls, dass ein Programm läuft
+und trotzdem nichts beiträgt. Quellen mit mehreren Lieferanten korrigieren den
+Stempel selbst — deshalb trennt die Grafikgruppe zwischen Afterburner und NVML,
+und die CPU-Temperatur erscheint als Afterburner-Wert, obwohl der Rest der
+Prozessorquelle aus Windows kommt.
+
+Die Frage, die das Panel beantwortet, ist: **was verliere ich, wenn ich dieses
+Programm schließe.**
+
+Die Herkunft erreicht **keinen** Export. Sie steht nicht in JSON, Prometheus
+oder InfluxDB, denn sonst könnte ein Dashboard davon abhängen, welche
+Hilfsprogramme auf einer Maschine zufällig laufen — das Gegenteil der Zusage,
+dass derselbe Messwert aus jeder Quelle gleich aussieht.
+
 ### Was auf anderen Maschinen anders ist
 
 Getestet wird auf einem Rechner: Windows 10, deutsch, Ryzen, zwei
