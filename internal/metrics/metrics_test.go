@@ -189,6 +189,29 @@ func TestNonNumericInstancesKeepTextOrder(t *testing.T) {
 	}
 }
 
+// Two measurements shown side by side under one heading have to be tellable
+// apart by their labels alone. "Frei 68882 MB" above "Frei 52.6 %" is one row
+// too many named Frei — the unit is not the label, and in Home Assistant the
+// entity name is all a person sees.
+func TestNoTwoMeasurementsOnAPanelShareAName(t *testing.T) {
+	for _, lang := range []i18n.Lang{i18n.DE, i18n.EN} {
+		seen := map[Group]map[string]string{}
+		for _, def := range All {
+			panel := def.PanelGroup()
+			if seen[panel] == nil {
+				seen[panel] = map[string]string{}
+			}
+			name := def.Name.In(lang)
+			if other, taken := seen[panel][name]; taken {
+				t.Errorf("%s panel, %s: %q and %q are both called %q",
+					panel, lang, other, def.ID, name)
+				continue
+			}
+			seen[panel][name] = def.ID
+		}
+	}
+}
+
 func TestSlug(t *testing.T) {
 	cases := map[string]string{
 		"C:":         "c",
