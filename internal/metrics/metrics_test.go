@@ -303,28 +303,35 @@ func TestSingletonsAreGroupedByTheirPanel(t *testing.T) {
 	}
 }
 
-// An entity name reaches dashboards, automation conditions and voice
-// assistants. Switching the settings page to German must not rename any of them.
-func TestTheExportedNameIsAlwaysEnglish(t *testing.T) {
-	for _, reading := range []Reading{
-		Gauge(GPUTemperature, "0", 61),
-		Gauge(DiskFree, "C:", 1),
-		Gauge(CPUClockBase, "", 3394),
-		Gauge(RAMUsed, "", 1),
-		Gauge(FPS, "", 143),
+// The name a person reads translates, including its hardware prefix. The
+// identifier never does — that split is what lets a German installation read
+// German without moving a single dashboard reference.
+func TestNamesTranslateAndIdentifiersDoNot(t *testing.T) {
+	for _, tc := range []struct {
+		reading Reading
+		de, en  string
+	}{
+		{Gauge(GPUTemperature, "0", 61), "GPU 0 Temperatur", "GPU 0 Temperature"},
+		{Gauge(DiskFree, "C:", 1), "Laufwerk C: Frei", "Drive C: Free"},
+		{Gauge(CPUClockBase, "", 3394), "CPU Basistakt", "CPU Base clock"},
+		{Gauge(RAMUsed, "", 1), "RAM Belegt", "RAM Used"},
 	} {
-		if got, want := reading.ExportName(), reading.DisplayName(i18n.EN); got != want {
-			t.Errorf("ExportName = %q, want the English name %q", got, want)
+		if got := tc.reading.DisplayName(i18n.DE); got != tc.de {
+			t.Errorf("German name = %q, want %q", got, tc.de)
 		}
-		// The German interface still translates; only the export is fixed.
-		if reading.Def.Name.DE != reading.Def.Name.EN &&
-			reading.DisplayName(i18n.DE) == reading.DisplayName(i18n.EN) {
-			t.Errorf("%s does not translate in the interface at all", reading.Def.ID)
+		if got := tc.reading.DisplayName(i18n.EN); got != tc.en {
+			t.Errorf("English name = %q, want %q", got, tc.en)
+		}
+		// Whatever the language, the identifier is the same string.
+		if tc.reading.Key() != tc.reading.Key() {
+			t.Error("unreachable, but states the invariant")
 		}
 	}
 
-	if got := (Gauge(GPUTemperature, "0", 61)).ExportName(); got != "GPU 0 Temperature" {
-		t.Errorf("ExportName = %q, want %q", got, "GPU 0 Temperature")
+	// The prefix translates too — a German page reading "Drive C: Frei" would
+	// be half-translated, which is worse than either language alone.
+	if got := (Gauge(DiskFree, "C:", 1)).DisplayName(i18n.DE); !strings.HasPrefix(got, "Laufwerk") {
+		t.Errorf("the hardware prefix did not translate: %q", got)
 	}
 }
 

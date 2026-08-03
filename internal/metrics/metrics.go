@@ -341,18 +341,6 @@ func (r Reading) DisplayName(lang i18n.Lang) string {
 	return name
 }
 
-// ExportName is the name published to Home Assistant, and it is always English.
-//
-// Deliberately not translated. An entity name reaches dashboards, automation
-// conditions and voice assistants, and a name that moved when somebody changed
-// the interface language would take all of those with it. The same reasoning
-// already keeps identifiers and reported values language independent; the name
-// is the last thing a consumer sees, so it follows.
-//
-// Only the local interface and the tray translate, because nothing outside this
-// machine reads them.
-func (r Reading) ExportName() string { return r.DisplayName(i18n.EN) }
-
 // Value returns the reading in the form the JSON document uses.
 func (r Reading) Value() any {
 	switch r.Def.Kind {
