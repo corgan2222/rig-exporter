@@ -3,6 +3,7 @@ package metrics
 import (
 	"encoding/json"
 	"math"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +203,69 @@ func TestEveryPreviousIdentifierIsStillDerivable(t *testing.T) {
 		for _, legacy := range reading.LegacyKeys() {
 			if legacy == reading.Key() {
 				t.Errorf("%s would retire its own current name %q", reading.Def.ID, legacy)
+			}
+		}
+	}
+}
+
+// Home Assistant sorts a device page alphabetically by entity name, so the
+// hardware has to come first — otherwise one graphics card's readings are
+// scattered among every other measurement that starts the same way.
+func TestTheHardwareLeadsTheDisplayName(t *testing.T) {
+	for _, tc := range []struct {
+		reading Reading
+		want    string
+	}{
+		{Gauge(GPUTemperature, "0", 61), "GPU 0 Temperatur"},
+		{Gauge(GPUFan, "0", 30), "GPU 0 Lüfter"},
+		{Gauge(GPUTemperature, "1", 55), "GPU 1 Temperatur"},
+		{Gauge(DiskFree, "C:", 1), "Laufwerk C: Frei"},
+		{Gauge(DiskBusy, "C:", 1), "Laufwerk C: Auslastung"},
+		{Gauge(CPUCoreLoad, "5", 1), "Kern 5 Last"},
+
+		// The adapter already names itself; "NIC Ethernet 2" would only add noise.
+		{Gauge(NetRx, "Ethernet 2", 1), "Ethernet 2 Empfangen"},
+
+		// Nothing to group, nothing to prefix.
+		{Gauge(FPS, "", 1), "FPS"},
+	} {
+		if got := tc.reading.DisplayName(i18n.DE); got != tc.want {
+			t.Errorf("DisplayName = %q, want %q", got, tc.want)
+		}
+	}
+
+	// Sorting one card's readings must keep them adjacent.
+	names := []string{
+		Gauge(GPUTemperature, "0", 1).DisplayName(i18n.DE),
+		Gauge(GPUTemperature, "1", 1).DisplayName(i18n.DE),
+		Gauge(GPUFan, "0", 1).DisplayName(i18n.DE),
+		Gauge(GPUFan, "1", 1).DisplayName(i18n.DE),
+	}
+	sort.Strings(names)
+	if !strings.HasPrefix(names[0], "GPU 0") || !strings.HasPrefix(names[1], "GPU 0") {
+		t.Errorf("sorted names do not group by card: %v", names)
+	}
+}
+
+// The group name must not appear twice. "GPU 0 GPU-Temperatur" is what happens
+// when the device label and the measurement name both claim it.
+func TestTheDisplayNameNeverRepeatsTheGroup(t *testing.T) {
+	for _, def := range All {
+		if def.InstanceLabel == "" {
+			continue
+		}
+		label, ok := deviceLabels[def.InstanceLabel]
+		if !ok {
+			continue
+		}
+		for _, lang := range []i18n.Lang{i18n.DE, i18n.EN} {
+			prefix := label.In(lang)
+			if prefix == "" {
+				continue
+			}
+			if strings.HasPrefix(def.Name.In(lang), prefix) {
+				t.Errorf("%s (%s) is called %q, which repeats the device label %q",
+					def.ID, lang, def.Name.In(lang), prefix)
 			}
 		}
 	}

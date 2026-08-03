@@ -278,14 +278,39 @@ func (r Reading) LegacyKeys() []string {
 	return out
 }
 
+// deviceLabels name the piece of hardware an instanced reading belongs to.
+//
+// An empty label means the instance already names the thing: a network adapter
+// is called "Ethernet 2", and "NIC Ethernet 2" would only add noise.
+var deviceLabels = map[string]i18n.Text{
+	"gpu":  {DE: "GPU", EN: "GPU"},
+	"disk": {DE: "Laufwerk", EN: "Drive"},
+	"core": {DE: "Kern", EN: "Core"},
+	"nic":  {},
+}
+
 // DisplayName is the Home Assistant entity name, which the device name is
 // prefixed to by Home Assistant itself.
+//
+// The hardware comes first, and that is the whole point. Home Assistant sorts a
+// device page alphabetically by this name, so "GPU 0 Temperatur" and "GPU 0
+// Lüfter" end up next to each other while "GPU-Temperatur 0" and "GPU-Lüfter 0"
+// are scattered among every other measurement that happens to start the same
+// way. On a device with a hundred entities that is the difference between a
+// list you can read and one you cannot.
 func (r Reading) DisplayName(lang i18n.Lang) string {
 	name := r.Def.Name.In(lang)
 	if r.Instance == "" {
 		return name
 	}
-	return name + " " + r.Instance
+
+	hardware := r.Instance
+	if label, ok := deviceLabels[r.Def.InstanceLabel]; ok {
+		if prefix := label.In(lang); prefix != "" {
+			hardware = prefix + " " + r.Instance
+		}
+	}
+	return hardware + " " + name
 }
 
 // Value returns the reading in the form the JSON document uses.
