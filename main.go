@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -18,6 +19,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/applog"
 	"github.com/corgan/rig-exporter/internal/collector"
 	"github.com/corgan/rig-exporter/internal/config"
+	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan/rig-exporter/internal/i18n"
 	"github.com/corgan/rig-exporter/internal/metrics"
 	"github.com/corgan/rig-exporter/internal/rtss"
@@ -230,6 +232,7 @@ func run(configPath string) error {
 	// machine without RTSS is a perfectly good machine for everything else this
 	// tool does, and nothing it does should wait behind a dialog.
 	warnIfRTSSMissing(application, log, cfg.Lang(), created)
+	offerPawnIO(log, cfg.Lang(), created)
 
 	trayUI := tray.New(application, log, tray.Options{
 		SettingsURL: settings.URL,
@@ -288,6 +291,60 @@ func warnIfRTSSMissing(application *app.App, log *slog.Logger, lang i18n.Lang, f
 		if err := winapi.OpenURL(config.RTSSDownloadURL); err != nil {
 			log.Error("could not open the RTSS download page", "error", err)
 		}
+	}
+}
+
+// offerPawnIO tells the user, once, what a kernel-backed sensor source would
+// add, and fetches its installer if they want it.
+//
+// Only on the first run, and only when PawnIO is absent. A machine that has it
+// needs no advice, and repeating the offer at every start would be nagging
+// about a driver installation, which is the last thing to nag anyone about.
+//
+// The choice is genuinely the user's: it changes how their machine is set up,
+// it needs administrator rights afterwards, and there is a driver-free
+// alternative that the dialog names rather than hides.
+func offerPawnIO(log *slog.Logger, lang i18n.Lang, firstRun bool) {
+	state := pawnio.Detect()
+	log.Info("pawnio", "availability", state.Availability,
+		"version", state.Version, "detail", state.Detail)
+
+	if !firstRun || state.Installed() {
+		return
+	}
+	if winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.pawnioOffer"),
+		winapi.MBYesNo|winapi.MBIconInformation|winapi.MBSetForeground) != winapi.IDYes {
+		return
+	}
+
+	dir, err := config.Dir()
+	if err != nil {
+		log.Error("no directory to download the PawnIO installer into", "error", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	path, err := app.DownloadPawnIOSetup(ctx, dir)
+	if err != nil {
+		log.Error("could not download the PawnIO installer", "error", err)
+		winapi.MessageBox(config.AppName,
+			fmt.Sprintf(i18n.T(lang, "dialog.pawnioFailed"), err, app.PawnIOSetupURL),
+			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
+		return
+	}
+	log.Info("downloaded the PawnIO installer", "path", path)
+
+	// Told first, then handed to the shell. Opening it through Windows means
+	// the signature check, SmartScreen and the elevation prompt all happen
+	// where the user can see them — this program never runs it itself.
+	winapi.MessageBox(config.AppName,
+		fmt.Sprintf(i18n.T(lang, "dialog.pawnioDownloaded"), path),
+		winapi.MBOK|winapi.MBIconInformation|winapi.MBSetForeground)
+
+	if err := winapi.OpenURL(path); err != nil {
+		log.Error("could not open the PawnIO installer", "error", err, "path", path)
 	}
 }
 

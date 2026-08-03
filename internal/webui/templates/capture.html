@@ -42,6 +42,12 @@
       <p class="note indent">{{ .T "settings.sensors.ramHint" }}</p>
 
       <div class="check">
+        <input type="checkbox" name="pawnio_enabled" id="pawnio_enabled" value="1" {{ if .Config.PawnIOEnabled }}checked{{ end }}>
+        <label for="pawnio_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.pawnio" }}</span></label>
+      </div>
+      <p class="note indent">{{ .PawnIOStatus }}</p>
+
+      <div class="check">
         <input type="checkbox" name="disk_enabled" id="disk_enabled" value="1" {{ if .Config.DiskEnabled }}checked{{ end }}>
         <label for="disk_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.disk" }}</span></label>
       </div>

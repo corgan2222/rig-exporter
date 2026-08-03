@@ -78,13 +78,20 @@ type Config struct {
 
 	// Sensor groups. Each is collected only when switched on, and drops out
 	// silently when the machine cannot supply it.
-	GPUEnabled       bool     `json:"gpu_enabled"`
-	CPUDetailEnabled bool     `json:"cpu_detail_enabled"`
-	CPUPerCore       bool     `json:"cpu_per_core"`
-	RAMDetailEnabled bool     `json:"ram_detail_enabled"`
-	DiskEnabled      bool     `json:"disk_enabled"`
-	DiskInclude      []string `json:"disk_include"`
-	NetEnabled       bool     `json:"net_enabled"`
+	GPUEnabled       bool `json:"gpu_enabled"`
+	CPUDetailEnabled bool `json:"cpu_detail_enabled"`
+	CPUPerCore       bool `json:"cpu_per_core"`
+	RAMDetailEnabled bool `json:"ram_detail_enabled"`
+	// PawnIOEnabled opts in to the kernel-backed sensor source.
+	//
+	// Off by default and deliberately so: PawnIO's device is reachable only by
+	// administrators, so switching this on means running rig-exporter elevated.
+	// That is a decision about the machine, not a setting, and nobody should
+	// arrive at it by accident.
+	PawnIOEnabled bool     `json:"pawnio_enabled"`
+	DiskEnabled   bool     `json:"disk_enabled"`
+	DiskInclude   []string `json:"disk_include"`
+	NetEnabled    bool     `json:"net_enabled"`
 	// NetAllAdapters reports every connected interface instead of only the
 	// one carrying the default route.
 	NetAllAdapters bool `json:"net_all_adapters"`
@@ -155,6 +162,7 @@ func Defaults() Config {
 		CPUDetailEnabled: true,
 		CPUPerCore:       false, // one entity per thread is a lot for a 16-core CPU
 		RAMDetailEnabled: true,
+		PawnIOEnabled:    false, // needs elevation; the user has to choose it
 		DiskEnabled:      true,
 		NetEnabled:       true,
 		PingEnabled:      true,

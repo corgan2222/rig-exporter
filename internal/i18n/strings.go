@@ -269,6 +269,87 @@ var catalogue = map[string]Text{
 			"administrator, or start RTSS without elevation.\n\n" +
 			"Every other reading keeps being reported.",
 	},
+	"settings.sensors.pawnio": {
+		DE: "PawnIO als Sensorquelle nutzen",
+		EN: "Use PawnIO as a sensor source",
+	},
+	"settings.sensors.pawnioReady": {
+		DE: "PawnIO %s erkannt und nutzbar – liefert Prozessortemperatur und -leistung.",
+		EN: "PawnIO %s detected and usable — supplies processor temperature and power.",
+	},
+	"settings.sensors.pawnioNeedsAdmin": {
+		DE: "PawnIO %s ist installiert, aber nur mit Administratorrechten erreichbar. " +
+			"rig-exporter läuft ohne – als Administrator neu starten, um es zu nutzen.",
+		EN: "PawnIO %s is installed but reachable only with administrator rights. " +
+			"rig-exporter is running without them — restart it as administrator to use it.",
+	},
+	"settings.sensors.pawnioBroken": {
+		DE: "PawnIO %s ist installiert, der Treiber antwortet aber nicht. " +
+			"Möglicherweise gestoppt oder von Windows blockiert.",
+		EN: "PawnIO %s is installed but its driver does not answer. " +
+			"It may be stopped or blocked by Windows.",
+	},
+	"settings.sensors.pawnioMissing": {
+		DE: "PawnIO ist nicht installiert. Es liefert die Prozessortemperatur auf " +
+			"Rechnern ohne MSI Afterburner, installiert dafür aber einen Kerneltreiber " +
+			"und verlangt, dass rig-exporter mit Administratorrechten läuft.",
+		EN: "PawnIO is not installed. It supplies the processor temperature on machines " +
+			"without MSI Afterburner, but installs a kernel driver and requires " +
+			"rig-exporter to run as administrator.",
+	},
+
+	// PawnIO. The wording says out loud that a kernel driver is involved and
+	// that administrator rights are needed afterwards. Someone agreeing to this
+	// is agreeing to change how their machine is set up, and burying that in
+	// "enables additional sensors" would be dishonest.
+	"dialog.pawnioOffer": {
+		DE: "Für die Prozessortemperatur fehlt auf diesem Rechner eine Quelle.\n\n" +
+			"Windows gibt sie nicht her: AMD liefert sie über den SMU, Intel über ein " +
+			"Modellregister, und beides erreicht nur Code im Systemkern.\n\n" +
+			"PawnIO ist dafür der sichere Weg – ein signierter Treiber, der geprüfte " +
+			"Bausteine ausführt, statt wie ältere Werkzeuge freien Registerzugriff zu " +
+			"öffnen. Damit lesbar wären:\n\n" +
+			"    • Prozessortemperatur, auch ohne MSI Afterburner\n" +
+			"    • Leistungsaufnahme des Prozessors in Watt\n\n" +
+			"Zu bedenken: PawnIO installiert einen Kerneltreiber, die Installation " +
+			"verlangt Administratorrechte, und rig-exporter muss anschließend selbst mit " +
+			"Administratorrechten laufen, um darauf zugreifen zu dürfen.\n\n" +
+			"Alternative ohne Treiber: MSI Afterburner liefert dieselbe Temperatur und " +
+			"zusätzlich die Werte der Grafikkarte.\n\n" +
+			"Installationsprogramm von PawnIO jetzt herunterladen?",
+		EN: "This machine has no source for the processor temperature.\n\n" +
+			"Windows does not provide one: AMD reports it through the SMU and Intel " +
+			"through a model-specific register, and both are reachable only from kernel " +
+			"code.\n\n" +
+			"PawnIO is the safe way in — a signed driver that runs verified modules, " +
+			"rather than opening up raw register access the way older tools do. It would " +
+			"make available:\n\n" +
+			"    • Processor temperature, with no MSI Afterburner needed\n" +
+			"    • Processor power draw in watts\n\n" +
+			"Worth knowing: PawnIO installs a kernel driver, installing it needs " +
+			"administrator rights, and rig-exporter itself must then run as " +
+			"administrator to be allowed to use it.\n\n" +
+			"Driver-free alternative: MSI Afterburner reports the same temperature, plus " +
+			"everything about the graphics card.\n\n" +
+			"Download the PawnIO installer now?",
+	},
+	"dialog.pawnioDownloaded": {
+		DE: "Das Installationsprogramm wurde heruntergeladen:\n\n%s\n\n" +
+			"Es wird jetzt geöffnet. Windows prüft dabei Signatur und Herkunft und fragt " +
+			"nach Administratorrechten – rig-exporter führt es nicht selbst aus.\n\n" +
+			"Nach der Installation muss rig-exporter mit Administratorrechten laufen und " +
+			"PawnIO in den Einstellungen eingeschaltet werden.",
+		EN: "The installer has been downloaded:\n\n%s\n\n" +
+			"It will be opened now. Windows checks its signature and origin and asks for " +
+			"administrator rights — rig-exporter does not run it itself.\n\n" +
+			"After installing, rig-exporter has to run as administrator and PawnIO has to " +
+			"be switched on in the settings.",
+	},
+	"dialog.pawnioFailed": {
+		DE: "Das Installationsprogramm konnte nicht heruntergeladen werden.\n\n%s\n\n" +
+			"Du kannst es selbst holen: %s",
+		EN: "The installer could not be downloaded.\n\n%s\n\nYou can fetch it yourself: %s",
+	},
 	"dialog.rtssNotRunning": {
 		DE: "RivaTuner Statistics Server (RTSS) ist installiert, läuft aber nicht.\n\n" +
 			"Ohne laufendes RTSS können keine FPS gelesen werden. Alle übrigen Messwerte " +

@@ -4,6 +4,7 @@ package webui
 
 import (
 	"encoding/json"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -144,6 +145,48 @@ func TestAnAbsentCheckboxWithinTheBlockMeansOff(t *testing.T) {
 	}
 	if !cfg.DiskEnabled {
 		t.Error("disks were switched off although their box was submitted")
+	}
+}
+
+// The capture page has to say what PawnIO can do here, whatever the answer is.
+// "Install it" and "restart as administrator" are different problems with
+// different fixes, and giving someone the wrong one wastes their afternoon.
+func TestTheCapturePageReportsWhatPawnIOCanDo(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	code, body := get(t, ts.URL+"/capture")
+	if code != http.StatusOK {
+		t.Fatalf("GET /capture = %d", code)
+	}
+	if !strings.Contains(body, `name="pawnio_enabled"`) {
+		t.Error("no way to switch PawnIO on")
+	}
+
+	// Whatever this machine's state, one of the four sentences must be there,
+	// and it must not be the empty string.
+	note := pawnIOStatus(i18n.DE)
+	if strings.TrimSpace(note) == "" {
+		t.Fatal("pawnIOStatus said nothing")
+	}
+	if !strings.Contains(body, template.HTMLEscapeString(note)) {
+		t.Errorf("the page does not carry the PawnIO note %q", note)
+	}
+	t.Logf("PawnIO note on this machine: %s", note)
+}
+
+// Switching PawnIO on must not be a side effect of saving anything else: it
+// means running the whole program elevated.
+func TestPawnIOStaysOffUnlessAsked(t *testing.T) {
+	server, ts := newServer(t, nil)
+
+	post(t, ts.URL, "/save/sensors", url.Values{"gpu_enabled": {"1"}})
+	if server.app.Config().PawnIOEnabled {
+		t.Error("PawnIO switched itself on")
+	}
+
+	post(t, ts.URL, "/save/sensors", url.Values{"pawnio_enabled": {"1"}})
+	if !server.app.Config().PawnIOEnabled {
+		t.Error("PawnIO did not switch on when it was asked to")
 	}
 }
 

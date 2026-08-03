@@ -28,6 +28,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/collector"
 	"github.com/corgan/rig-exporter/internal/config"
 	"github.com/corgan/rig-exporter/internal/export/dataserver"
+	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan/rig-exporter/internal/i18n"
 	"github.com/corgan/rig-exporter/internal/metrics"
 	"github.com/corgan/rig-exporter/internal/winapi"
@@ -145,6 +146,11 @@ type pageData struct {
 
 	RTSSDownloadURL string
 	AfterburnerURL  string
+	// PawnIOStatus says in one sentence what PawnIO can do here. It is built
+	// fresh on every render: the user may install it, or restart elevated,
+	// while the page is open, and a stale "not installed" would send them
+	// chasing a problem they already fixed.
+	PawnIOStatus string
 	// RefreshMs is how often the dashboard polls, derived from the configured
 	// read interval so the page moves at the speed the user asked for.
 	RefreshMs int
@@ -197,6 +203,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		Status:          status,
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
+		PawnIOStatus:    pawnIOStatus(lang),
 		RefreshMs:       cfg.PollIntervalMs,
 		Endpoints:       endpointsFor(cfg, lang),
 		MinIntervalMs:   config.MinIntervalMs,
@@ -373,6 +380,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.CPUDetailEnabled = r.FormValue("cpu_detail_enabled") != ""
 		cfg.CPUPerCore = r.FormValue("cpu_per_core") != ""
 		cfg.RAMDetailEnabled = r.FormValue("ram_detail_enabled") != ""
+		cfg.PawnIOEnabled = r.FormValue("pawnio_enabled") != ""
 		cfg.DiskEnabled = r.FormValue("disk_enabled") != ""
 		cfg.DiskInclude = splitList(r.FormValue("disk_include"))
 		cfg.NetEnabled = r.FormValue("net_enabled") != ""
@@ -615,6 +623,27 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 		out = append(out, status)
 	}
 	return out
+}
+
+// pawnIOStatus says what PawnIO can do on this machine right now.
+//
+// Four states, four different things for the reader to do, and telling them
+// apart is the entire point: "install it" and "restart as administrator" are
+// not interchangeable advice, and offering either to someone who already has a
+// working setup is worse than saying nothing.
+func pawnIOStatus(lang i18n.Lang) string {
+	state := pawnio.Detect()
+
+	switch state.Availability {
+	case pawnio.Ready:
+		return fmt.Sprintf(i18n.T(lang, "settings.sensors.pawnioReady"), state.Version)
+	case pawnio.NeedsElevation:
+		return fmt.Sprintf(i18n.T(lang, "settings.sensors.pawnioNeedsAdmin"), state.Version)
+	case pawnio.DriverUnavailable:
+		return fmt.Sprintf(i18n.T(lang, "settings.sensors.pawnioBroken"), state.Version)
+	default:
+		return i18n.T(lang, "settings.sensors.pawnioMissing")
+	}
 }
 
 // rowsFor collects one group's readings, ordered so that grouping them by
