@@ -221,7 +221,7 @@ var (
 // GPU: one instance per graphics card, addressed by index.
 var (
 	GPUName = Definition{
-		ID: "gpu_name", Name: i18n.Text{DE: "GPU", EN: "GPU"},
+		ID: "gpu_name", Name: i18n.Text{DE: "Name", EN: "Name"},
 		Kind: KindText, Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_info", PromLabel: "name", Help: "Graphics card model",
 		EntityCategory: "diagnostic", Icon: "mdi:expansion-card",
@@ -229,40 +229,40 @@ var (
 	// GPUVendor is who made the card. Derived from the name rather than asked
 	// of a driver, because the name is the one thing every source supplies.
 	GPUVendor = Definition{
-		ID: "gpu_vendor", Name: i18n.Text{DE: "GPU-Hersteller", EN: "GPU vendor"},
+		ID: "gpu_vendor", Name: i18n.Text{DE: "Hersteller", EN: "Vendor"},
 		Kind: KindText, InstanceLabel: "gpu", Group: GroupGPU,
 		Prom: "rig_gpu_vendor_info", PromLabel: "vendor", Help: "Graphics card manufacturer",
 		EntityCategory: "diagnostic", Icon: "mdi:factory",
 	}
 	GPULoad = Definition{
-		ID: "gpu_load", Name: i18n.Text{DE: "GPU-Auslastung", EN: "GPU load"},
+		ID: "gpu_load", Name: i18n.Text{DE: "Auslastung", EN: "Load"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_percent", Help: "Graphics processor utilisation",
 		StateClass: "measurement", Icon: "mdi:chip",
 	}
 	GPUTemperature = Definition{
-		ID: "gpu_temperature", Name: i18n.Text{DE: "GPU-Temperatur", EN: "GPU temperature"},
+		ID: "gpu_temperature", Name: i18n.Text{DE: "Temperatur", EN: "Temperature"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_temperature_celsius", Help: "Graphics processor temperature",
 		DeviceClass: "temperature", StateClass: "measurement",
 	}
 	GPUHotspot = Definition{
-		ID: "gpu_hotspot", Name: i18n.Text{DE: "GPU-Hotspot", EN: "GPU hotspot"},
+		ID: "gpu_hotspot", Name: i18n.Text{DE: "Hotspot", EN: "Hotspot"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_hotspot_celsius", Help: "Hottest measured point on the graphics processor",
 		DeviceClass: "temperature", StateClass: "measurement",
 	}
 	GPUCoreClock = Definition{
-		ID: "gpu_core_clock", Name: i18n.Text{DE: "GPU-Takt", EN: "GPU clock"},
+		ID: "gpu_core_clock", Name: i18n.Text{DE: "Takt", EN: "Clock"},
 		Unit: "MHz", Kind: KindGauge, Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_core_clock_megahertz", Help: "Graphics processor clock",
 		StateClass: "measurement", Icon: "mdi:speedometer-medium",
 	}
 	GPUMemoryClock = Definition{
-		ID: "gpu_memory_clock", Name: i18n.Text{DE: "GPU-Speichertakt", EN: "GPU memory clock"},
+		ID: "gpu_memory_clock", Name: i18n.Text{DE: "Speichertakt", EN: "Memory clock"},
 		Unit: "MHz", Kind: KindGauge,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_memory_clock_megahertz", Help: "Graphics memory clock",
@@ -290,41 +290,41 @@ var (
 		StateClass: "measurement", Icon: "mdi:memory",
 	}
 	GPUFan = Definition{
-		ID: "gpu_fan", Name: i18n.Text{DE: "GPU-Lüfter", EN: "GPU fan"},
+		ID: "gpu_fan", Name: i18n.Text{DE: "Lüfter", EN: "Fan"},
 		Unit: "%", Kind: KindGauge, Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_fan_percent", Help: "Graphics card fan speed",
 		StateClass: "measurement", Icon: "mdi:fan",
 	}
 	GPUFanRPM = Definition{
-		ID: "gpu_fan_rpm", Name: i18n.Text{DE: "GPU-Lüfterdrehzahl", EN: "GPU fan speed"},
+		ID: "gpu_fan_rpm", Name: i18n.Text{DE: "Lüfterdrehzahl", EN: "Fan speed"},
 		Unit: "rpm", Kind: KindGauge,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_fan_rpm", Help: "Fastest fan on the graphics card, in revolutions per minute",
 		StateClass: "measurement", Icon: "mdi:fan",
 	}
 	GPUPower = Definition{
-		ID: "gpu_power", Name: i18n.Text{DE: "GPU-Leistung", EN: "GPU power"},
+		ID: "gpu_power", Name: i18n.Text{DE: "Leistung", EN: "Power"},
 		Unit: "W", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_power_watts", Help: "Graphics card power draw",
 		DeviceClass: "power", StateClass: "measurement",
 	}
 	GPUPowerLimit = Definition{
-		ID: "gpu_power_limit", Name: i18n.Text{DE: "GPU-Leistungsgrenze", EN: "GPU power limit"},
+		ID: "gpu_power_limit", Name: i18n.Text{DE: "Leistungsgrenze", EN: "Power limit"},
 		Unit: "W", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_power_limit_watts", Help: "Board power limit the card is allowed to draw",
 		DeviceClass: "power", EntityCategory: "diagnostic",
 	}
 	GPUPowerPercent = Definition{
-		ID: "gpu_power_percent", Name: i18n.Text{DE: "GPU-Leistungsgrenze genutzt", EN: "GPU power limit used"},
+		ID: "gpu_power_percent", Name: i18n.Text{DE: "Leistungsgrenze genutzt", EN: "Power limit used"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_power_percent", Help: "Power draw relative to the board power limit",
 		StateClass: "measurement", Icon: "mdi:flash",
 	}
 	GPUVoltage = Definition{
-		ID: "gpu_voltage", Name: i18n.Text{DE: "GPU-Spannung", EN: "GPU voltage"},
+		ID: "gpu_voltage", Name: i18n.Text{DE: "Spannung", EN: "Voltage"},
 		Unit: "mV", Kind: KindGauge,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_voltage_millivolts", Help: "Graphics processor voltage",
@@ -407,7 +407,7 @@ var (
 		DeviceClass: "temperature", StateClass: "measurement",
 	}
 	CPUCoreLoad = Definition{
-		ID: "cpu_core", Name: i18n.Text{DE: "CPU-Kern", EN: "CPU core"},
+		ID: "cpu_core", Name: i18n.Text{DE: "Last", EN: "Load"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupCPU, InstanceLabel: "core",
 		Prom: "rig_cpu_core_percent", Help: "Utilisation of one logical processor",
@@ -418,13 +418,13 @@ var (
 // Disk: one instance per volume, addressed by drive letter.
 var (
 	DiskLabel = Definition{
-		ID: "disk_label", Name: i18n.Text{DE: "Laufwerk", EN: "Drive"},
+		ID: "disk_label", Name: i18n.Text{DE: "Bezeichnung", EN: "Label"},
 		Kind: KindText, Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_info", PromLabel: "label", Help: "Volume label and file system",
 		EntityCategory: "diagnostic", Icon: "mdi:harddisk",
 	}
 	DiskMedia = Definition{
-		ID: "disk_media", Name: i18n.Text{DE: "Laufwerkstyp", EN: "Drive type"},
+		ID: "disk_media", Name: i18n.Text{DE: "Typ", EN: "Type"},
 		Kind: KindText, Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_media_info", PromLabel: "media", Help: "Whether the volume is on an SSD, an HDD or NVMe",
 		EntityCategory: "diagnostic", Icon: "mdi:harddisk",
@@ -505,7 +505,7 @@ var (
 		StateClass: "measurement", Icon: "mdi:gauge",
 	}
 	DiskTemperature = Definition{
-		ID: "disk_temperature", Name: i18n.Text{DE: "Laufwerkstemperatur", EN: "Drive temperature"},
+		ID: "disk_temperature", Name: i18n.Text{DE: "Temperatur", EN: "Temperature"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_temperature_celsius", Help: "Drive temperature, when the drive reports one",

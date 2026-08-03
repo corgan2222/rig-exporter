@@ -90,8 +90,9 @@ func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 	if payload.ValueTemplate != "{{ value_json.diskc_used_percent }}" {
 		t.Errorf("value_template = %q", payload.ValueTemplate)
 	}
-	if payload.Name != "Belegung C:" {
-		t.Errorf("name = %q, want the instance appended", payload.Name)
+	// The hardware leads, so a device page sorts one drive's readings together.
+	if payload.Name != "Laufwerk C: Belegung" {
+		t.Errorf("name = %q, want the hardware first", payload.Name)
 	}
 }
 
