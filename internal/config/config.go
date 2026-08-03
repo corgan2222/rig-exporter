@@ -230,6 +230,17 @@ func Dir() (string, error) {
 	return filepath.Join(base, AppName), nil
 }
 
+// ModuleDir is where fetched PawnIO modules are kept, next to the
+// configuration. An unresolvable config directory yields an empty path, which
+// the module store reports when it fails to read.
+func ModuleDir() string {
+	dir, err := Dir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "modules")
+}
+
 // Path is the full path of config.json.
 func Path() (string, error) {
 	dir, err := Dir()

@@ -12,6 +12,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/hardware/disk"
 	"github.com/corgan/rig-exporter/internal/hardware/gpu"
 	hwnet "github.com/corgan/rig-exporter/internal/hardware/net"
+	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan/rig-exporter/internal/hardware/ram"
 	"github.com/corgan/rig-exporter/internal/rtss"
 	"github.com/corgan/rig-exporter/internal/sysinfo"
@@ -37,6 +38,13 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 		s.sources = append(s.sources, gpu.New())
 	}
 	if cfg.CPUDetailEnabled {
+		// Before the ordinary processor source, so its readings win: it goes
+		// to the register the vendor publishes, while the fallback reads
+		// whatever another program happened to put in shared memory.
+		if cfg.PawnIOEnabled {
+			s.sources = append(s.sources, pawnio.NewSource(
+				pawnio.NewModuleStore(config.ModuleDir()), log))
+		}
 		s.sources = append(s.sources, cpu.New(cfg.CPUPerCore))
 	}
 	if cfg.RAMDetailEnabled {

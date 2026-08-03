@@ -8,6 +8,7 @@ cpu_load_1               -          gauge  prec=2 group=cpu   panel=cpu   prom=r
 cpu_load_15              -          gauge  prec=2 group=cpu   panel=cpu   prom=rig_cpu_load15
 cpu_load_5               -          gauge  prec=2 group=cpu   panel=cpu   prom=rig_cpu_load5
 cpu_model                -          text   prec=0 group=cpu   panel=cpu   prom=rig_cpu_info
+cpu_power                W          gauge  prec=1 group=cpu   panel=cpu   prom=rig_cpu_power_watts
 cpu_temperature          °C         gauge  prec=1 group=cpu   panel=cpu   prom=rig_cpu_temperature_celsius
 cpu_threads              -          gauge  prec=0 group=cpu   panel=cpu   prom=rig_cpu_threads
 disk_busy                %          gauge  prec=1 group=disk  panel=disk  prom=rig_disk_busy_percent
