@@ -122,7 +122,7 @@ var (
 		StateClass: "measurement", Icon: "mdi:memory",
 	}
 	RAMFreePercent = Definition{
-		ID: "ram_free_percent", Name: i18n.Text{DE: "Frei", EN: "Free"},
+		ID: "ram_free_percent", Name: i18n.Text{DE: "Frei %", EN: "Free %"},
 		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupRAM,
 		Prom: "rig_memory_free_percent", Help: "Share of physical memory available",
 		StateClass: "measurement", Icon: "mdi:chart-donut",
@@ -414,7 +414,7 @@ var (
 		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	DiskFreePercent = Definition{
-		ID: "disk_free_percent", Name: i18n.Text{DE: "Frei", EN: "Free"},
+		ID: "disk_free_percent", Name: i18n.Text{DE: "Frei %", EN: "Free %"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk, InstanceLabel: "disk",
 		Prom: "rig_disk_free_percent", Help: "Share of the volume available",
