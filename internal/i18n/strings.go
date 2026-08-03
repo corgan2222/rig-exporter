@@ -273,9 +273,16 @@ var catalogue = map[string]Text{
 		DE: "PawnIO als Sensorquelle nutzen",
 		EN: "Use PawnIO as a sensor source",
 	},
+	// Says what is true right now, not what the feature is for. The reading
+	// path still needs a module, so promising temperature here would be a
+	// promise the program does not keep — and a status line that overstates is
+	// worse than none, because it sends people looking for a fault that is
+	// really an unfinished feature.
 	"settings.sensors.pawnioReady": {
-		DE: "PawnIO %s erkannt und nutzbar – liefert Prozessortemperatur und -leistung.",
-		EN: "PawnIO %s detected and usable — supplies processor temperature and power.",
+		DE: "PawnIO %s erkannt, Zugriff möglich. Für Messwerte fehlt noch das " +
+			"Hardwaremodul – wird beim Einschalten geladen.",
+		EN: "PawnIO %s detected, access granted. Readings still need the hardware " +
+			"module, which is fetched when this is switched on.",
 	},
 	"settings.sensors.pawnioNeedsAdmin": {
 		DE: "PawnIO %s ist installiert, aber nur mit Administratorrechten erreichbar. " +
