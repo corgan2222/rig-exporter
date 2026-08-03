@@ -3,11 +3,34 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/corgan/rig-exporter/internal/i18n"
 	"github.com/corgan/rig-exporter/internal/metrics"
 )
+
+// A release number does not move between commits, so it cannot answer "is this
+// the binary that has the fix". The build identifier can.
+func TestTheBuildIdentifierAppearsBehindTheVersion(t *testing.T) {
+	original := Build
+	t.Cleanup(func() { Build = original })
+
+	// A plain `go build` sets nothing, and claiming a build there would be a
+	// number nobody could look up.
+	Build = ""
+	if got := VersionString(); got != Version {
+		t.Errorf("VersionString = %q, want the bare version %q", got, Version)
+	}
+
+	Build = "247.a1b2c3d"
+	if got, want := VersionString(), Version+"+247.a1b2c3d"; got != want {
+		t.Errorf("VersionString = %q, want %q", got, want)
+	}
+	if !strings.HasPrefix(VersionString(), Version) {
+		t.Error("the version no longer leads")
+	}
+}
 
 // An entity id has to read left to right: which program put this here, which
 // machine it came from, which piece of hardware, what is measured. Scanning a

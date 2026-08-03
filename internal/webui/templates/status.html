@@ -129,7 +129,10 @@ function renderExports(exports) {
 // Readings can be listed by measurement — every card's temperature together —
 // or by device, which puts everything about GPU 0 in one block. The choice is
 // a view preference, so it lives in the browser rather than in the config.
-let byDevice = localStorage.getItem("rig.groupBy") === "device";
+// Grouped by device unless the user has said otherwise. Everything about one
+// graphics card or one drive belongs together; the flat list by measurement is
+// the special case, not the default.
+let byDevice = localStorage.getItem("rig.groupBy") !== "metric";
 
 function definitionList(rows, useShortLabels) {
   return "<dl>" + rows.map((r) =>

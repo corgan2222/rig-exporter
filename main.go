@@ -38,6 +38,7 @@ const singleInstanceMutex = `Local\rig-exporter-single-instance`
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	probe := flag.Bool("probe", false, "print one reading in every export format and exit")
+	background := flag.Bool("background", false, "start without opening the interface, as the autostart entry does")
 	configPath := flag.String("config", "", "path to config.json (default: %APPDATA%\\rig-exporter\\config.json)")
 	flag.Parse()
 
@@ -48,7 +49,7 @@ func main() {
 		attached := winapi.AttachConsole()
 
 		if *showVersion {
-			fmt.Printf("%s %s\n", config.AppName, config.Version)
+			fmt.Printf("%s %s\n", config.AppName, config.VersionString())
 			return
 		}
 		if err := runProbeTo(*configPath, attached); err != nil {
@@ -71,7 +72,7 @@ func main() {
 		return
 	}
 
-	if err := run(*configPath); err != nil {
+	if err := run(*configPath, *background); err != nil {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
 		os.Exit(1)
@@ -279,7 +280,7 @@ func loadConfigFor(configPath string) (config.Config, error) {
 	return cfg, nil
 }
 
-func run(configPath string) error {
+func run(configPath string, background bool) error {
 	if configPath == "" {
 		path, err := config.Path()
 		if err != nil {
@@ -342,6 +343,16 @@ func run(configPath string) error {
 	// machine without RTSS is a perfectly good machine for everything else this
 	// tool does, and nothing it does should wait behind a dialog.
 	warnIfRTSSMissing(application, log, cfg.Lang(), created)
+
+	// Somebody who just started this by hand wants to see something. Windows
+	// starting it at logon does not, which is what the flag on the autostart
+	// entry says — an unasked browser window every morning is the fastest way
+	// to have autostart switched off again.
+	if !background && settings.URL() != "" {
+		if err := winapi.OpenURL(settings.URL()); err != nil {
+			log.Warn("could not open the interface", "url", settings.URL(), "error", err)
+		}
+	}
 	offerPawnIO(log, cfg.Lang(), created)
 
 	trayUI := tray.New(application, log, tray.Options{

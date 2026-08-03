@@ -27,7 +27,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.1.0"
+	Version = "1.2.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -38,6 +38,24 @@ const (
 	// AfterburnerURL is shown when no graphics telemetry source is available.
 	AfterburnerURL = "https://www.msi.com/Landing/afterburner/graphics-cards"
 )
+
+// Build identifies the exact build behind a release, and is set at link time by
+// build.ps1 from the commit count and the short hash.
+//
+// A version alone cannot answer "is this the binary that has the fix", because
+// a release number does not move between commits. It stays empty for a plain
+// `go build`, which is honest: that binary was not produced by the build script
+// and there is nothing to identify it by.
+var Build = ""
+
+// VersionString is what a person is shown and what is reported to Home
+// Assistant: the release, and the build behind it when there is one.
+func VersionString() string {
+	if Build == "" {
+		return Version
+	}
+	return Version + "+" + Build
+}
 
 // Config is the complete, user-editable configuration.
 //

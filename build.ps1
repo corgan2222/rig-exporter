@@ -33,8 +33,24 @@ if ($Check) {
     go test ./...
 }
 
+# The build identifier: how many commits deep, and which one. Derived rather
+# than kept in a file, so it cannot drift from the code it describes. A checkout
+# without git, or with uncommitted changes, still builds — the identifier just
+# says less.
+$build = ""
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $count = (git rev-list --count HEAD 2>$null)
+    $hash = (git rev-parse --short HEAD 2>$null)
+    if ($count -and $hash) {
+        $build = "$count.$hash"
+        if ((git status --porcelain 2>$null)) { $build += ".dirty" }
+    }
+}
+
 Write-Host "==> building $Output" -ForegroundColor Cyan
-go build -trimpath -ldflags "-H windowsgui -s -w" -o $Output .
+$ldflags = "-H windowsgui -s -w"
+if ($build) { $ldflags += " -X github.com/corgan/rig-exporter/internal/config.Build=$build" }
+go build -trimpath -ldflags $ldflags -o $Output .
 
 $size = [math]::Round((Get-Item $Output).Length / 1MB, 1)
 Write-Host "built $Output ($size MB)" -ForegroundColor Green
