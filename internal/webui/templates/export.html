@@ -7,6 +7,7 @@
     <span class="label">{{ .T "settings.jumpTo" }}</span>
     <a href="#mqtt">{{ .T "settings.mqtt.nav" }}</a>
     <a href="#ha">{{ .T "settings.ha.nav" }}</a>
+    <a href="#recorder">{{ .T "settings.recorder.nav" }}</a>
     <a href="#data">{{ .T "settings.data.nav" }}</a>
     <a href="#influx">{{ .T "settings.influx.nav" }}</a>
     <a href="#app">{{ .T "settings.app.nav" }}</a>
@@ -95,6 +96,17 @@
       {{ template "save" . }}
     </div>
   </form>
+
+  <!-- No form: this card changes nothing here, it tells the reader what to
+       change in Home Assistant and hands them the exact text for it. -->
+  <div class="card" id="recorder">
+    <h2>{{ .T "settings.recorder.title" }}</h2>
+    <p class="note">{{ .T "settings.recorder.why" }}</p>
+    <p class="note">{{ .H "settings.recorder.where" }}</p>
+    <pre class="snippet">{{ .RecorderYAML }}</pre>
+    <p class="note">{{ .H "settings.recorder.what" }}</p>
+    <p class="note">{{ .T "settings.recorder.caveat" }}</p>
+  </div>
 
   <form method="post" action="/save/data" data-block="data">
     <div class="card" id="data">

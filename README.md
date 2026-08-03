@@ -378,6 +378,16 @@ Messungen, nicht in einer zweiten Uhr — die Takte können also nicht
 auseinanderdriften. Untereinander sind sie unabhängig; wer im Leerlauf häufiger
 senden will als im Spiel, darf das.
 
+Auf der Seite **Export & Anzeige** steht zwischen Home Assistant und Datenserver
+ein Block **Langzeitspeicherung**, der die dritte Stellschraube erklärt und
+gleich den passenden `recorder:`-Abschnitt für diesen PC ausgibt. Der Abschnitt
+wird aus den Entities gebaut, die gerade wirklich existieren: zwei Grafikkarten
+ergeben zwei Temperaturzeilen, eine abgeschaltete Sensorgruppe keine. Er gehört
+in die `configuration.yaml` von Home Assistant und braucht dort einen Neustart.
+
+Wichtig dabei: ein Ausschluss nimmt einer Entity **auch** die Langzeitstatistik,
+nicht nur den Verlauf. Beides zusammen oder gar nicht.
+
 **Berechne Nachkommastellen** ist der zweite Hebel gegen eine volllaufende
 Datenbank. Ausgeschaltet werden alle Zahlen ganzzahlig gerechnet und gesendet —
 in jedem Format, nicht nur in MQTT, damit Prometheus und Home Assistant sich

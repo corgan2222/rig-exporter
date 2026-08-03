@@ -9,6 +9,7 @@
 package webui
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -19,12 +20,14 @@ import (
 	"net"
 	"net/http"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/corgan/rig-exporter/internal/app"
+	"github.com/corgan/rig-exporter/internal/assets"
 	"github.com/corgan/rig-exporter/internal/collector"
 	"github.com/corgan/rig-exporter/internal/config"
 	"github.com/corgan/rig-exporter/internal/export/dataserver"
@@ -77,6 +80,9 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux.HandleFunc("POST /language", s.handleLanguage)
 	mux.HandleFunc("POST /open", s.handleOpen)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
+	// The same icon the tray shows, so a pinned tab is recognisable as this
+	// program rather than as a blank page.
+	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
 
 	// The old single settings page, kept so a bookmark still lands somewhere.
 	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +176,9 @@ type pageData struct {
 	HasInfluxToken bool
 	DiskInclude    string
 	EntityCount    int
+	// RecorderYAML is the ready-to-paste Home Assistant recorder block for
+	// exactly the entities this machine publishes.
+	RecorderYAML string
 }
 
 // T translates an interface string into the active language.
@@ -186,6 +195,55 @@ type endpoint struct {
 	Label string
 	Path  string
 	URL   string
+}
+
+// worthKeeping names the measurements whose history earns the room it takes in
+// the Home Assistant database. Everything else this program publishes is
+// proposed for exclusion in the recorder snippet.
+//
+// The criterion is whether an hourly average over months says anything. A
+// temperature, a load, a free-space figure and a latency do; a momentary clock
+// rate, a fan speed in the middle of a game and a throughput spike do not — for
+// those the ten-day detail Home Assistant keeps anyway is the useful window.
+// The longer reasoning, with measurements, is in maybe_later.md.
+var worthKeeping = []string{
+	metrics.FPS.ID,
+	metrics.CPULoad.ID,
+	metrics.RAMLoad.ID,
+	metrics.CPUTemperature.ID,
+	metrics.GPUTemperature.ID,
+	metrics.GPULoad.ID,
+	metrics.DiskFreePercent.ID,
+	metrics.PingRTT.ID,
+}
+
+// recorderSnippet builds the recorder block for this machine.
+//
+// It names the entities that actually exist rather than the ones a generic
+// example would guess at: two graphics cards give two temperature lines, a
+// switched-off sensor group gives none. A snippet somebody has to correct by
+// hand before pasting is worse than no snippet.
+func recorderSnippet(cfg config.Config, snap collector.Snapshot) string {
+	var keep []string
+	for _, r := range snap.Entities() {
+		if slices.Contains(worthKeeping, r.Def.ID) {
+			keep = append(keep, r.Def.Component()+"."+cfg.ObjectID(r.Key()))
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString("recorder:\n")
+	b.WriteString("  purge_keep_days: 10\n")
+	b.WriteString("  exclude:\n    entity_globs:\n")
+	fmt.Fprintf(&b, "      - sensor.%s*\n", cfg.ObjectPrefix())
+	fmt.Fprintf(&b, "      - binary_sensor.%s*\n", cfg.ObjectPrefix())
+	if len(keep) > 0 {
+		b.WriteString("  include:\n    entities:\n")
+		for _, id := range keep {
+			fmt.Fprintf(&b, "      - %s\n", id)
+		}
+	}
+	return b.String()
 }
 
 func (s *Server) newPageData(active, titleKey string) pageData {
@@ -218,6 +276,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		HasInfluxToken:  cfg.InfluxToken != "",
 		DiskInclude:     strings.Join(cfg.DiskInclude, ", "),
 		EntityCount:     len(status.Snapshot.Entities()),
+		RecorderYAML:    recorderSnippet(cfg, status.Snapshot),
 	}
 }
 
@@ -550,6 +609,17 @@ type exportStatus struct {
 	Healthy   bool   `json:"healthy"`
 	Detail    string `json:"detail"`
 	Delivered uint64 `json:"delivered"`
+}
+
+// handleFavicon serves the tray icon. It is the same multi-resolution ICO the
+// notification area uses, so the browser picks whichever size it wants and the
+// tab matches the tray.
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	// A zero time leaves out Last-Modified, which is right: the icon is
+	// compiled in and only ever changes with the program itself.
+	http.ServeContent(w, r, "favicon.ico", time.Time{}, bytes.NewReader(assets.Icon))
 }
 
 func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {

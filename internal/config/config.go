@@ -27,7 +27,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.2.0"
+	Version = "1.3.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -596,7 +596,14 @@ func (c Config) LegacyDiscoveryTopic(component, key string) string {
 // hostname used to trail at the end, where it was no help at all in telling two
 // PCs apart at a glance.
 func (c Config) ObjectID(key string) string {
-	return fmt.Sprintf("%s_%s_%s", EntityPrefix, c.NodeID, key)
+	return c.ObjectPrefix() + key
+}
+
+// ObjectPrefix is what every entity id of this machine begins with. It is also
+// exactly the glob a Home Assistant recorder filter needs to name all of them
+// at once, which is what the settings page builds its snippet from.
+func (c Config) ObjectPrefix() string {
+	return fmt.Sprintf("%s_%s_", EntityPrefix, c.NodeID)
 }
 
 // UniqueID identifies an entity across renames and restarts.
