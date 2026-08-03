@@ -355,6 +355,17 @@ var (
 		Prom: "rig_cpu_clock_peak_megahertz", Help: "Highest effective clock observed since start",
 		EntityCategory: "diagnostic", Icon: "mdi:speedometer",
 	}
+	// CPUPower is package power, which needs a kernel-backed source: the
+	// energy counter it is derived from sits in a model-specific register.
+	// Paired with the graphics card's power draw it gives the two numbers that
+	// account for most of what a machine burns.
+	CPUPower = Definition{
+		ID: "cpu_power", Name: i18n.Text{DE: "CPU-Leistung", EN: "CPU power"},
+		Unit: "W", Kind: KindGauge, Precision: 1,
+		Group: GroupCPU,
+		Prom:  "rig_cpu_power_watts", Help: "Processor package power draw, when a source provides it",
+		DeviceClass: "power", StateClass: "measurement", Icon: "mdi:cpu-64-bit",
+	}
 	CPUTemperature = Definition{
 		ID: "cpu_temperature", Name: i18n.Text{DE: "CPU-Temperatur", EN: "CPU temperature"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
@@ -538,7 +549,7 @@ var All = []Definition{
 	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
 
 	CPUModel, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,
-	CPUTemperature, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
+	CPUTemperature, CPUPower, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
 
 	DiskLabel, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
 	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,

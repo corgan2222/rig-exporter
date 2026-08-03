@@ -81,9 +81,14 @@ func (s *Source) Collect(set *metrics.Set) error {
 	s.collectClock(set)
 
 	// Processor temperature needs a driver, which Windows does not provide.
-	// Afterburner does, when it happens to be running.
-	if temp, ok := s.temperature(); ok {
-		set.Add(metrics.Gauge(metrics.CPUTemperature, "", temp))
+	// Afterburner does, when it happens to be running — but only if nothing
+	// already supplied it. A kernel-backed source runs before this one and
+	// reads the register directly; two sources writing the same measurement
+	// would put it in the set twice.
+	if !set.Has(metrics.CPUTemperature.ID) {
+		if temp, ok := s.temperature(); ok {
+			set.Add(metrics.Gauge(metrics.CPUTemperature, "", temp))
+		}
 	}
 
 	s.collectLoad(set)
