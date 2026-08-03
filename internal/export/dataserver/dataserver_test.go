@@ -95,8 +95,8 @@ func TestJSONEndpointServesTheState(t *testing.T) {
 		t.Errorf("state = %+v", state)
 	}
 	// Instanced readings must be keyed with their instance appended.
-	if state["gpu_0_temperature"] != 61.5 {
-		t.Errorf("gpu_0_temperature = %v, want 61.5", state["gpu_0_temperature"])
+	if state["gpu0_temperature"] != 61.5 {
+		t.Errorf("gpu0_temperature = %v, want 61.5", state["gpu0_temperature"])
 	}
 }
 

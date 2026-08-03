@@ -157,16 +157,30 @@ eine SMBIOS-Struktur, die Consumer-Boards nicht schreiben) und
 
 ### Wie die Bezeichner aufgebaut sind
 
-Ein Bezeichner nennt erst, **was** gezählt wird, dann **welches davon**, dann
-was gemessen wird:
+Ein Bezeichner nennt erst das **Gerät**, dann die **Messgröße**:
 
 ```
-disk_c_used_percent      gpu_0_temperature      net_ethernet_2_rx
-disk_d_free              gpu_1_vram_used        net_ethernet_2_link
+diskc_used_percent      gpu0_temperature      net_ethernet_2_rx
+diskd_free              gpu1_vram_used        net_ethernet_2_link
 ```
 
-So stehen alle Werte eines Laufwerks beieinander. Vorher hieß es
-`disk_used_percent_c`, was ein Laufwerk über das ganze Alphabet verteilte.
+So stehen alle Werte eines Laufwerks beieinander. Gerät und Nummer wachsen zu
+einem Wort zusammen — `gpu0`, `diskc` liest man als eine Einheit. Nur wenn die
+Instanz selbst mehrteilig ist, bleibt das Trennzeichen: `netethernet_2` wäre
+unlesbar.
+
+In Home Assistant kommt davor, wer den Wert liefert und von welchem Rechner:
+
+```
+sensor.re_corgan_pc3_gpu0_vendor
+sensor.re_corgan_pc3_diskc_free
+```
+
+`re` steht für rig-exporter. Von links nach rechts beantwortet die Kennung damit
+genau die Fragen in der Reihenfolge, in der man sie beim Überfliegen einer Liste
+von hundert Entitäten stellt: welches Programm, welcher Rechner, welche
+Hardware, welcher Messwert. Vorher stand der Rechnername am Ende, wo er beim
+Auseinanderhalten zweier PCs nichts half.
 
 Nicht überall ist das richtig. Ein Prozessorkern wird durch das Wort `cpu_core`
 gezählt, `cpu_core_5` liest sich also bereits korrekt — `cpu_5_core` wäre
@@ -174,10 +188,16 @@ Unsinn. Dasselbe gilt für Speichermodule. Umgestellt wurden die drei
 Dimensionen, bei denen das Gerät vor der Messgröße gehört: Grafikkarten,
 Laufwerke, Netzwerkadapter.
 
-**Bestehende Installationen:** die betroffenen Entitäten heißen in Home
-Assistant anders und müssen in Dashboards und Automatisierungen einmal
-umgehängt werden. Die alten Discovery-Nachrichten räumt das Programm beim
-nächsten Verbinden selbst ab, sodass keine toten Entitäten zurückbleiben.
+**Bestehende Installationen:** die Entitäten heißen in Home Assistant anders und
+müssen in Dashboards und Automatisierungen einmal umgehängt werden. Jede frühere
+Schreibweise räumt das Programm beim nächsten Verbinden selbst ab.
+
+Das ist nötig, weil eine Discovery-Nachricht **retained** ist: sie liegt auf dem
+Broker und überlebt sowohl dieses Programm als auch das Löschen der Entität von
+Hand — die kommt beim nächsten Neustart von Home Assistant einfach wieder.
+Deshalb wird jeder alte Name ausdrücklich mit einer leeren Nachricht
+zurückgenommen. In ein Topic zu schreiben, das es nie gab, tut nichts, also
+braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wer welchen Wert geliefert hat
 

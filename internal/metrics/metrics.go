@@ -215,11 +215,9 @@ func (r Reading) Key() string {
 	}
 	switch {
 	case r.Def.ID == prefix:
-		// The identifier is the noun itself, e.g. gpu_name's sibling that is
-		// simply "gpu": the instance becomes the whole tail.
-		return prefix + "_" + instance
+		return device(prefix, instance)
 	case strings.HasPrefix(r.Def.ID, prefix+"_"):
-		return prefix + "_" + instance + "_" + strings.TrimPrefix(r.Def.ID, prefix+"_")
+		return device(prefix, instance) + "_" + strings.TrimPrefix(r.Def.ID, prefix+"_")
 	default:
 		// A measurement filed under a dimension whose noun it does not carry —
 		// ping_rtt against the network, say. Appending stays correct.
@@ -227,14 +225,57 @@ func (r Reading) Key() string {
 	}
 }
 
-// LegacyKey is the identifier this reading had before the instance moved to the
-// front. Kept only so the retained discovery messages of the old names can be
-// retired once; nothing else may use it.
-func (r Reading) LegacyKey() string {
-	if r.Instance == "" {
-		return r.Def.ID
+// device names one piece of hardware: the noun with its instance stuck to it,
+// so a reader sees gpu0 and diskc as single words rather than as two.
+//
+// The join is dropped only when the instance is itself several words. An
+// adapter called "Ethernet 2" slugs to ethernet_2, and netethernet_2 would be
+// unreadable — there the separator earns its place.
+func device(prefix, instance string) string {
+	if strings.Contains(instance, "_") {
+		return prefix + "_" + instance
 	}
-	return r.Def.ID + "_" + Slug(r.Instance)
+	return prefix + instance
+}
+
+// LegacyKeys are the identifiers this reading has been published under before.
+//
+// Every one of them may still carry a retained discovery message on the broker,
+// and a retained message outlives both this program and any entity deleted by
+// hand in Home Assistant — delete the entity and it reappears the moment Home
+// Assistant restarts. They are therefore retired explicitly, and the list only
+// ever grows.
+//
+// In order: the original form, which simply appended the instance; and the one
+// that separated the instance from its noun.
+func (r Reading) LegacyKeys() []string {
+	if r.Instance == "" {
+		return nil
+	}
+	instance := Slug(r.Instance)
+	current := r.Key()
+
+	candidates := []string{r.Def.ID + "_" + instance}
+	if prefix, ok := instanceAfter[r.Def.InstanceLabel]; ok {
+		switch {
+		case r.Def.ID == prefix:
+			candidates = append(candidates, prefix+"_"+instance)
+		case strings.HasPrefix(r.Def.ID, prefix+"_"):
+			candidates = append(candidates,
+				prefix+"_"+instance+"_"+strings.TrimPrefix(r.Def.ID, prefix+"_"))
+		}
+	}
+
+	seen := map[string]bool{current: true}
+	out := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		if seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		out = append(out, candidate)
+	}
+	return out
 }
 
 // DisplayName is the Home Assistant entity name, which the device name is

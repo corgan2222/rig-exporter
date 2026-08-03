@@ -176,16 +176,18 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 			continue
 		}
 
-		// The instance moved to the front of the identifier — disk_used_c became
-		// disk_c_used — and a retained discovery message under the old name
-		// would leave Home Assistant with an entity nothing ever updates again.
-		// Retiring it costs one empty publish, and publishing into a topic that
-		// never existed does nothing at all, so this needs no migration flag and
-		// no memory of whether it has run.
-		if legacy := reading.LegacyKey(); legacy != key {
+		// Identifiers have changed shape twice, and every earlier form may still
+		// hold a retained discovery message on the broker. Retained messages
+		// outlive this program and survive deleting the entity by hand in Home
+		// Assistant — the entity simply comes back when Home Assistant next
+		// restarts. Each old name is therefore retired explicitly.
+		//
+		// Publishing into a topic that never existed does nothing, so this needs
+		// no migration flag and no memory of having run.
+		for _, legacy := range reading.LegacyKeys() {
 			legacyTopic := p.cfg.DiscoveryTopic(reading.Def.Component(), legacy)
 			if err := publish(client, legacyTopic, nil, 1, true); err != nil {
-				p.log.Warn("could not retire the previous entity name",
+				p.log.Warn("could not retire a previous entity name",
 					"topic", legacyTopic, "error", err)
 			}
 		}
