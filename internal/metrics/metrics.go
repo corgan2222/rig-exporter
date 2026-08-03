@@ -289,6 +289,41 @@ var deviceLabels = map[string]i18n.Text{
 	"nic":  {},
 }
 
+// groupPrefixes do the same job for readings that exist only once.
+//
+// A processor has one clock and one temperature, so there is no instance to
+// group by — but "Takt" and "Temperatur" alone would still scatter across a
+// device page among every other measurement. Keyed by panel rather than by
+// group, so the overall processor load, which is collected as a core reading,
+// is filed with the rest of the processor.
+//
+// The core panel has no prefix. FPS and the running game are the headline
+// values and belong at the top, not behind a label.
+var groupPrefixes = map[Group]i18n.Text{
+	GroupCPU:  {DE: "CPU", EN: "CPU"},
+	GroupRAM:  {DE: "RAM", EN: "RAM"},
+	GroupGPU:  {DE: "GPU", EN: "GPU"},
+	GroupDisk: {DE: "Laufwerk", EN: "Drive"},
+	GroupNet:  {DE: "Netzwerk", EN: "Network"},
+}
+
+// hardwarePrefix is what leads this reading's name, empty for the ones that
+// need none.
+func (r Reading) hardwarePrefix(lang i18n.Lang) string {
+	if r.Instance == "" {
+		return groupPrefixes[r.Def.PanelGroup()].In(lang)
+	}
+
+	label, ok := deviceLabels[r.Def.InstanceLabel]
+	if !ok {
+		return r.Instance
+	}
+	if prefix := label.In(lang); prefix != "" {
+		return prefix + " " + r.Instance
+	}
+	return r.Instance
+}
+
 // DisplayName is the Home Assistant entity name, which the device name is
 // prefixed to by Home Assistant itself.
 //
@@ -300,18 +335,23 @@ var deviceLabels = map[string]i18n.Text{
 // list you can read and one you cannot.
 func (r Reading) DisplayName(lang i18n.Lang) string {
 	name := r.Def.Name.In(lang)
-	if r.Instance == "" {
-		return name
+	if prefix := r.hardwarePrefix(lang); prefix != "" {
+		return prefix + " " + name
 	}
-
-	hardware := r.Instance
-	if label, ok := deviceLabels[r.Def.InstanceLabel]; ok {
-		if prefix := label.In(lang); prefix != "" {
-			hardware = prefix + " " + r.Instance
-		}
-	}
-	return hardware + " " + name
+	return name
 }
+
+// ExportName is the name published to Home Assistant, and it is always English.
+//
+// Deliberately not translated. An entity name reaches dashboards, automation
+// conditions and voice assistants, and a name that moved when somebody changed
+// the interface language would take all of those with it. The same reasoning
+// already keeps identifiers and reported values language independent; the name
+// is the last thing a consumer sees, so it follows.
+//
+// Only the local interface and the tray translate, because nothing outside this
+// machine reads them.
+func (r Reading) ExportName() string { return r.DisplayName(i18n.EN) }
 
 // Value returns the reading in the form the JSON document uses.
 func (r Reading) Value() any {

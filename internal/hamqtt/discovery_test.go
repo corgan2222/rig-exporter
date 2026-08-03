@@ -63,6 +63,31 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	}
 }
 
+// Nothing a consumer sees may move with the interface language: not the entity
+// id, not the name. Both reach dashboards and automation conditions, and
+// switching the settings page to German must not rename them.
+func TestNothingPublishedFollowsTheInterfaceLanguage(t *testing.T) {
+	reading := metrics.Gauge(metrics.GPUTemperature, "0", 61)
+
+	german := testConfig()
+	german.Language = "de"
+	english := testConfig()
+	english.Language = "en"
+
+	de := discoveryFor(german, reading)
+	en := discoveryFor(english, reading)
+
+	if de.Name != en.Name {
+		t.Errorf("the name changed with the language: %q vs %q", de.Name, en.Name)
+	}
+	if de.Name != "GPU 0 Temperature" {
+		t.Errorf("name = %q, want the English name", de.Name)
+	}
+	if de.DefaultEntityID != en.DefaultEntityID || de.UniqueID != en.UniqueID {
+		t.Error("an identifier changed with the language")
+	}
+}
+
 // A binary sensor lives in its own domain, and the entity id carries it — a
 // sensor. prefix on a binary_sensor would name an entity that never exists.
 func TestTheDefaultEntityIdCarriesTheRightDomain(t *testing.T) {
@@ -90,9 +115,11 @@ func TestDiscoveryCarriesTheInstanceIntoTheKey(t *testing.T) {
 	if payload.ValueTemplate != "{{ value_json.diskc_used_percent }}" {
 		t.Errorf("value_template = %q", payload.ValueTemplate)
 	}
-	// The hardware leads, so a device page sorts one drive's readings together.
-	if payload.Name != "Laufwerk C: Belegung" {
-		t.Errorf("name = %q, want the hardware first", payload.Name)
+	// The hardware leads, so a device page sorts one drive's readings together —
+	// and the name is English even though this configuration is German, because
+	// an entity name reaches dashboards and automations.
+	if payload.Name != "Drive C: Usage" {
+		t.Errorf("name = %q, want the English name with the hardware first", payload.Name)
 	}
 }
 
