@@ -11,8 +11,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/corgan/rig-exporter/internal/app"
@@ -38,12 +40,17 @@ func main() {
 	configPath := flag.String("config", "", "path to config.json (default: %APPDATA%\\rig-exporter\\config.json)")
 	flag.Parse()
 
-	if *showVersion {
-		fmt.Printf("%s %s\n", config.AppName, config.Version)
-		return
-	}
-	if *probe {
-		if err := runProbe(*configPath); err != nil {
+	// Anything that prints has to find somewhere to print first. This binary is
+	// linked as a GUI application so that starting it normally does not flash a
+	// console, and the cost is that it begins with no output stream at all.
+	if *showVersion || *probe {
+		attached := winapi.AttachConsole()
+
+		if *showVersion {
+			fmt.Printf("%s %s\n", config.AppName, config.Version)
+			return
+		}
+		if err := runProbeTo(*configPath, attached); err != nil {
 			fmt.Fprintln(os.Stderr, "probe:", err)
 			os.Exit(1)
 		}
@@ -80,13 +87,75 @@ func configuredLanguage(configPath string) i18n.Lang {
 	return cfg.Lang()
 }
 
-// runProbe takes one reading and prints it in every export format.
+// runProbeTo takes one reading and prints it in every export format.
 //
-// The binary is linked as a GUI application and has no console of its own, so
-// this is meant to be redirected: rig-exporter.exe -probe > reading.txt. It is the
-// quickest way to tell whether RTSS is readable and what Home Assistant,
-// Prometheus or InfluxDB would actually receive.
-func runProbe(configPath string) error {
+// It is the quickest way to tell whether RTSS is readable and what Home
+// Assistant, Prometheus or InfluxDB would actually receive.
+//
+// The reading always goes to a file as well as to the screen, and that is not
+// belt and braces — it is because the screen cannot be relied on. This binary
+// is a GUI application, and how its output is captured turns out to depend on
+// the shell: PowerShell's > operator silently produces an empty file, while a
+// pipe, cmd's redirect and a direct run all work. A diagnostic whose result
+// depends on which redirection the user happened to type is not a diagnostic,
+// so there is always a file to point at, and it is named in the output.
+func runProbeTo(configPath string, attached bool) error {
+	writers := []io.Writer{}
+	if attached {
+		writers = append(writers, bestEffort{os.Stdout})
+	}
+
+	path := ""
+	if dir, err := config.Dir(); err == nil {
+		path = filepath.Join(dir, "probe.txt")
+		if file, err := os.Create(path); err == nil {
+			defer file.Close()
+			writers = append(writers, bestEffort{file})
+		} else {
+			path = ""
+		}
+	}
+
+	// Nowhere at all to write: started from Explorer, with an unwritable
+	// configuration directory. Say so where it can be seen.
+	if len(writers) == 0 {
+		winapi.MessageBox(config.AppName,
+			"Die Messwerte konnten nirgends ausgegeben werden.\n\n"+
+				"The reading could not be written anywhere.",
+			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
+		return fmt.Errorf("no writable output")
+	}
+
+	out := io.MultiWriter(writers...)
+	if err := runProbe(configPath, out); err != nil {
+		return err
+	}
+	if path != "" {
+		fmt.Fprintf(out, "\nAlso written to: %s\n", path)
+	}
+	if !attached && path != "" {
+		winapi.MessageBox(config.AppName,
+			"Messwerte geschrieben nach / reading written to:\n\n"+path,
+			winapi.MBOK|winapi.MBIconInformation|winapi.MBSetForeground)
+	}
+	return nil
+}
+
+// bestEffort keeps one dead destination from silencing the others.
+//
+// io.MultiWriter abandons the entire write as soon as any writer returns an
+// error, and the screen is exactly the writer that fails: under PowerShell's >
+// operator a GUI binary is handed a stdout that is already useless. Without
+// this, an unwritable screen also left the file empty — which is how a
+// diagnostic manages to produce nothing at all, twice over.
+type bestEffort struct{ w io.Writer }
+
+func (b bestEffort) Write(p []byte) (int, error) {
+	b.w.Write(p) //nolint:errcheck // a failed destination must not stop the others
+	return len(p), nil
+}
+
+func runProbe(configPath string, out io.Writer) error {
 	cfg, err := loadConfigFor(configPath)
 	if err != nil {
 		return err
@@ -103,19 +172,19 @@ func runProbe(configPath string) error {
 	time.Sleep(4 * time.Second)
 	snap := c.Collect()
 
-	fmt.Printf("%s %s — node_id %s\n\n", config.AppName, config.Version, cfg.NodeID)
+	fmt.Fprintf(out, "%s %s — node_id %s\n\n", config.AppName, config.Version, cfg.NodeID)
 
-	fmt.Printf("RTSS:       %s", snap.RTSSStatus)
+	fmt.Fprintf(out, "RTSS:       %s", snap.RTSSStatus)
 	if snap.RTSSVersion != "" {
-		fmt.Printf(" (shared memory v%s)", snap.RTSSVersion)
+		fmt.Fprintf(out, " (shared memory v%s)", snap.RTSSVersion)
 	}
 	if snap.RTSSMessage != "" {
-		fmt.Printf(" — %s", snap.RTSSMessage)
+		fmt.Fprintf(out, " — %s", snap.RTSSMessage)
 	}
-	fmt.Printf("\nGame:       %s\n", snap.Game())
-	fmt.Printf("FPS:        %.1f (%.2f ms)\n", snap.FPS(), snap.FrametimeMs())
-	fmt.Printf("Display:    %s @ %d Hz\n", snap.Resolution(), snap.RefreshHz())
-	fmt.Printf("CPU / RAM:  %.1f %% / %.1f %%\n\n", snap.CPUPercent(), snap.RAMPercent())
+	fmt.Fprintf(out, "\nGame:       %s\n", snap.Game())
+	fmt.Fprintf(out, "FPS:        %.1f (%.2f ms)\n", snap.FPS(), snap.FrametimeMs())
+	fmt.Fprintf(out, "Display:    %s @ %d Hz\n", snap.Resolution(), snap.RefreshHz())
+	fmt.Fprintf(out, "CPU / RAM:  %.1f %% / %.1f %%\n\n", snap.CPUPercent(), snap.RAMPercent())
 
 	lang := cfg.Lang()
 	for _, group := range metrics.Groups {
@@ -123,31 +192,31 @@ func runProbe(configPath string) error {
 			continue
 		}
 		if err := snap.SourceErrors[group]; err != "" {
-			fmt.Printf("--- %s: unavailable (%s) ---\n\n", group.Label(lang), err)
+			fmt.Fprintf(out, "--- %s: unavailable (%s) ---\n\n", group.Label(lang), err)
 			continue
 		}
 		if !snap.HasGroup(group) {
 			continue
 		}
-		fmt.Printf("--- %s ---\n", group.Label(lang))
+		fmt.Fprintf(out, "--- %s ---\n", group.Label(lang))
 		for _, reading := range snap.Entities() {
 			if reading.Def.PanelGroup() == group {
-				fmt.Printf("  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
+				fmt.Fprintf(out, "  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
 			}
 		}
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	state, err := json.MarshalIndent(snap.JSON(), "", "  ")
 	if err != nil {
 		return err
 	}
-	fmt.Printf("--- MQTT / JSON (%s) ---\n%s\n\n", cfg.StateTopic(), state)
-	fmt.Printf("--- Prometheus ---\n%s\n", snap.Prometheus(cfg.NodeID))
-	fmt.Printf("--- InfluxDB line protocol ---\n%s\n", snap.Influx(cfg.InfluxMeasurement, cfg.NodeID, time.Now()))
+	fmt.Fprintf(out, "--- MQTT / JSON (%s) ---\n%s\n\n", cfg.StateTopic(), state)
+	fmt.Fprintf(out, "--- Prometheus ---\n%s\n", snap.Prometheus(cfg.NodeID))
+	fmt.Fprintf(out, "--- InfluxDB line protocol ---\n%s\n", snap.Influx(cfg.InfluxMeasurement, cfg.NodeID, time.Now()))
 
 	if snap.RTSSStatus != collector.RTSSOK {
-		fmt.Printf("RTSS is not readable. Download: %s\n", config.RTSSDownloadURL)
+		fmt.Fprintf(out, "RTSS is not readable. Download: %s\n", config.RTSSDownloadURL)
 	}
 	return nil
 }

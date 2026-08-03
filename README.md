@@ -398,14 +398,23 @@ kommt ein Eintrag zum Download dazu.
 ## Diagnose
 
 ```bash
-.\rig-exporter.exe -probe > reading.txt
+.\rig-exporter.exe -probe
 ```
 
 Nimmt zwei Messungen im Abstand von vier Sekunden und schreibt alles heraus,
 gruppiert nach Sensorgruppe, gefolgt von JSON, Prometheus-Exposition und Line
 Protocol. Der schnellste Weg zu sehen, welche Quellen greifen und was bei Home
-Assistant ankäme. (Die Umleitung ist nötig, weil die Anwendung als GUI-Programm
-gelinkt ist und keine eigene Konsole hat.)
+Assistant ankäme.
+
+Die Ausgabe landet **immer zusätzlich** in `%APPDATA%\rig-exporter\probe.txt`,
+und das hat einen Grund. Das Programm ist als GUI-Anwendung gelinkt, damit beim
+Start kein Konsolenfenster aufblitzt; es hat deshalb von sich aus keine Konsole
+und leiht sich die des aufrufenden Terminals. Wie die Ausgabe aufgefangen wird,
+hängt danach von der Shell ab: PowerShells `>` erzeugt bei einem GUI-Programm
+stillschweigend eine leere Datei, während `| Out-File`, `cmd /c >` und der
+direkte Aufruf funktionieren. Eine Diagnose, deren Ergebnis davon abhängt,
+welche Umleitung jemand getippt hat, ist keine — darum gibt es immer eine Datei,
+und ihr Pfad steht am Ende der Ausgabe.
 
 | Symptom | Ursache |
 |---|---|
