@@ -212,6 +212,102 @@ func TestNoTwoMeasurementsOnAPanelShareAName(t *testing.T) {
 	}
 }
 
+// Where a number came from is the interface's business and nobody else's.
+//
+// The whole point of tracking it is to answer "what do I lose if I close this
+// program" on screen. The moment it reaches an export, a dashboard can start
+// depending on which helpers happen to run on a given machine — which is the
+// opposite of the guarantee that the same measurement looks identical from
+// every source.
+func TestTheSupplierNeverReachesAnExport(t *testing.T) {
+	set := sampleSet()
+	for i := range set.Readings {
+		set.Readings[i].Origin = "MSI Afterburner"
+	}
+
+	document, err := json.Marshal(set.JSON())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, rendered := range map[string]string{
+		"JSON":       string(document),
+		"Prometheus": string(set.Prometheus("corganpc2")),
+		"InfluxDB":   string(set.Influx("rig", "corganpc2", time.Unix(0, 0))),
+	} {
+		for _, leak := range []string{"MSI Afterburner", "Afterburner", "origin", "Origin"} {
+			if strings.Contains(rendered, leak) {
+				t.Errorf("%s output contains %q", name, leak)
+			}
+		}
+	}
+}
+
+// Readings are stamped as they are added, and a source that switches supplier
+// mid-collection stamps the rest differently — which is how one group can
+// honestly credit two programs.
+func TestReadingsAreStampedWithWhateverWasSupplying(t *testing.T) {
+	var set Set
+
+	set.Origin = "Windows"
+	set.Add(Gauge(CPULoad, "", 24.5))
+	set.Origin = "MSI Afterburner"
+	set.Add(Gauge(CPUTemperature, "", 61))
+	set.Origin = "PawnIO"
+	set.Add(Gauge(CPUPower, "", 95))
+
+	// An explicit stamp on the reading itself wins, for the single value that
+	// does not come from the same place as its neighbours.
+	odd := Gauge(GPUFan, "0", 30)
+	odd.Origin = "NVIDIA NVML"
+	set.Add(odd)
+
+	want := map[string]string{
+		CPULoad.ID:        "Windows",
+		CPUTemperature.ID: "MSI Afterburner",
+		CPUPower.ID:       "PawnIO",
+		GPUFan.ID:         "NVIDIA NVML",
+	}
+	for _, r := range set.Readings {
+		if got := r.Origin; got != want[r.Def.ID] {
+			t.Errorf("%s came from %q, want %q", r.Def.ID, got, want[r.Def.ID])
+		}
+	}
+
+	origins := set.Origins()
+	if len(origins) != 4 {
+		t.Fatalf("got %d suppliers, want 4", len(origins))
+	}
+
+	// Sorted, so the panel does not reshuffle between polls.
+	for i := 1; i < len(origins); i++ {
+		if origins[i-1].Name > origins[i].Name {
+			t.Errorf("suppliers are not in a stable order: %v", origins)
+			break
+		}
+	}
+}
+
+// A supplier reporting one value per graphics card must not list that value
+// four times.
+func TestASupplierNamesEachMeasurementOnce(t *testing.T) {
+	var set Set
+	set.Origin = "NVIDIA NVML"
+	set.Add(
+		Gauge(GPUTemperature, "0", 61),
+		Gauge(GPUTemperature, "1", 55),
+		Gauge(GPUFan, "0", 30),
+	)
+
+	origins := set.Origins()
+	if len(origins) != 1 {
+		t.Fatalf("got %d suppliers, want 1", len(origins))
+	}
+	if names := origins[0].Names(i18n.DE); len(names) != 2 {
+		t.Errorf("names = %v, want two distinct measurements", names)
+	}
+}
+
 func TestSlug(t *testing.T) {
 	cases := map[string]string{
 		"C:":         "c",

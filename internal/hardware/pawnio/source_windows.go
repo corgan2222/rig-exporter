@@ -68,6 +68,9 @@ func processorBrand() string {
 // with the processor group and is switched off with it.
 func (s *Source) Group() metrics.Group { return metrics.GroupCPU }
 
+// OriginName is what the interface shows as the supplier of these readings.
+func (s *Source) OriginName() string { return "PawnIO" }
+
 // Collect appends what PawnIO can supply.
 func (s *Source) Collect(set *metrics.Set) error {
 	s.once.Do(s.start)

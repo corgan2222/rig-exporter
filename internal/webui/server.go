@@ -151,6 +151,8 @@ type pageData struct {
 	// while the page is open, and a stale "not installed" would send them
 	// chasing a problem they already fixed.
 	PawnIOStatus string
+	// Origins is what actually supplied the last reading, and what each gave.
+	Origins []originRow
 	// RefreshMs is how often the dashboard polls, derived from the configured
 	// read interval so the page moves at the speed the user asked for.
 	RefreshMs int
@@ -204,6 +206,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
 		PawnIOStatus:    pawnIOStatus(lang),
+		Origins:         originsFor(status.Snapshot, lang),
 		RefreshMs:       cfg.PollIntervalMs,
 		Endpoints:       endpointsFor(cfg, lang),
 		MinIntervalMs:   config.MinIntervalMs,
@@ -623,6 +626,38 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 		out = append(out, status)
 	}
 	return out
+}
+
+// originRow is one supplier and what it currently provides.
+type originRow struct {
+	Name string
+	// Count is how many readings came from here, which is what separates a
+	// supplier carrying the machine from one contributing a single value.
+	Count int
+	// Values names the distinct measurements, so the answer to "what do I lose
+	// if I close this program" is on the page rather than in the documentation.
+	Values string
+}
+
+// originsFor lists what supplied the last reading.
+//
+// Built from the readings themselves rather than from a table of what each
+// source is supposed to provide. A table would describe the intended design;
+// this describes the machine in front of the user, including the case where a
+// program is installed but quietly contributing nothing.
+func originsFor(snap collector.Snapshot, lang i18n.Lang) []originRow {
+	summaries := snap.Origins()
+
+	rows := make([]originRow, 0, len(summaries))
+	for _, origin := range summaries {
+		names := origin.Names(lang)
+		rows = append(rows, originRow{
+			Name:   origin.Name,
+			Count:  len(origin.Readings),
+			Values: strings.Join(names, ", "),
+		})
+	}
+	return rows
 }
 
 // pawnIOStatus says what PawnIO can do on this machine right now.

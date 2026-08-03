@@ -40,6 +40,33 @@
   </div>
 
   <div class="card">
+    <h2>{{ .T "origins.title" }}</h2>
+    <p class="note">{{ .T "origins.hint" }}</p>
+    {{ if .Origins }}
+    <table class="origins">
+      <thead>
+        <tr>
+          <th>{{ .T "origins.source" }}</th>
+          <th>{{ .T "origins.count" }}</th>
+          <th>{{ .T "origins.values" }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Origins }}
+        <tr>
+          <td><strong>{{ .Name }}</strong></td>
+          <td>{{ .Count }}</td>
+          <td class="values">{{ .Values }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+    {{ else }}
+    <p class="note">{{ .T "origins.none" }}</p>
+    {{ end }}
+  </div>
+
+  <div class="card">
     <h2>{{ .T "endpoints.title" }}</h2>
     {{ if .Endpoints }}
     <table class="endpoints">

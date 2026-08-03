@@ -142,16 +142,40 @@ func (c *Collector) AddSource(sources ...Source) {
 func (c *Collector) Collect() Snapshot {
 	snap := Snapshot{At: time.Now(), SourceErrors: map[metrics.Group]string{}}
 
+	snap.Set.Origin = "RivaTuner (RTSS)"
 	c.collectRTSS(&snap)
+	snap.Set.Origin = originWindows
 	c.collectSystem(&snap)
 
 	for _, source := range c.sources {
+		// Everything a source adds is stamped with what supplied it. A source
+		// backed by more than one program overrides this as it goes.
+		snap.Set.Origin = originOf(source)
 		if err := source.Collect(&snap.Set); err != nil {
 			snap.SourceErrors[source.Group()] = err.Error()
 			c.log.Debug("source unavailable", "group", source.Group(), "error", err)
 		}
 	}
+	snap.Set.Origin = ""
 	return snap
+}
+
+// OriginNamer is implemented by sources that read something other than Windows
+// itself. Everything else genuinely does come from Windows, so that is the
+// default rather than a placeholder.
+type OriginNamer interface {
+	OriginName() string
+}
+
+const originWindows = "Windows"
+
+func originOf(source Source) string {
+	if named, ok := source.(OriginNamer); ok {
+		if name := named.OriginName(); name != "" {
+			return name
+		}
+	}
+	return originWindows
 }
 
 func (c *Collector) collectRTSS(snap *Snapshot) {

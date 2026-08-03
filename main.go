@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/corgan/rig-exporter/internal/app"
@@ -236,6 +237,16 @@ func runProbe(configPath string, out io.Writer) error {
 		}
 		fmt.Fprintln(out)
 	}
+
+	// Which program supplied what. Never part of an export — the same
+	// measurement has to look identical whatever produced it — but exactly what
+	// somebody wants to know when a value is missing.
+	fmt.Fprintf(out, "--- %s ---\n", i18n.T(lang, "origins.title"))
+	for _, origin := range snap.Origins() {
+		fmt.Fprintf(out, "  %-18s %2d  %s\n", origin.Name, len(origin.Readings),
+			strings.Join(origin.Names(lang), ", "))
+	}
+	fmt.Fprintln(out)
 
 	state, err := json.MarshalIndent(snap.JSON(), "", "  ")
 	if err != nil {

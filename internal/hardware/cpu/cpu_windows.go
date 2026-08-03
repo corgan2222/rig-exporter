@@ -87,7 +87,11 @@ func (s *Source) Collect(set *metrics.Set) error {
 	// would put it in the set twice.
 	if !set.Has(metrics.CPUTemperature.ID) {
 		if temp, ok := s.temperature(); ok {
-			set.Add(metrics.Gauge(metrics.CPUTemperature, "", temp))
+			// Everything else here is Windows; this one value is not, and the
+			// interface should say so rather than let it pass as native.
+			reading := metrics.Gauge(metrics.CPUTemperature, "", temp)
+			reading.Origin = "MSI Afterburner"
+			set.Add(reading)
 		}
 	}
 

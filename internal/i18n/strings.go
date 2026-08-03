@@ -269,6 +269,23 @@ var catalogue = map[string]Text{
 			"administrator, or start RTSS without elevation.\n\n" +
 			"Every other reading keeps being reported.",
 	},
+	"origins.title": {DE: "Datenquellen", EN: "Data sources"},
+	"origins.hint": {
+		DE: "Woher die Messwerte dieser Messung tatsächlich kamen. Nicht was möglich " +
+			"wäre, sondern was dieser Rechner gerade liefert – schließt du eines der " +
+			"Programme, fehlen genau dessen Werte.",
+		EN: "Where this reading actually came from. Not what could be available, but " +
+			"what this machine is supplying right now — close one of these programs " +
+			"and exactly its values go missing.",
+	},
+	"origins.source": {DE: "Quelle", EN: "Source"},
+	"origins.count":  {DE: "Werte", EN: "Values"},
+	"origins.values": {DE: "Was sie liefert", EN: "What it supplies"},
+	"origins.none": {
+		DE: "Noch keine Messung.",
+		EN: "No reading yet.",
+	},
+
 	"settings.sensors.pawnio": {
 		DE: "PawnIO als Sensorquelle nutzen",
 		EN: "Use PawnIO as a sensor source",

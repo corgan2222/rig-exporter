@@ -93,6 +93,12 @@ var afterburnerSensors = []afterburnerSensor{
 func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards map[string]string) int {
 	found := 0
 
+	// This source draws on two programs and hands off between them, so it says
+	// which is speaking rather than leaving the interface to guess.
+	previous := set.Origin
+	set.Origin = "MSI Afterburner"
+	defer func() { set.Origin = previous }()
+
 	for index := 0; index < snap.CardCount(); index++ {
 		instance := strconv.Itoa(index)
 
@@ -124,6 +130,10 @@ func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards m
 // would otherwise attribute one card's memory to the other.
 func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) bool {
 	added := false
+
+	previous := set.Origin
+	set.Origin = "NVIDIA NVML"
+	defer func() { set.Origin = previous }()
 
 	instances := assignInstances(nvml, cards)
 	for i, card := range nvml {
