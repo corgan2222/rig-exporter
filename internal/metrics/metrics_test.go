@@ -85,7 +85,7 @@ func TestEveryDefinitionIsTranslated(t *testing.T) {
 func TestLanguageDoesNotAffectIdentifiers(t *testing.T) {
 	reading := Gauge(GPUTemperature, "0", 61)
 
-	if reading.Key() != "gpu_temperature_0" {
+	if reading.Key() != "gpu_0_temperature" {
 		t.Errorf("Key = %q", reading.Key())
 	}
 	if reading.DisplayName(i18n.DE) == reading.DisplayName(i18n.EN) {
@@ -99,7 +99,7 @@ func TestLanguageDoesNotAffectIdentifiers(t *testing.T) {
 
 	var set Set
 	set.Add(reading)
-	if _, ok := set.JSON()["gpu_temperature_0"]; !ok {
+	if _, ok := set.JSON()["gpu_0_temperature"]; !ok {
 		t.Error("the JSON key changed with the language")
 	}
 }
@@ -126,16 +126,71 @@ func TestInstancedDefinitionsNameTheirDimension(t *testing.T) {
 	}
 }
 
-func TestKeyAppendsTheInstance(t *testing.T) {
+// The instance comes straight after the thing being enumerated, so a list of
+// keys groups by device instead of scattering one drive across the alphabet.
+func TestTheInstanceFollowsTheThingBeingEnumerated(t *testing.T) {
 	cases := map[string]Reading{
-		"fps":                 Gauge(FPS, "", 1),
-		"gpu_temperature_0":   Gauge(GPUTemperature, "0", 1),
-		"disk_used_percent_c": Gauge(DiskUsedPercent, "C:", 1),
-		"net_rx_ethernet_2":   Gauge(NetRx, "Ethernet 2", 1),
+		"fps": Gauge(FPS, "", 1),
+
+		// Enumerated dimensions: the instance moves to the front.
+		"gpu_0_temperature":   Gauge(GPUTemperature, "0", 1),
+		"gpu_1_vram_used":     Gauge(GPUVRAMUsed, "1", 1),
+		"disk_c_used_percent": Gauge(DiskUsedPercent, "C:", 1),
+		"disk_d_free":         Gauge(DiskFree, "D:", 1),
+		"net_ethernet_2_rx":   Gauge(NetRx, "Ethernet 2", 1),
+
+		// A processor core is enumerated by the noun cpu_core, which already
+		// reads correctly — cpu_5_core would not. Same for a memory module.
+		"cpu_core_5":           Gauge(CPUCoreLoad, "5", 1),
+		"ram_module_bank_0_a1": Text(RAMModule, "BANK 0 A1", "x"),
+
+		// Filed under the network group but not carrying its noun, so the
+		// instance stays where appending puts it.
+		"ping_rtt": Gauge(PingRTT, "", 1),
 	}
 	for want, reading := range cases {
 		if got := reading.Key(); got != want {
 			t.Errorf("Key() = %q, want %q", got, want)
+		}
+	}
+}
+
+// The previous identifier has to be reconstructible, because a retained
+// discovery message published under it would otherwise leave Home Assistant
+// with an entity nothing ever updates again.
+func TestThePreviousIdentifierIsStillDerivable(t *testing.T) {
+	for _, tc := range []struct{ current, legacy string }{
+		{"gpu_0_temperature", "gpu_temperature_0"},
+		{"disk_c_used_percent", "disk_used_percent_c"},
+		{"net_ethernet_2_rx", "net_rx_ethernet_2"},
+	} {
+		var reading Reading
+		switch tc.current {
+		case "gpu_0_temperature":
+			reading = Gauge(GPUTemperature, "0", 1)
+		case "disk_c_used_percent":
+			reading = Gauge(DiskUsedPercent, "C:", 1)
+		default:
+			reading = Gauge(NetRx, "Ethernet 2", 1)
+		}
+		if got := reading.Key(); got != tc.current {
+			t.Errorf("Key() = %q, want %q", got, tc.current)
+		}
+		if got := reading.LegacyKey(); got != tc.legacy {
+			t.Errorf("LegacyKey() = %q, want %q", got, tc.legacy)
+		}
+	}
+
+	// Where nothing moved, the two must agree — otherwise a perfectly good
+	// entity would be retired and immediately re-announced on every connect.
+	for _, reading := range []Reading{
+		Gauge(FPS, "", 1),
+		Gauge(CPUCoreLoad, "5", 1),
+		Gauge(PingRTT, "", 1),
+	} {
+		if reading.Key() != reading.LegacyKey() {
+			t.Errorf("%s: Key %q and LegacyKey %q differ although nothing moved",
+				reading.Def.ID, reading.Key(), reading.LegacyKey())
 		}
 	}
 }
@@ -354,10 +409,10 @@ func TestJSONKeysEveryReading(t *testing.T) {
 	if document["fps"] != 143.2 {
 		t.Errorf("fps = %v", document["fps"])
 	}
-	if document["gpu_temperature_0"] != 61.5 {
-		t.Errorf("gpu_temperature_0 = %v", document["gpu_temperature_0"])
+	if document["gpu_0_temperature"] != 61.5 {
+		t.Errorf("gpu_0_temperature = %v", document["gpu_0_temperature"])
 	}
-	if document["disk_used_percent_c"] != 61.2 || document["disk_used_percent_d"] != 12.7 {
+	if document["disk_c_used_percent"] != 61.2 || document["disk_d_used_percent"] != 12.7 {
 		t.Errorf("two disks collapsed into one key: %v", document)
 	}
 	if document["rtss"] != PayloadOn {

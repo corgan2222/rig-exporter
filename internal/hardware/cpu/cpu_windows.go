@@ -70,6 +70,9 @@ func (s *Source) Collect(set *metrics.Set) error {
 
 	if s.model != "" {
 		set.Add(metrics.Text(metrics.CPUModel, "", s.model))
+		if vendor := vendorOf(s.model); vendor != "" {
+			set.Add(metrics.Text(metrics.CPUVendor, "", vendor))
+		}
 	}
 	if s.physical > 0 {
 		set.Add(metrics.Gauge(metrics.CPUCoresPhysical, "", float64(s.physical)))
@@ -105,6 +108,31 @@ func (s *Source) Collect(set *metrics.Set) error {
 		return fmt.Errorf("no processor detail available: %w", s.staticErr)
 	}
 	return nil
+}
+
+// vendorOf reads the manufacturer out of the processor's brand string.
+//
+// The brand string is what the part calls itself and always names its maker;
+// CPUID's vendor field would give "AuthenticAMD" and "GenuineIntel", which is
+// not what anyone wants to see in an automation.
+func vendorOf(model string) string {
+	lower := strings.ToLower(model)
+	for _, candidate := range []struct{ match, vendor string }{
+		{"amd", "AMD"},
+		{"ryzen", "AMD"},
+		{"threadripper", "AMD"},
+		{"epyc", "AMD"},
+		{"athlon", "AMD"},
+		{"intel", "Intel"},
+		{"qualcomm", "Qualcomm"},
+		{"snapdragon", "Qualcomm"},
+		{"apple", "Apple"},
+	} {
+		if strings.Contains(lower, candidate.match) {
+			return candidate.vendor
+		}
+	}
+	return ""
 }
 
 // readStatic reads the facts that cannot change at runtime.

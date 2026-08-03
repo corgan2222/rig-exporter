@@ -184,8 +184,53 @@ func Bool(def Definition, instance string, value bool) Reading {
 	return Reading{Def: def, Instance: instance, Bool: value}
 }
 
+// instanceAfter says which part of an identifier the instance follows, keyed by
+// the dimension being enumerated.
+//
+// Reading a list of keys should tell you what is being enumerated before it
+// tells you what is being measured: disk_c_used and disk_c_free sit together,
+// where disk_used_c and disk_free_c scatter one drive across the alphabet. The
+// same for graphics cards and network adapters.
+//
+// Not every dimension wants this. A processor core is enumerated by the noun
+// cpu_core, so cpu_core_5 already reads correctly and inserting the number
+// earlier would give cpu_5_core. A dimension absent from this map keeps the
+// instance at the end.
+var instanceAfter = map[string]string{
+	"gpu":  "gpu",
+	"disk": "disk",
+	"nic":  "net",
+}
+
 // Key is how this reading is named in JSON and in Home Assistant entity ids.
 func (r Reading) Key() string {
+	if r.Instance == "" {
+		return r.Def.ID
+	}
+	instance := Slug(r.Instance)
+
+	prefix, ok := instanceAfter[r.Def.InstanceLabel]
+	if !ok {
+		return r.Def.ID + "_" + instance
+	}
+	switch {
+	case r.Def.ID == prefix:
+		// The identifier is the noun itself, e.g. gpu_name's sibling that is
+		// simply "gpu": the instance becomes the whole tail.
+		return prefix + "_" + instance
+	case strings.HasPrefix(r.Def.ID, prefix+"_"):
+		return prefix + "_" + instance + "_" + strings.TrimPrefix(r.Def.ID, prefix+"_")
+	default:
+		// A measurement filed under a dimension whose noun it does not carry —
+		// ping_rtt against the network, say. Appending stays correct.
+		return r.Def.ID + "_" + instance
+	}
+}
+
+// LegacyKey is the identifier this reading had before the instance moved to the
+// front. Kept only so the retained discovery messages of the old names can be
+// retired once; nothing else may use it.
+func (r Reading) LegacyKey() string {
 	if r.Instance == "" {
 		return r.Def.ID
 	}

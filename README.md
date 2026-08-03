@@ -27,10 +27,10 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Laufzeit, Leerlaufzeit | RTSS + Windows |
-| **Grafikkarte** | Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
-| **Prozessor** | Modell, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner |
+| **Grafikkarte** | Name, Hersteller, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
+| **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung über PawnIO |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
-| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
+| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 
 Auf dem Entwicklungsrechner ergibt das 91 Werte: zwei Grafikkarten, vier NVMe,
@@ -154,6 +154,30 @@ mit. Die treiberfreien Wege sind nachgemessen und alle tot: ACPI-Thermalzonen
 (über PDH, SetupDi und WMI je null Instanzen), `Win32_TemperatureProbe` (braucht
 eine SMBIOS-Struktur, die Consumer-Boards nicht schreiben) und
 `CallNtPowerInformation` (hat kein Temperaturfeld).
+
+### Wie die Bezeichner aufgebaut sind
+
+Ein Bezeichner nennt erst, **was** gezählt wird, dann **welches davon**, dann
+was gemessen wird:
+
+```
+disk_c_used_percent      gpu_0_temperature      net_ethernet_2_rx
+disk_d_free              gpu_1_vram_used        net_ethernet_2_link
+```
+
+So stehen alle Werte eines Laufwerks beieinander. Vorher hieß es
+`disk_used_percent_c`, was ein Laufwerk über das ganze Alphabet verteilte.
+
+Nicht überall ist das richtig. Ein Prozessorkern wird durch das Wort `cpu_core`
+gezählt, `cpu_core_5` liest sich also bereits korrekt — `cpu_5_core` wäre
+Unsinn. Dasselbe gilt für Speichermodule. Umgestellt wurden die drei
+Dimensionen, bei denen das Gerät vor der Messgröße gehört: Grafikkarten,
+Laufwerke, Netzwerkadapter.
+
+**Bestehende Installationen:** die betroffenen Entitäten heißen in Home
+Assistant anders und müssen in Dashboards und Automatisierungen einmal
+umgehängt werden. Die alten Discovery-Nachrichten räumt das Programm beim
+nächsten Verbinden selbst ab, sodass keine toten Entitäten zurückbleiben.
 
 ### Wer welchen Wert geliefert hat
 
