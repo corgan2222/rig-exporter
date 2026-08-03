@@ -9,6 +9,8 @@
 package metrics
 
 import (
+	"fmt"
+	"hash/fnv"
 	"math"
 	"sort"
 	"strconv"
@@ -158,8 +160,15 @@ func Gauge(def Definition, instance string, value float64) Reading {
 }
 
 // Text builds a string reading.
+//
+// The value is forced to valid UTF-8 here, at the one place every text reading
+// passes through. Text arrives from the operating system — process names, card
+// names, adapter descriptions, volume labels, firmware part numbers — and not
+// all of those APIs promise UTF-8. A single stray byte makes Prometheus reject
+// the entire scrape and InfluxDB reject the line, so a mangled character is the
+// better failure by a wide margin.
 func Text(def Definition, instance, value string) Reading {
-	return Reading{Def: def, Instance: instance, Text: value}
+	return Reading{Def: def, Instance: instance, Text: strings.ToValidUTF8(value, "")}
 }
 
 // Bool builds a flag reading.
@@ -371,5 +380,18 @@ func Slug(s string) string {
 			}
 		}
 	}
-	return strings.Trim(b.String(), "_")
+	out := strings.Trim(b.String(), "_")
+	if out != "" {
+		return out
+	}
+
+	// Nothing survived, which happens as soon as the name is written in a
+	// script this filter does not keep: a Japanese adapter name reduces to
+	// nothing at all. An empty instance would collapse the key to "net_type_"
+	// and, worse, make every such adapter share one entity. A digest of the
+	// original keeps them apart and keeps the same name on the same entity
+	// across restarts, which is what Home Assistant needs.
+	digest := fnv.New32a()
+	digest.Write([]byte(s))
+	return fmt.Sprintf("x%08x", digest.Sum32())
 }

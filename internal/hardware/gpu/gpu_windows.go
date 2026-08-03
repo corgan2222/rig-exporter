@@ -4,6 +4,7 @@ package gpu
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -124,8 +125,9 @@ func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards m
 func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) bool {
 	added := false
 
-	for _, card := range nvml {
-		instance := instanceFor(card, cards)
+	instances := assignInstances(nvml, cards)
+	for i, card := range nvml {
+		instance := instances[i]
 		cards[instance] = card.Name
 
 		add := func(def metrics.Definition, value float64, have bool) {
@@ -176,13 +178,70 @@ func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) b
 	return added
 }
 
-// instanceFor finds which instance an NVML card already occupies, matching on
-// the card name, and falls back to its own index when it is not known yet.
-func instanceFor(card nvmlCard, cards map[string]string) string {
-	for instance, name := range cards {
-		if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(card.Name)) {
-			return instance
+// assignInstances decides which instance each NVML card belongs to, returning
+// one instance per card in the order the cards were given.
+//
+// Afterburner and NVML enumerate independently, so the two lists have to be
+// joined on something. The card name is all there is, and it is not unique: two
+// identical cards produce two identical names. Three rules keep that from
+// corrupting the readings.
+//
+// No instance is handed out twice, so a pair of RTX 4090s cannot both land on
+// Afterburner's card 0 — which is what happened when this matched names against
+// a map, since Go randomises map iteration and the winner changed from run to
+// run. Names are matched in index order instead, which pairs the two lists the
+// way anyone would by hand.
+//
+// An unmatched card never takes an instance that Afterburner has already named.
+// A laptop whose integrated chip is Afterburner's card 0 would otherwise be
+// handed the discrete card's VRAM and power limit the moment the two spell the
+// name differently. Such a card gets an instance of its own instead: one more
+// entry than expected is a great deal easier to understand than two entries
+// quietly describing the same silicon.
+func assignInstances(nvml []nvmlCard, cards map[string]string) []string {
+	known := make([]string, 0, len(cards))
+	for instance := range cards {
+		known = append(known, instance)
+	}
+	sort.Slice(known, func(i, j int) bool { return metrics.LessInstance(known[i], known[j]) })
+
+	out := make([]string, len(nvml))
+	claimed := make(map[string]bool, len(nvml))
+
+	normalise := func(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+
+	for i, card := range nvml {
+		for _, instance := range known {
+			if claimed[instance] || normalise(cards[instance]) != normalise(card.Name) {
+				continue
+			}
+			out[i] = instance
+			claimed[instance] = true
+			break
 		}
 	}
-	return strconv.Itoa(card.Index)
+
+	for i, card := range nvml {
+		if out[i] != "" {
+			continue
+		}
+		// Its own index, but only if Afterburner has not already put a card
+		// there and no earlier NVML card took it.
+		candidate := strconv.Itoa(card.Index)
+		if _, taken := cards[candidate]; !taken && !claimed[candidate] {
+			out[i] = candidate
+			claimed[candidate] = true
+			continue
+		}
+		for next := 0; ; next++ {
+			candidate := strconv.Itoa(next)
+			if _, taken := cards[candidate]; taken || claimed[candidate] {
+				continue
+			}
+			out[i] = candidate
+			claimed[candidate] = true
+			break
+		}
+	}
+	return out
 }

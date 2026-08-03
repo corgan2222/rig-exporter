@@ -203,13 +203,21 @@ func parseEntry(b []byte) Entry {
 	}
 }
 
+// cString reads a NUL-terminated string out of a fixed-width field.
+//
+// RTSS declares this field as char[MAX_PATH], so the bytes are in the system
+// ANSI code page, not UTF-8. Reinterpreting them directly would put invalid
+// UTF-8 into every export the moment a path contains anything outside ASCII —
+// a game under C:\Users\Jürgen is enough — and Prometheus rejects a whole
+// scrape over one bad byte. decodeANSI converts properly on Windows.
 func cString(b []byte) string {
 	for i, c := range b {
 		if c == 0 {
-			return string(b[:i])
+			b = b[:i]
+			break
 		}
 	}
-	return string(b)
+	return decodeANSI(b)
 }
 
 // SelectActive picks the entry whose FPS should be reported.

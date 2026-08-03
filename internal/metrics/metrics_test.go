@@ -195,12 +195,37 @@ func TestSlug(t *testing.T) {
 		"Ethernet 2": "ethernet_2",
 		"WLAN":       "wlan",
 		"0":          "0",
-		"  ":         "",
 	}
 	for in, want := range cases {
 		if got := Slug(in); got != want {
 			t.Errorf("Slug(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// An adapter named in a script this filter keeps nothing of used to slug to the
+// empty string. That collapsed the key to "net_type_" and, worse, made every
+// such adapter share a single Home Assistant entity.
+func TestSlugNeverReturnsNothing(t *testing.T) {
+	for _, in := range []string{"  ", "イーサネット", "以太网", "!!!", "…"} {
+		got := Slug(in)
+		if got == "" {
+			t.Errorf("Slug(%q) is empty", in)
+			continue
+		}
+		if got != Slug(in) {
+			t.Errorf("Slug(%q) is not stable", in)
+		}
+		for _, r := range got {
+			if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '_') {
+				t.Errorf("Slug(%q) = %q contains %q, which is not safe in a topic", in, got, r)
+			}
+		}
+	}
+
+	// Distinct names must stay distinct, which is the whole point.
+	if Slug("イーサネット") == Slug("以太网") {
+		t.Error("two different adapter names collapsed onto one instance")
 	}
 }
 

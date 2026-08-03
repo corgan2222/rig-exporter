@@ -222,7 +222,10 @@ func TestUnknownMemoryTypeIsReportedByNumber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Modules[0].Type != "Typ 126" {
+	// English, like every published value: this is a sensor state a Home
+	// Assistant automation may compare against, not interface text, and it must
+	// not change when the user switches language.
+	if info.Modules[0].Type != "Type 126" {
 		t.Errorf("Type = %q, want the raw number rather than a guess", info.Modules[0].Type)
 	}
 }
