@@ -28,13 +28,15 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
 | **Grafikkarte** | Name, Hersteller, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
-| **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung über PawnIO |
+| **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 
-Auf dem Entwicklungsrechner ergibt das 91 Werte: zwei Grafikkarten, vier NVMe,
-ein aktiver Adapter.
+Auf dem Entwicklungsrechner ergibt das rund 128 Werte: zwei Grafikkarten, vier
+NVMe, ein aktiver Adapter. „Rund", weil die Zahl der Hardware folgt — einem
+Laufwerk ohne auslesbaren Hersteller fehlt dieser eine Wert, und niemand
+erfindet ihn.
 
 CPU- und RAM-Last gehören zu **FPS & System**, damit sie unabhängig von jedem
 Schalter da sind — die Kacheln oben auf der Seite brauchen sie. Angezeigt werden
@@ -94,7 +96,8 @@ Default-Gateway.
 * Windows 10/11 (64 Bit)
 * [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) für die FPS — auch in MSI Afterburner enthalten
 * [MSI Afterburner](https://www.msi.com/Landing/afterburner/graphics-cards) für GPU- und CPU-Temperaturen
-* Zum Bauen: Go 1.22 oder neuer. Kein CGO, kein C-Compiler.
+* Zum Bauen: Go 1.26 oder neuer (`go.mod` verlangt 1.26.5, die Abhängigkeiten
+  für sich genommen schon 1.25). Kein CGO, kein C-Compiler.
 
 Fehlt RTSS, erscheint **beim ersten Start** ein Hinweis mit Downloadlink —
 danach nicht mehr. Alle übrigen Gruppen laufen ohne RTSS weiter, und der Zustand
@@ -116,8 +119,14 @@ die Zuordnung wird bei jedem Auslesen neu geöffnet, ein Neustart ist nie nötig
 
 PawnIO ist ein signierter Kerneltreiber, der geprüften Bytecode ausführt — der
 sichere Nachfolger von WinRing0, das wegen freien Registerzugriffs auf
-Microsofts Treiber-Sperrliste steht. Damit wären Prozessortemperatur und
--leistung auch ohne Afterburner lesbar.
+Microsofts Treiber-Sperrliste steht. Damit sind Prozessortemperatur und
+-leistung auch ohne Afterburner lesbar, und die Leistung überhaupt nur so.
+
+**Bisher nur auf AMD.** Genutzt wird das Modul `AMDFamily17.bin`, das die
+Familien 17h bis 1Ah abdeckt; auf allem anderen meldet die Quelle „only AMD
+processors are supported so far" und liefert nichts. Auf einem Intel-Rechner
+lohnt die Installation also derzeit nicht — dort ist Afterburner der Weg zur
+CPU-Temperatur, und eine Package-Leistung gibt es gar nicht.
 
 Erkannt wird es ohne jedes Recht: `PawnIOLib.dll` lädt und meldet ihre Version
 auch aus einem gewöhnlichen Prozess. **Benutzen** lässt sie sich so aber nicht.
@@ -201,7 +210,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wo Home Assistant die Werte einsortiert
 
-45 Messwerte stehen im Hauptbereich, 29 unter **Diagnose**, 7 werden gar nicht
+45 Messwerte stehen im Hauptbereich, 31 unter **Diagnose**, 7 werden gar nicht
 als Entität veröffentlicht. Die Regel dahinter:
 
 * **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
@@ -227,8 +236,10 @@ das soll im Review auffallen statt beim Nutzer.
 
 Die Anzeigeseite hat ein Panel **Datenquellen**, und `-probe` denselben
 Abschnitt: welche Quelle, wie viele Werte, und welche. Auf dem
-Entwicklungsrechner etwa Windows 79, MSI Afterburner 14, NVIDIA NVML 13,
-RivaTuner 7.
+Entwicklungsrechner zuletzt Windows 92, MSI Afterburner 14, NVIDIA NVML 13,
+RivaTuner 7, rig-exporter 1 — dazu PawnIO, sobald das Programm eleviert läuft.
+Die Summe liegt über der Zahl der Werte, weil Afterburner und NVML sich
+überschneiden und der Zähler zeigt, wer geliefert *hat*, nicht wer gewonnen hat.
 
 Das entsteht nicht aus einer Tabelle, sondern jede Messung wird beim Hinzufügen
 gestempelt. Eine Tabelle beschriebe den gedachten Aufbau; so beschrieben wird
@@ -278,7 +289,7 @@ aus und baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
 
 ```
-rig-exporter 1.2.0+51.dbf8412
+rig-exporter 1.3.0+65.7785e59
 ```
 
 Also Commit-Anzahl und Kurz-Hash, bei uncommitteten Änderungen zusätzlich
@@ -309,6 +320,20 @@ Browserfenster bei jeder Anmeldung ist der schnellste Weg, den Autostart wieder
 abzuschalten. Wer das Verhalten nachstellen will, startet selbst mit
 `-background`.
 
+Vier Schalter gibt es auf der Kommandozeile, alles Weitere steht in der
+Oberfläche:
+
+| Schalter | Wirkung |
+|---|---|
+| `-version` | gibt Name und Version aus und beendet sich |
+| `-probe` | nimmt eine Messung, gibt sie in allen Formaten aus, beendet sich |
+| `-background` | startet ohne den Browser zu öffnen |
+| `-config <pfad>` | benutzt diese Datei statt `%APPDATA%\rig-exporter\config.json` |
+
+`-version` und `-probe` laufen, bevor geprüft wird, ob schon eine Instanz läuft
+— sie gehen also auch neben einem laufenden Exporter. Ein normaler Start tut das
+nicht: eine zweite Instanz meldet sich mit einem Hinweis und beendet sich.
+
 ## Oberfläche
 
 Drei Seiten, erreichbar über die Kopfzeile:
@@ -318,7 +343,12 @@ Drei Seiten, erreichbar über die Kopfzeile:
   Auslese-Intervall.
 * **Datengewinnung** — welche Sensorgruppen gelesen werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,
-  Datenserver, InfluxDB) und wie sich die Anwendung selbst verhält.
+  Speicherung, Datenserver, InfluxDB) und wie sich die Anwendung selbst
+  verhält.
+
+Der Abschnitt **Speicherung** ist der einzige ohne Speichern-Button: er ändert
+hier nichts, sondern erklärt, warum die Datenbank von Home Assistant schnell
+wächst, und gibt den passenden `recorder:`-Block für genau diesen Rechner aus.
 
 Jeder Abschnitt hat einen eigenen Speichern-Button, der erst grün wird, wenn in
 genau diesem Abschnitt etwas geändert wurde. Gespeichert wird auch nur dieser
@@ -338,9 +368,9 @@ Tray-Menü, Dialoge und die angezeigten Entity-Namen in Home Assistant. Was er
 ausdrücklich **nicht** anfasst, sind die Kennungen: `default_entity_id`,
 `object_id`, `unique_id` und die Wertvorlage bleiben gleich, weil Dashboards und
 Automatisierungen daran hängen.
-Entity-IDs bleiben davon unberührt — `sensor.fps_corganpc2` heißt in beiden
-Sprachen gleich, nur der angezeigte Name wechselt. Dashboards und Automationen
-überleben einen Sprachwechsel also unbeschadet.
+Eine Entity-ID wie `sensor.re_corganpc2_fps` heißt in beiden Sprachen gleich,
+nur der angezeigte Name wechselt. Dashboards und Automationen überleben einen
+Sprachwechsel also unbeschadet.
 
 Nicht übersetzt wird, was Maschinen lesen: Prometheus-Hilfetexte, Logzeilen und
 Fehlermeldungen bleiben englisch.
@@ -358,7 +388,11 @@ Ein Takt fürs Auslesen, zwei fürs Senden:
 | **Auslese-Intervall** | wie oft die Hardware abgefragt wird | 500 ms |
 | **Sendeintervall im Spiel** | wie oft ein Messwert die Maschine verlässt, solange ein Spiel Bilder liefert | 2000 ms |
 | **Sendeintervall im Leerlauf** | dasselbe, wenn nichts gerendert wird | 10000 ms |
+| **Idle-Timeout** | wie lange ein Spiel kein Bild liefern darf, bevor es als beendet gilt | 3000 ms |
 | **Berechne Nachkommastellen** | ob Zahlen mit Nachkommastellen gesendet werden | an |
+
+Die drei Intervalle liegen zwischen 250 und 300000 ms, das Idle-Timeout
+zwischen 500 und 60000 ms; was daneben liegt, wird beim Speichern eingefangen.
 
 Das Auslesen bestimmt, wie flüssig Tray und Anzeige laufen; das Senden
 bestimmt, wie viel bei Broker und Zeitreihendatenbank ankommt. Wer im Tray eine
@@ -571,7 +605,8 @@ und ihr Pfad steht am Ende der Ausgabe.
 | RTSS `access_denied` | RTSS läuft erhöht, rig-exporter nicht. Eines von beiden angleichen. |
 | FPS bleibt 0, Spiel `none` | RTSS hookt die Anwendung nicht. Im RTSS-Profil „Application detection level" prüfen. |
 | Keine GPU-Gruppe | Weder Afterburner noch NVML erreichbar. Läuft Afterburner erhöht, gilt dasselbe wie bei RTSS. |
-| Keine CPU-Temperatur | Kommt nur über Afterburner. |
+| Keine CPU-Temperatur | Kommt über Afterburner, oder über PawnIO — das aber nur auf AMD und nur eleviert. |
+| Keine CPU-Leistung | Gibt es ausschließlich über PawnIO: eingeschaltet, AMD, eleviert. |
 | Keine Durchsatzwerte | Erst ab der zweiten Messung vorhanden, sie sind eine Differenz. |
 | Entities fehlen in HA | MQTT-Integration aktiv? Discovery-Präfix identisch? Log prüfen. |
 
@@ -687,6 +722,8 @@ internal/hardware/cpu            CPU-Gruppe
 internal/hardware/ram            Speichergruppe, inklusive SMBIOS-Parser
 internal/hardware/disk           Laufwerksgruppe
 internal/hardware/net            Netzwerkgruppe und Latenzmessung
+internal/hardware/pawnio         PawnIO: Erkennung, Module, AMD-Dekodierung
+internal/config                  Konfiguration, Grenzwerte, Entity-Kennungen
 internal/export                  gemeinsame Schnittstelle der Exportziele
 internal/export/dataserver       HTTP: JSON, Prometheus, Influx
 internal/export/influxpush       Schreiben an InfluxDB
@@ -694,6 +731,9 @@ internal/hamqtt                  MQTT und Home-Assistant-Discovery
 internal/app                     Messschleife, Konfigurationswechsel
 internal/webui                   Einstellungsseite auf 127.0.0.1
 internal/tray                    Infobereich-Symbol und Menü
+internal/autostart               der Run-Eintrag in der Registry
+internal/applog                  Logziel und -format
+internal/assets                  das eingebettete Symbol
 internal/winapi                  die Win32-Aufrufe, die x/sys nicht abdeckt
 tools/genicon                    erzeugt internal/assets/icon.ico
 ```
@@ -722,10 +762,15 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-Abgedeckt sind: die Parser, die Metrikdefinition und ihre vier Ausgabeformate,
-die Konfiguration samt Migration und Grenzwerten, die Übersetzungen, die
-Home-Assistant-Discovery, die Exportziele, die Messschleife mit ihren zwei
-Takten, die Web-Handler samt blockweisem Speichern, und der Load-Mittelwert.
+204 Testfunktionen in 27 Dateien. Abgedeckt sind: die drei Parser, die
+Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
+die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
+Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit
+ihren zwei Sendetakten, die Web-Handler samt blockweisem Speichern und dem
+erzeugten Recorder-Vorschlag, die Zuordnung zweier Grafikkarten zwischen
+Afterburner und NVML, der Load-Mittelwert — und bei PawnIO die
+Zen-Dekodierung, die Modulnamen-Prüfung, die Beschränkung des Downloads auf
+GitHub-Release-Hosts und die Zusicherung, dass ein Download nichts ausführt.
 
 Nicht abgedeckt sind die Win32-Aufrufe selbst und die Windows-Hälften der
 Hardware-Quellen — die brauchen die Hardware, die sie beschreiben. Sie werden
