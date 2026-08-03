@@ -373,18 +373,23 @@ einer zweiten Uhr — die beiden können also nicht auseinanderdriften.
 
 ### 1. MQTT (Push)
 
-Standardmäßig an. Ein Gerät in Home Assistant, dessen Entities nach dem PC
-benannt sind:
+Standardmäßig an. Ein Gerät in Home Assistant, dessen Entities sagen, woher sie
+kommen:
 
 ```
-sensor.fps_corganpc2              sensor.gpu_temperature_0_corganpc2
-sensor.cpu_corganpc2              sensor.disk_used_percent_c_corganpc2
-sensor.game_corganpc2             sensor.net_rx_ethernet_corganpc2
-sensor.ping_rtt_corganpc2         binary_sensor.rtss_corganpc2
+sensor.re_corganpc2_fps            sensor.re_corganpc2_gpu0_temperature
+sensor.re_corganpc2_cpu            sensor.re_corganpc2_diskc_used_percent
+sensor.re_corganpc2_game           sensor.re_corganpc2_net_ethernet_2_rx
+sensor.re_corganpc2_ping_rtt       binary_sensor.re_corganpc2_rtss
 ```
 
-Der Teil vor dem Hostnamen ist der Messwert, ein angehängter Buchstabe oder
-Index die Instanz — `disk_used_percent_c` ist die Belegung von `C:`.
+Aufbau siehe [Wie die Bezeichner aufgebaut sind](#wie-die-bezeichner-aufgebaut-sind).
+
+Die Kennung wird über `default_entity_id` angefordert. `object_id` tat das
+früher und wurde in Home Assistant 2026 aus der MQTT-Komponente entfernt —
+gesendet werden beide, damit ältere Fassungen weiter bedient sind. Ohne eines
+von beiden baut Home Assistant die Kennung aus Gerätename und Entitätsname
+zusammen, und aus `re_corganpc2_diskc_busy` wird `corganpc2_busy_c`.
 
 Topics:
 
@@ -438,13 +443,13 @@ rest:
         state_class: measurement
       - name: GPU CorganPC2
         unique_id: gpu_temp_corganpc2_rest
-        value_template: "{{ value_json.gpu_temperature_0 }}"
+        value_template: "{{ value_json.gpu0_temperature }}"
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
       - name: SSD C CorganPC2
         unique_id: disk_c_corganpc2_rest
-        value_template: "{{ value_json.disk_used_percent_c }}"
+        value_template: "{{ value_json.diskc_used_percent }}"
         unit_of_measurement: "%"
         state_class: measurement
 ```
