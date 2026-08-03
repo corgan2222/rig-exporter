@@ -172,7 +172,28 @@ func runProbe(configPath string, out io.Writer) error {
 	time.Sleep(4 * time.Second)
 	snap := c.Collect()
 
-	fmt.Fprintf(out, "%s %s — node_id %s\n\n", config.AppName, config.Version, cfg.NodeID)
+	fmt.Fprintf(out, "%s %s — node_id %s\n", config.AppName, config.Version, cfg.NodeID)
+	fmt.Fprintf(out, "Taken:      %s\n", time.Now().Format("2006-01-02 15:04:05"))
+
+	// Both of these decide whether a whole class of readings can exist, and
+	// neither is visible in the numbers themselves — a reading taken without
+	// elevation looks just like one taken with it, minus what is missing.
+	fmt.Fprintf(out, "Elevated:   %t\n", winapi.IsElevated())
+
+	pawn := pawnio.Detect()
+	fmt.Fprintf(out, "PawnIO:     ")
+	switch {
+	case !pawn.Installed():
+		fmt.Fprintf(out, "not installed")
+	case pawn.Usable():
+		fmt.Fprintf(out, "%s, usable", pawn.Version)
+	default:
+		fmt.Fprintf(out, "%s, unusable (%s)", pawn.Version, pawn.Detail)
+	}
+	if !cfg.PawnIOEnabled {
+		fmt.Fprintf(out, " — switched off in the configuration")
+	}
+	fmt.Fprintf(out, "\n\n")
 
 	fmt.Fprintf(out, "RTSS:       %s", snap.RTSSStatus)
 	if snap.RTSSVersion != "" {
