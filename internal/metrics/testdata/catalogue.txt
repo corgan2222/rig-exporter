@@ -56,9 +56,11 @@ net_rx                   Mbit/s     gauge  prec=2 group=net   panel=net   prom=r
 net_tx                   Mbit/s     gauge  prec=2 group=net   panel=net   prom=rig_net_transmit_megabits_per_second
 net_type                 -          text   prec=0 group=net   panel=net   prom=rig_net_info
 net_wifi_signal          %          gauge  prec=0 group=net   panel=net   prom=rig_net_wifi_signal_percent
+os_version               -          text   prec=0 group=core  panel=core  prom=rig_os_version_info
 ping_loss                %          gauge  prec=1 group=net   panel=net   prom=rig_ping_loss_percent
 ping_rtt                 ms         gauge  prec=1 group=net   panel=net   prom=rig_ping_rtt_milliseconds
 ping_target              -          text   prec=0 group=net   panel=net   prom=rig_ping_target_info
+processes                -          gauge  prec=0 group=core  panel=core  prom=rig_processes
 ram                      %          gauge  prec=1 group=core  panel=ram   prom=rig_memory_percent
 ram_clock                MT/s       gauge  prec=0 group=ram   panel=ram   prom=rig_memory_clock_megatransfers
 ram_clock_max            MT/s       gauge  prec=0 group=ram   panel=ram   prom=rig_memory_clock_max_megatransfers
