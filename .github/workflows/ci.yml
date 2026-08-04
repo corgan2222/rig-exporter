@@ -1,0 +1,43 @@
+name: CI
+
+# Every pull request and every push to main. main only ever moves through a
+# pull request, so the second trigger is the merge itself.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # windows/amd64 is not a preference here: the whole program is Win32 calls
+    # behind //go:build windows, and most of the test suite does not exist on
+    # any other platform.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build.ps1 derives the build identifier from `git rev-list --count`,
+          # which counts wrong on a shallow clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install staticcheck
+        # Pinned rather than @latest: a check that appears in a new release
+        # would otherwise turn an unrelated pull request red.
+        run: go install honnef.co/go/tools/cmd/staticcheck@2026.1
+
+      - name: Build and check
+        # The same script a contributor runs locally, so CI cannot disagree
+        # with what they saw: icon, gofmt, vet, staticcheck, tests, build.
+        run: .\build.ps1 -Check
+
+      - name: Report the build identifier
+        run: .\rig-exporter.exe -version
