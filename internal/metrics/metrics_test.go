@@ -112,6 +112,13 @@ func TestInstancedDefinitionsNameTheirDimension(t *testing.T) {
 	// and are therefore singletons despite their group.
 	groupWide := map[string]bool{
 		GPUSource.ID: true,
+		// The overall figures sum every volume, so there is one of each however
+		// many drives are plugged in.
+		HDDOverallCapacity.ID:    true,
+		HDDOverallUsed.ID:        true,
+		HDDOverallFree.ID:        true,
+		HDDOverallUsage.ID:       true,
+		HDDOverallFreePercent.ID: true,
 	}
 
 	for _, d := range All {
