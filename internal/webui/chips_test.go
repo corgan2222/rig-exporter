@@ -145,12 +145,45 @@ func TestTheRecorderNoticeIsShownOnceAndCanBeDismissed(t *testing.T) {
 }
 
 // A switched-off target says nothing: the box above already says it is off.
-func TestTheInfluxStatusIsAbsentWhilePushIsOff(t *testing.T) {
+// The container is still there, empty and hidden, because the poller needs a
+// place to write into when the target is switched on without a reload.
+func TestTheInfluxStatusIsEmptyWhilePushIsOff(t *testing.T) {
 	_, ts := newServer(t, func(c *config.Config) { c.InfluxPushEnabled = false })
 
 	_, body := get(t, ts.URL+"/export")
-	if strings.Contains(body, `id="influx-status"`) {
-		t.Error("a status line appeared for a target that is switched off")
+
+	block := strings.Index(body, `id="influx-status"`)
+	if block < 0 {
+		t.Fatal("the container is missing, so nothing can fill it later")
+	}
+	line := body[block : strings.Index(body[block:], "</div>")+block]
+	if !strings.Contains(line, "hidden") {
+		t.Error("an empty status line is shown for a target that is switched off")
+	}
+	if strings.Contains(line, "badge") {
+		t.Error("a status was rendered for a target that is switched off")
+	}
+}
+
+// Saving redirects back here before the first write has been attempted, so a
+// server-rendered snapshot would always look healthy. The page has to ask
+// again by itself.
+func TestTheInfluxStatusFollowsAlongWithoutAReload(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) {
+		c.InfluxPushEnabled = true
+		c.InfluxURL = "http://influx.example:8086"
+	})
+
+	_, body := get(t, ts.URL+"/export")
+
+	if !strings.Contains(body, `fetch("/api/status"`) {
+		t.Error("the export page never asks for the current state")
+	}
+	if !strings.Contains(body, "setInterval(refreshInfluxStatus") {
+		t.Error("the status is fetched once but never again")
+	}
+	if !strings.Contains(body, `e.name === "influx"`) {
+		t.Error("the poller does not pick the push target out of the targets")
 	}
 }
 
