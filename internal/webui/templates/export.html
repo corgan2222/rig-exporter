@@ -208,6 +208,27 @@
     </div>
   </form>
 
+  <!-- Outside the form on purpose: the button that opens the log is a form of
+       its own, and forms do not nest. Nothing at all while the push target is
+       switched off — ExportStatus is nil then, and a line saying "off" about
+       something the box above already says is off would be noise. -->
+  {{ with .ExportStatus "influx" }}
+  <div class="targetstatus" id="influx-status">
+    <span class="badge">
+      <span class="dot {{ if .Healthy }}ok{{ else }}bad{{ end }}"></span>
+      <strong>{{ .Label }}</strong>
+    </span>
+    {{ if .Healthy }}
+    <span class="note">{{ .Detail }} &middot; {{ .Delivered }} {{ $.T "export.delivered" }}</span>
+    {{ else }}
+    <span class="note err">{{ $.T "export.lastError" }}: {{ .Detail }}</span>
+    <form method="post" action="/open">
+      <button class="ghost small" type="submit" name="what" value="log">{{ $.T "export.openLog" }}</button>
+    </form>
+    {{ end }}
+  </div>
+  {{ end }}
+
   <form method="post" action="/save/app" data-block="app">
     <div class="card" id="app">
       <h2>{{ .T "settings.app.title" }}</h2>

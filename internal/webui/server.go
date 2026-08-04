@@ -30,6 +30,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/assets"
 	"github.com/corgan/rig-exporter/internal/collector"
 	"github.com/corgan/rig-exporter/internal/config"
+	"github.com/corgan/rig-exporter/internal/export"
 	"github.com/corgan/rig-exporter/internal/export/dataserver"
 	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan/rig-exporter/internal/i18n"
@@ -187,6 +188,19 @@ type pageData struct {
 
 // T translates an interface string into the active language.
 func (p pageData) T(key string) string { return i18n.T(p.Lang, key) }
+
+// ExportStatus is the live state of one export target, or nil when that target
+// is switched off — Status.Exports holds an entry per enabled target only.
+//
+// A pointer rather than the two-value lookup because a template cannot take a
+// second return value, and `{{ with }}` on nil is exactly the "not enabled, say
+// nothing" case.
+func (p pageData) ExportStatus(name string) *export.Status {
+	if status, ok := p.Status.Export(name); ok {
+		return &status
+	}
+	return nil
+}
 
 // H is T for catalogue entries that contain markup, such as an inline <code>.
 // Only the catalogue feeds it, never user input.

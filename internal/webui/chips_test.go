@@ -144,6 +144,46 @@ func TestTheRecorderNoticeIsShownOnceAndCanBeDismissed(t *testing.T) {
 	}
 }
 
+// A switched-off target says nothing: the box above already says it is off.
+func TestTheInfluxStatusIsAbsentWhilePushIsOff(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) { c.InfluxPushEnabled = false })
+
+	_, body := get(t, ts.URL+"/export")
+	if strings.Contains(body, `id="influx-status"`) {
+		t.Error("a status line appeared for a target that is switched off")
+	}
+}
+
+// With push on, the line shows what the target is doing — and while nothing has
+// gone wrong it must not offer a log button, or the offer means nothing.
+func TestTheInfluxStatusShowsTheTargetWhilePushIsOn(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) {
+		c.InfluxPushEnabled = true
+		c.InfluxURL = "http://influx.example:8086"
+		c.InfluxBucket = "rig"
+		c.InfluxToken = "t"
+	})
+
+	_, body := get(t, ts.URL+"/export")
+
+	if !strings.Contains(body, `id="influx-status"`) {
+		t.Fatal("no status line for the enabled push target")
+	}
+	if !strings.Contains(body, "influx.example:8086") {
+		t.Error("the status line does not name where it writes to")
+	}
+
+	// The log button lives in the error branch only.
+	status := body[strings.Index(body, `id="influx-status"`):]
+	status = status[:strings.Index(status, "</div>")]
+	if strings.Contains(status, `value="log"`) {
+		t.Error("a healthy target offers the error log")
+	}
+	if strings.Contains(status, "dot bad") {
+		t.Error("a target that has not failed is marked as failed")
+	}
+}
+
 // A measurement that is not collected must not leave an empty tile behind.
 func TestTheStatusPageCanHideTheResolutionTile(t *testing.T) {
 	_, ts := newServer(t, nil)

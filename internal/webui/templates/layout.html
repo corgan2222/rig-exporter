@@ -91,6 +91,14 @@
   .actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
   .badge { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem;
            padding: .25rem .6rem; border-radius: 999px; background: var(--panel-2); }
+  /* The live state of one export target, sitting directly under its card and
+     pulled up so the two read as one block. */
+  .targetstatus { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+                  margin: -.9rem 0 1.25rem; padding: 0 .2rem; }
+  .targetstatus .note { font-size: .8rem; }
+  .targetstatus .note.err { color: var(--err); }
+  .targetstatus form { display: inline; }
+  button.ghost.small { padding: .3rem .8rem; font-size: .8rem; }
   /* A chip that leads somewhere looks like a chip, not like a link: the
      underline would fight the pill shape. The hover says it is clickable. */
   a.badge { color: inherit; text-decoration: none; }
