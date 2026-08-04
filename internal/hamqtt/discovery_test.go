@@ -63,6 +63,34 @@ func TestTheDeviceLinkFollowsTheRealAddress(t *testing.T) {
 	}
 }
 
+// A moved address has to reach the broker, and the only way it can is by
+// announcing everything again.
+//
+// The publisher usually connects before the web server has bound its port, so
+// the first round of discovery goes out with the configured address. Without
+// this, that first round would be the only one, and a retained message with the
+// wrong port would sit there for good.
+func TestAMovedAddressMakesTheNextPassAnnounceAgain(t *testing.T) {
+	p := testPublisher(t)
+	p.announced = map[string]EntityRef{"fps": {component: "sensor", key: "fps"}}
+	p.announcedURL = "http://127.0.0.1:8787"
+
+	// The same address changes nothing: re-announcing every second would flood
+	// the broker with messages that say what it already knows.
+	p.forgetAnnouncementsIfURLChanged("http://127.0.0.1:8787")
+	if len(p.announced) != 1 {
+		t.Error("an unchanged address dropped the announcements anyway")
+	}
+
+	p.forgetAnnouncementsIfURLChanged("http://127.0.0.1:48352")
+	if len(p.announced) != 0 {
+		t.Error("the announcements survived a changed address")
+	}
+	if p.announcedURL != "http://127.0.0.1:48352" {
+		t.Errorf("announcedURL = %q, want the new address", p.announcedURL)
+	}
+}
+
 // The entity naming the whole thing is built around: sensor.re_corganpc2_fps.
 func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	cfg := testConfig()
