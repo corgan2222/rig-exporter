@@ -25,15 +25,28 @@
         <button class="ghost" type="submit" id="pause-btn">{{ .T "status.pause" }}</button>
       </form>
     </div>
-    <!-- What the exporter is currently doing. Filled from the API so a setting
-         saved in another tab shows up here without a reload. -->
-    <div class="actions" style="margin-top:.6rem">
-      <span class="badge" id="c-set"></span>
-      <span class="badge" id="c-decimals"></span>
-      <span class="badge" id="c-entities"></span>
-      <span class="badge" id="c-interval"></span>
-    </div>
     <div class="actions" id="export-badges" style="margin-top:.6rem"></div>
+    <!-- What the exporter is currently doing. Filled from the API so a setting
+         saved in another tab shows up here without a reload, and each chip
+         links to the control that decides it — reading a value and changing it
+         should not be two searches. -->
+    <div class="actions" style="margin-top:.6rem">
+      <a class="badge" id="c-set" href="/capture#sensors"></a>
+      <a class="badge" id="c-decimals" href="/capture#capture"></a>
+      <a class="badge" id="c-entities" href="/capture#sensors"></a>
+      <a class="badge" id="c-interval" href="/capture#capture"></a>
+    </div>
+  </div>
+
+  <!-- Hidden until the script has looked at what was dismissed, so somebody
+       who has read it once never sees it flash by again. -->
+  <div class="banner warn" id="recorder-notice" hidden>
+    <strong>{{ .T "status.recorder.title" }}</strong><br>
+    {{ .T "status.recorder.body" }}
+    <a href="/export#recorder">{{ .T "status.recorder.link" }}</a>
+    <div class="actions" style="margin-top:.7rem">
+      <button class="ghost" type="button" id="recorder-dismiss">{{ .T "status.recorder.dismiss" }}</button>
+    </div>
   </div>
 
   <div class="card">
@@ -268,6 +281,16 @@ async function refresh() {
   banner.hidden = rtssOK;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
 }
+
+// The recorder notice is a one-off hint, not a status: once somebody has read
+// it, it stays gone. Kept in the browser like the grouping preference — it is a
+// property of this reader, not of the machine.
+const recorderNotice = $("recorder-notice");
+recorderNotice.hidden = localStorage.getItem("rig.recorderNoticeRead") === "1";
+$("recorder-dismiss").addEventListener("click", () => {
+  localStorage.setItem("rig.recorderNoticeRead", "1");
+  recorderNotice.hidden = true;
+});
 
 setGrouping(byDevice);
 setInterval(refresh, {{ .RefreshMs }});

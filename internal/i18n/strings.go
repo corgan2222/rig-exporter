@@ -160,6 +160,18 @@ var catalogue = map[string]Text{
 	"settings.influx.tokenNone":   {DE: "InfluxDB-2-Token, bei 1.8: benutzer:passwort", EN: "InfluxDB 2 token; for 1.8 use user:password"},
 	"settings.influx.clearToken":  {DE: "Gespeicherten Token löschen", EN: "Delete the stored token"},
 
+	// Status page, the one-off hint about the Home Assistant database.
+	"status.recorder.title": {
+		DE: "Home Assistant speichert jede Wertänderung",
+		EN: "Home Assistant records every change of value",
+	},
+	"status.recorder.body": {
+		DE: "Ein PC, der hundert Messwerte im Sekundentakt meldet, füllt die Datenbank schneller, als der nächtliche Aufräumlauf sie kürzt. Wie man steuert, wovon ein Verlauf geführt wird — samt fertigem Abschnitt für die configuration.yaml:",
+		EN: "A PC reporting a hundred readings a second fills the database faster than the nightly purge empties it. How to control what keeps a history, with a ready-made block for configuration.yaml:",
+	},
+	"status.recorder.link":    {DE: "Langzeitspeicherung einrichten", EN: "Set up long-term storage"},
+	"status.recorder.dismiss": {DE: "Gelesen, nicht wieder anzeigen", EN: "Read it, do not show again"},
+
 	// Status page, the chips under the tiles. Each says what the exporter is
 	// set to do right now, so each is prefixed with what it is about.
 	"status.chipSet":         {DE: "Messwerte:", EN: "Measurements:"},
