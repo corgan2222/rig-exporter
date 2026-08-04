@@ -121,6 +121,8 @@ func kindName(k Kind) string {
 		return "text"
 	case KindBool:
 		return "bool"
+	case KindTable:
+		return "table"
 	default:
 		return "gauge"
 	}

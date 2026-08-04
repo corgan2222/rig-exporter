@@ -207,9 +207,25 @@ func runProbe(configPath string, out io.Writer) error {
 	fmt.Fprintf(out, "\nGame:       %s\n", snap.Game())
 	fmt.Fprintf(out, "FPS:        %.1f (%.2f ms)\n", snap.FPS(), snap.FrametimeMs())
 	fmt.Fprintf(out, "Display:    %s @ %d Hz\n", snap.Resolution(), snap.RefreshHz())
-	fmt.Fprintf(out, "CPU / RAM:  %.1f %% / %.1f %%\n\n", snap.CPUPercent(), snap.RAMPercent())
+	fmt.Fprintf(out, "CPU / RAM:  %.1f %% / %.1f %%\n", snap.CPUPercent(), snap.RAMPercent())
 
 	lang := cfg.Lang()
+
+	// The rankings belong to the core group, which is summarised above rather
+	// than listed below — so without this they would appear only in the export
+	// formats, and the readable half of the diagnostic would be missing the one
+	// thing that says who is using the machine.
+	//
+	// On their own lines rather than in the aligned block above: a ranking is
+	// far too long for a column, and its name is longer than every label there.
+	for _, reading := range snap.Entities() {
+		if reading.Def.Kind != metrics.KindTable {
+			continue
+		}
+		fmt.Fprintf(out, "\n%s\n  %s\n", reading.DisplayName(lang), reading.TableText())
+	}
+	fmt.Fprintln(out)
+
 	for _, group := range metrics.Groups {
 		if group == metrics.GroupCore {
 			continue
@@ -232,9 +248,16 @@ func runProbe(configPath string, out io.Writer) error {
 			fmt.Fprintf(out, "  (a source failed: %s)\n", failure)
 		}
 		for _, reading := range snap.Entities() {
-			if reading.Def.PanelGroup() == group {
-				fmt.Fprintf(out, "  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
+			if reading.Def.PanelGroup() != group {
+				continue
 			}
+			// A ranked list carries its own units per row, so it prints as one
+			// line rather than as the Go rendering of a map.
+			if reading.Def.Kind == metrics.KindTable {
+				fmt.Fprintf(out, "  %-34s %s\n", reading.DisplayName(lang), reading.TableText())
+				continue
+			}
+			fmt.Fprintf(out, "  %-34s %v %s\n", reading.DisplayName(lang), reading.Value(), reading.Def.Unit)
 		}
 		fmt.Fprintln(out)
 	}

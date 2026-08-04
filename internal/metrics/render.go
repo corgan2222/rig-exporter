@@ -64,6 +64,20 @@ func (s Set) Prometheus(host string) []byte {
 
 		var sample string
 		switch r.Def.Kind {
+		case KindTable:
+			// One series per row, which is what Prometheus labels are for. The
+			// rank is a label of its own so a query can ask either "how much did
+			// firefox use" or "how much did the busiest process use" — the two
+			// questions a ranked list raises, and neither is answerable from a
+			// series that carries only the other.
+			for i, row := range r.Rows {
+				rowLabels := append(append([]string(nil), labels...),
+					r.Def.PromLabel+`="`+escapeLabelValue(row.Label)+`"`,
+					`rank="`+strconv.Itoa(i+1)+`"`)
+				fmt.Fprintf(&b, "%s{%s} %s\n", r.Def.Prom, strings.Join(rowLabels, ","),
+					strconv.FormatFloat(row.Value, 'f', -1, 64))
+			}
+			continue
 		case KindText:
 			// An info metric with an empty value carries no information and
 			// would create a series that never changes.
@@ -127,6 +141,17 @@ func (s Set) Influx(measurement, host string, at time.Time) []byte {
 
 		field := escapeTag(fieldName(r))
 		switch r.Def.Kind {
+		case KindTable:
+			// A field per rank, with the name as a string field rather than a
+			// tag. A tag would be indexed, and every program that has ever led
+			// the list would stay in that index forever — the textbook way to
+			// ruin an InfluxDB with cardinality.
+			for i, row := range r.Rows {
+				rank := strconv.Itoa(i + 1)
+				point.fields = append(point.fields,
+					field+"_"+rank+"="+strconv.FormatFloat(row.Value, 'f', -1, 64),
+					field+"_"+rank+"_"+escapeTag(r.Def.PromLabel)+`="`+escapeFieldString(row.Label)+`"`)
+			}
 		case KindText:
 			// Empty tag values are invalid line protocol.
 			if r.Text == "" {
@@ -187,6 +212,12 @@ func escapeMeasurement(s string) string {
 
 func escapeTag(s string) string {
 	return strings.NewReplacer(",", `\,`, "=", `\=`, " ", `\ `).Replace(s)
+}
+
+// escapeFieldString escapes a string field value, which unlike a tag is quoted
+// and therefore only needs the quote and the backslash itself dealt with.
+func escapeFieldString(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s)
 }
 
 // Keys lists every reading key in the set, sorted. Used by the MQTT publisher

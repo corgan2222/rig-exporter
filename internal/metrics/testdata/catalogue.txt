@@ -87,6 +87,8 @@ resolution               -          text   prec=0 group=core  panel=core  cat=pr
 rtss                     -          bool   prec=0 group=core  panel=core  cat=diagnostic prom=rig_rtss_up
 rtss_status              -          text   prec=0 group=core  panel=core  cat=none       prom=rig_rtss_status_info
 rtss_version             -          text   prec=0 group=core  panel=core  cat=none       prom=rig_rtss_version_info
+top_cpu                  %          table  prec=1 group=core  panel=core  cat=primary    prom=rig_top_cpu_percent
+top_memory               %          table  prec=1 group=core  panel=core  cat=primary    prom=rig_top_memory_percent
 uptime                   h          gauge  prec=2 group=core  panel=core  cat=diagnostic prom=rig_uptime_hours
 version                  -          text   prec=0 group=core  panel=core  cat=diagnostic prom=rig_exporter_version_info
 width                    px         gauge  prec=0 group=core  panel=core  cat=none       prom=rig_display_width_pixels

@@ -48,27 +48,31 @@ type discoveryPayload struct {
 	// Both are sent. Older Home Assistant reads object_id and ignores this;
 	// newer reads this and ignores object_id. Neither ever sees a key it
 	// understands differently.
-	DefaultEntityID     string     `json:"default_entity_id"`
-	ObjectID            string     `json:"object_id"`
-	UniqueID            string     `json:"unique_id"`
-	StateTopic          string     `json:"state_topic"`
-	ValueTemplate       string     `json:"value_template"`
-	AvailabilityTopic   string     `json:"availability_topic"`
-	PayloadAvailable    string     `json:"payload_available"`
-	PayloadNotAvailable string     `json:"payload_not_available"`
-	UnitOfMeasurement   string     `json:"unit_of_measurement,omitempty"`
-	DeviceClass         string     `json:"device_class,omitempty"`
-	StateClass          string     `json:"state_class,omitempty"`
-	EntityCategory      string     `json:"entity_category,omitempty"`
-	Icon                string     `json:"icon,omitempty"`
-	PayloadOn           string     `json:"payload_on,omitempty"`
-	PayloadOff          string     `json:"payload_off,omitempty"`
-	SuggestedPrecision  *int       `json:"suggested_display_precision,omitempty"`
-	Device              deviceInfo `json:"device"`
-	Origin              originInfo `json:"origin"`
+	DefaultEntityID     string `json:"default_entity_id"`
+	ObjectID            string `json:"object_id"`
+	UniqueID            string `json:"unique_id"`
+	StateTopic          string `json:"state_topic"`
+	ValueTemplate       string `json:"value_template"`
+	AvailabilityTopic   string `json:"availability_topic"`
+	PayloadAvailable    string `json:"payload_available"`
+	PayloadNotAvailable string `json:"payload_not_available"`
+	UnitOfMeasurement   string `json:"unit_of_measurement,omitempty"`
+	DeviceClass         string `json:"device_class,omitempty"`
+	StateClass          string `json:"state_class,omitempty"`
+	EntityCategory      string `json:"entity_category,omitempty"`
+	Icon                string `json:"icon,omitempty"`
+	PayloadOn           string `json:"payload_on,omitempty"`
+	PayloadOff          string `json:"payload_off,omitempty"`
+	SuggestedPrecision  *int   `json:"suggested_display_precision,omitempty"`
+	// JSONAttributes carry a table alongside the state. Home Assistant reads
+	// them from the same document the state comes from, so a ranked list costs
+	// no extra topic and no extra message.
+	JSONAttributesTopic    string     `json:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate string     `json:"json_attributes_template,omitempty"`
+	Device                 deviceInfo `json:"device"`
+	Origin                 originInfo `json:"origin"`
 }
 
-// discoveryFor builds the announcement for one reading.
 // configURL is what the "Visit" link on the Home Assistant device page opens.
 //
 // webURL is where the interface is really listening, which is not always where
@@ -127,6 +131,20 @@ func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discovery
 	case metrics.KindBool:
 		payload.PayloadOn = metrics.PayloadOn
 		payload.PayloadOff = metrics.PayloadOff
+	case metrics.KindTable:
+		// The state is the leading program's name; the list rides along as
+		// attributes, which is where a five-row table can live without becoming
+		// five entities whose meaning changes whenever two programs swap places.
+		//
+		// Same topic, so the whole thing is still one message. tojson because
+		// Home Assistant expects a JSON object here and would otherwise receive
+		// Python's repr of one, quotes and all.
+		payload.ValueTemplate = fmt.Sprintf("{{ value_json.%s.top }}", key)
+		payload.JSONAttributesTopic = cfg.StateTopic()
+		payload.JSONAttributesTemplate = fmt.Sprintf("{{ value_json.%s | tojson }}", key)
+		// No unit: it describes the rows, and Home Assistant would attach it to
+		// the state, which is a program name. "firefox.exe %" helps nobody.
+		payload.UnitOfMeasurement = ""
 	case metrics.KindGauge:
 		// Display precision only applies to numbers; setting it on a text
 		// entity makes Home Assistant reject the discovery. It is what we

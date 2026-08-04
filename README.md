@@ -27,7 +27,7 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 59 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 61 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
 * **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
@@ -68,6 +68,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Download- und Upload-Rate, empfangene und gesendete Gesamtmenge, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 | **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
+| **Top-Prozesse** | die Programme mit dem größten CPU- und Speicherbedarf | Windows |
 
 Auf dem Entwicklungsrechner ergibt das rund 134 Werte: zwei Grafikkarten, vier
 NVMe, ein aktiver Adapter. „Rund", weil die Zahl der Hardware folgt — einem
@@ -312,7 +313,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wo Home Assistant die Werte einsortiert
 
-51 Messwerte stehen im Hauptbereich, 34 unter **Diagnose**, 7 werden gar nicht
+53 Messwerte stehen im Hauptbereich, 34 unter **Diagnose**, 7 werden gar nicht
 als Entität veröffentlicht. Die Regel dahinter:
 
 * **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
@@ -800,6 +801,99 @@ Die Werte erscheinen sofort nach dem Speichern, ohne Neustart. Beim Ausschalten
 verschwinden die beiden Entities auch in Home Assistant, dafür muss HA in dem
 Moment laufen.
 
+### Top-Prozesse
+
+Die teuerste Option des Programms, eigene Sensorgruppe, standardmäßig **aus**.
+Sie beantwortet die eine Frage, die keiner der übrigen Werte beantworten kann:
+der Prozessor lag bei 80 %, aber *wer* war das.
+
+| Feld | Bedeutung |
+|---|---|
+| `top_cpu` | die N Programme mit dem größten CPU-Anteil, in % der ganzen Maschine |
+| `top_memory` | die N Programme mit dem meisten privaten Speicher, in % des RAM |
+
+Gruppiert wird nach Programm, nicht nach Prozess: ein Browser ist ein Eintrag,
+nicht die 28 Prozesse, auf die er sich verteilt hat. Der Speicher zählt
+**Private Bytes** statt Working Set, weil sich Working Sets nicht addieren
+lassen — jeder dieser 28 Prozesse bildet dieselben DLLs ein und die Summe läge
+um Gigabytes daneben. Die Buchhaltungs-Töpfe `Idle`, `System`,
+`Memory Compression`, `Registry` und `vmmem` fallen heraus; `Idle` würde die
+CPU-Liste auf einem ruhigen Rechner sonst mit Abstand anführen.
+
+Der CPU-Anteil bezieht sich auf die ganze Maschine, wie im Task-Manager: ein
+Programm, das einen von 32 Threads auslastet, steht bei 3 %, nicht bei 100.
+
+**Warum das teuer ist,** in Zahlen von diesem Rechner: jede Messung liest alle
+laufenden Prozesse in einem Rutsch — 665 Stück, 1,58 MB Puffer, gemessene 19 ms.
+Deshalb läuft die Messung in einem **eigenen Takt** (Voreinstellung 10 s, ab
+2000 ms) und nicht im Auslese-Intervall; bei 1 s wären das dauerhaft 2 % eines
+Kerns und 19 ms Blockade in der Messschleife.
+
+Der zweite Preis steht in der Datenbank von Home Assistant: die Attribute
+ändern sich bei jeder Messung, das sind bei 10 s rund 17 000 zusätzliche Zeilen
+pro Tag. Und die Namen der laufenden Programme stehen damit dauerhaft im
+Verlauf — wer den Rechner teilt, sollte das wissen.
+
+#### Die Form: ein Sensor mit Tabelle statt fünf Entities
+
+Jede der beiden Listen ist **eine** Entity. Ihr Zustand ist der Name des
+Spitzenreiters, die vollständige Liste hängt als Attribut daran:
+
+```yaml
+sensor.re_corganpc3_top_cpu
+  state: firefox.exe
+  attributes:
+    top: firefox.exe
+    apps:
+      - {name: firefox.exe, value: 41.2}
+      - {name: cs2.exe,     value: 12.0}
+```
+
+Fünf Entities je Liste wären die Alternative gewesen — `top_cpu_1` bis
+`top_cpu_5`. Dagegen spricht, dass sich das Programm hinter Platz 2 alle paar
+Minuten ändert: eine Zeitreihe namens „Platz 2" zeichnet bei jedem Wechsel etwas
+anderes auf und ist als Verlauf wertlos. Fünf Zeilen bleiben fünf Zeilen, wenn
+sie zusammen in einem Attribut liegen.
+
+Der Preis dieser Wahl: **keine Langzeitstatistik.** Home Assistant baut aus
+Attributen keine `statistics`, und aus einem Textzustand auch nicht. Der Verlauf
+lebt also nur so lange wie `purge_keep_days` (Standard 10 Tage). Die beiden
+Entities stehen deshalb in der `include`-Liste des erzeugten
+`recorder:`-Blocks — würde man sie ausschließen, gäbe es gar nichts zu
+zeichnen.
+
+#### Säulendiagramm in Home Assistant
+
+Zum Zeichnen der Attribut-Historie braucht es **ApexCharts Card** aus HACS; die
+Bordmittel-Karten lesen nur Zustände, keine Attribute.
+
+```yaml
+type: custom:apexcharts-card
+graph_span: 6h
+stacked: true
+apex_config:
+  chart: {type: column}
+series:
+  - entity: sensor.re_corganpc3_top_cpu
+    name: Platz 1
+    type: column
+    data_generator: |
+      return entity.attributes.apps[0]
+        ? [[new Date(entity.last_changed).getTime(), entity.attributes.apps[0].value]]
+        : [];
+```
+
+In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
+eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
+
+```
+rig_top_cpu_percent{host="corganpc3",app="firefox.exe",rank="1"} 41.2
+rig_top_cpu_percent{host="corganpc3",app="cs2.exe",rank="2"} 12
+```
+
+Wer die Werte langfristig als Diagramm braucht und HACS meiden will, ist mit
+Prometheus und Grafana deutlich besser bedient als mit Home Assistant.
+
 ## Wie die Werte zustande kommen
 
 **FPS und Spiel** kommen aus `RTSSSharedMemoryV2`. Der Block wird bei jedem
@@ -952,7 +1046,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-247 Testfunktionen in 34 Dateien. Abgedeckt sind: die drei Parser, die
+264 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit
