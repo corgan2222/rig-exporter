@@ -84,6 +84,10 @@ var standardSet = map[string]bool{
 	// to look at, for a reason they never touched.
 	"exporter_cpu":    true,
 	"exporter_memory": true,
+	// Same reasoning for the two rankings: their own group decides whether
+	// they exist, and a second switch hiding them would only confuse.
+	"top_cpu":    true,
+	"top_memory": true,
 }
 
 // standardOnly drops everything outside the standard set at collection time.

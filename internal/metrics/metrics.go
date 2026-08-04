@@ -30,6 +30,18 @@ const (
 	KindText
 	// KindBool is a flag, rendered as 0/1, true/false or ON/OFF.
 	KindBool
+	// KindTable is a short ranked list — a name and a number per row.
+	//
+	// It exists because "the five processes using the most CPU" is one
+	// measurement with five rows, not five measurements. Splitting it into five
+	// numbered entities would give Home Assistant a series per rank whose
+	// meaning changes whenever two programs swap places.
+	//
+	// Each format renders it in its own idiom: a nested object in JSON, one
+	// series per row with a label in Prometheus, a field per rank in InfluxDB,
+	// and in Home Assistant the leader as the state with the whole table
+	// alongside it as attributes.
+	KindTable
 )
 
 // Group is the sensor family a definition belongs to. Groups are what the
@@ -161,6 +173,13 @@ type Reading struct {
 	Number float64
 	Text   string
 	Bool   bool
+	Rows   []Row
+}
+
+// Row is one line of a KindTable reading: what it is, and how much.
+type Row struct {
+	Label string  `json:"name"`
+	Value float64 `json:"value"`
 }
 
 // decimals decides whether numeric readings keep their fractional part.
@@ -215,6 +234,32 @@ func Text(def Definition, instance, value string) Reading {
 // Bool builds a flag reading.
 func Bool(def Definition, instance string, value bool) Reading {
 	return Reading{Def: def, Instance: instance, Bool: value}
+}
+
+// Table builds a ranked list reading, already in the order it should be shown.
+//
+// Rows without a label are dropped rather than rendered as a blank line, and a
+// table with no rows left produces no reading at all — the same rule the rest of
+// the catalogue follows: a measurement that could not be taken is absent, not
+// zero. Labels go through the same UTF-8 repair as Text, because they are
+// process names and Windows does not promise UTF-8.
+func Table(def Definition, instance string, rows []Row) Reading {
+	precision := def.EffectivePrecision()
+
+	kept := make([]Row, 0, len(rows))
+	for _, row := range rows {
+		// Trimmed before the emptiness check: a label of two spaces is not a
+		// name, and it renders as a blank line with a number beside it.
+		label := strings.TrimSpace(strings.ToValidUTF8(row.Label, ""))
+		if label == "" {
+			continue
+		}
+		kept = append(kept, Row{Label: label, Value: Round(row.Value, precision)})
+	}
+	if len(kept) == 0 {
+		return Reading{}
+	}
+	return Reading{Def: def, Instance: instance, Rows: kept}
 }
 
 // instanceAfter says which part of an identifier the instance follows, keyed by
@@ -388,9 +433,35 @@ func (r Reading) Value() any {
 			return PayloadOn
 		}
 		return PayloadOff
+	case KindTable:
+		// "top" is separate from the list rather than something a consumer has
+		// to index out of it, because that is what a Home Assistant value
+		// template reads to get the entity's state, and a template that has to
+		// subscript an array fails silently when the array is empty.
+		return map[string]any{"top": r.Rows[0].Label, "apps": r.Rows}
 	default:
 		return r.Number
 	}
+}
+
+// TableText renders a ranked list on one line, for the places that show a
+// reading as text: the settings page and -probe.
+//
+// One line because a panel row is one line, and because a ranking is read at a
+// glance — the charts that make the numbers worth keeping are Home Assistant's
+// job, not this program's.
+func (r Reading) TableText() string {
+	precision := r.Def.EffectivePrecision()
+
+	parts := make([]string, 0, len(r.Rows))
+	for _, row := range r.Rows {
+		value := strconv.FormatFloat(row.Value, 'f', precision, 64)
+		if r.Def.Unit != "" {
+			value += " " + r.Def.Unit
+		}
+		parts = append(parts, row.Label+" "+value)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // Payload values for boolean readings, chosen to match what Home Assistant's

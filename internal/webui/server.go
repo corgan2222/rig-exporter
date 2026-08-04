@@ -268,6 +268,11 @@ func setEntries(defs []metrics.Definition, lang i18n.Lang) []setEntry {
 // rate, a fan speed in the middle of a game and a throughput spike do not — for
 // those the ten-day detail Home Assistant keeps anyway is the useful window.
 // The longer reasoning, with measurements, is in maybe_later.md.
+// The two rankings are here for a different reason from the rest. An hourly
+// average of a program name says nothing, and Home Assistant builds no
+// statistics from attributes at all — so their history is the only history they
+// will ever have. Excluding them would leave the charts they exist for with
+// nothing to draw.
 var worthKeeping = []string{
 	metrics.FPS.ID,
 	metrics.CPULoad.ID,
@@ -277,6 +282,8 @@ var worthKeeping = []string{
 	metrics.GPULoad.ID,
 	metrics.DiskFreePercent.ID,
 	metrics.PingRTT.ID,
+	metrics.TopCPU.ID,
+	metrics.TopMemory.ID,
 }
 
 // recorderSnippet builds the recorder block for this machine.
@@ -517,6 +524,9 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.PingCount = formInt(r, "ping_count", cfg.PingCount)
 		cfg.PingIntervalMs = formInt(r, "ping_interval_ms", cfg.PingIntervalMs)
 		cfg.SelfUsageEnabled = r.FormValue("self_usage_enabled") != ""
+		cfg.TopProcessesEnabled = r.FormValue("top_processes_enabled") != ""
+		cfg.TopProcessesCount = formInt(r, "top_processes_count", cfg.TopProcessesCount)
+		cfg.TopProcessesIntervalMs = formInt(r, "top_processes_interval_ms", cfg.TopProcessesIntervalMs)
 
 	case "capture":
 		cfg.PollIntervalMs = formInt(r, "poll_interval_ms", cfg.PollIntervalMs)
@@ -916,6 +926,8 @@ func formatValue(r metrics.Reading) string {
 			return "1"
 		}
 		return "0"
+	case metrics.KindTable:
+		return r.TableText()
 	default:
 		value := strconv.FormatFloat(r.Number, 'f', r.Def.EffectivePrecision(), 64)
 		if r.Def.Unit == "" {

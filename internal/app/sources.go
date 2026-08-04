@@ -13,6 +13,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/hardware/gpu"
 	hwnet "github.com/corgan/rig-exporter/internal/hardware/net"
 	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
+	"github.com/corgan/rig-exporter/internal/hardware/procs"
 	"github.com/corgan/rig-exporter/internal/hardware/ram"
 	"github.com/corgan/rig-exporter/internal/rtss"
 	"github.com/corgan/rig-exporter/internal/sysinfo"
@@ -23,6 +24,7 @@ import (
 type sensors struct {
 	sources []collector.Source
 	pinger  *hwnet.Pinger
+	procs   *procs.Sampler
 }
 
 // buildSensors creates the optional sources the configuration asks for.
@@ -60,6 +62,14 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 		}
 		s.sources = append(s.sources, hwnet.New(s.pinger, cfg.NetAllAdapters))
 	}
+	// Last, because it is the only source that reads the whole machine rather
+	// than one piece of it, and its own ticker means the order here decides
+	// nothing but where its rows land in the output.
+	if cfg.TopProcessesEnabled {
+		s.procs = procs.New(cfg.TopProcessesCount,
+			time.Duration(cfg.TopProcessesIntervalMs)*time.Millisecond, log)
+		s.sources = append(s.sources, procs.NewSource(s.procs))
+	}
 	return s
 }
 
@@ -67,6 +77,9 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 func (s *sensors) start() {
 	if s.pinger != nil {
 		s.pinger.Start()
+	}
+	if s.procs != nil {
+		s.procs.Start()
 	}
 }
 
@@ -118,7 +131,10 @@ func sensorsChanged(a, b config.Config) bool {
 		a.PingCount != b.PingCount ||
 		a.PingIntervalMs != b.PingIntervalMs ||
 		a.IdleTimeoutMs != b.IdleTimeoutMs ||
-		a.SelfUsageEnabled != b.SelfUsageEnabled {
+		a.SelfUsageEnabled != b.SelfUsageEnabled ||
+		a.TopProcessesEnabled != b.TopProcessesEnabled ||
+		a.TopProcessesCount != b.TopProcessesCount ||
+		a.TopProcessesIntervalMs != b.TopProcessesIntervalMs {
 		return true
 	}
 	return !sameStrings(a.DiskInclude, b.DiskInclude)

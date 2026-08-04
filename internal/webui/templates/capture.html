@@ -121,6 +121,23 @@
       </div>
       <p class="note indent">{{ .T "settings.sensors.selfUsageHint" }}</p>
 
+      <div class="check">
+        <input type="checkbox" name="top_processes_enabled" id="top_processes_enabled" value="1" {{ if .Config.TopProcessesEnabled }}checked{{ end }}>
+        <label for="top_processes_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.topProcs" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.sensors.topProcsHint" }}</p>
+      <div class="row">
+        <label>
+          <span class="name">{{ .T "settings.sensors.topProcsCount" }}</span>
+          <input type="number" name="top_processes_count" value="{{ .Config.TopProcessesCount }}" min="3" max="10">
+        </label>
+        <label>
+          <span class="name">{{ .T "settings.sensors.topProcsInterval" }}</span>
+          <input type="number" name="top_processes_interval_ms" value="{{ .Config.TopProcessesIntervalMs }}" min="2000" max="600000" step="1000">
+          <span class="hint">{{ .T "settings.sensors.topProcsIntervalHint" }}</span>
+        </label>
+      </div>
+
       {{ template "save" . }}
     </div>
   </form>

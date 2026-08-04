@@ -139,6 +139,15 @@ type Config struct {
 	// almost always flat are two entities nobody asked for.
 	SelfUsageEnabled bool `json:"self_usage_enabled"`
 
+	// TopProcessesEnabled ranks the programs using the most CPU and memory.
+	//
+	// The most expensive thing this program can be asked to do, and off by
+	// default for that reason: one pass reads every process on the machine, and
+	// the result is two entities whose attributes change on every sample.
+	TopProcessesEnabled    bool `json:"top_processes_enabled"`
+	TopProcessesCount      int  `json:"top_processes_count"`
+	TopProcessesIntervalMs int  `json:"top_processes_interval_ms"`
+
 	// LegacyCleanupPending is set once when a configuration is migrated from
 	// the previous application name, and cleared after the old retained
 	// discovery topics have been emptied.
@@ -246,6 +255,13 @@ func Defaults() Config {
 		PingTarget:       "", // empty means the default gateway
 		PingCount:        3,
 		PingIntervalMs:   15000,
+
+		// Off, but with its settings already sensible for whoever switches it
+		// on. Ten seconds is fine enough to see what a game or a build did and
+		// slow enough that reading 660 processes costs nothing worth naming.
+		TopProcessesEnabled:    false,
+		TopProcessesCount:      5,
+		TopProcessesIntervalMs: 10000,
 
 		// Read four times as often as we publish while a game runs: the tray
 		// and the settings page stay lively without putting four times the
@@ -510,6 +526,10 @@ func (c *Config) normalizeSensors() {
 	c.PingTarget = strings.TrimSpace(c.PingTarget)
 	c.PingCount = clampInt(c.PingCount, 1, 10, Defaults().PingCount)
 	c.PingIntervalMs = clampInt(c.PingIntervalMs, 2000, 600_000, Defaults().PingIntervalMs)
+	c.TopProcessesCount = clampInt(c.TopProcessesCount, 3, 10, Defaults().TopProcessesCount)
+	// Never faster than two seconds: a pass reads every process on the machine,
+	// and below that the sampling starts to cost more than what it measures.
+	c.TopProcessesIntervalMs = clampInt(c.TopProcessesIntervalMs, 2000, 600_000, Defaults().TopProcessesIntervalMs)
 
 	// Drive letters are stored uppercase without a colon, so "c:" and "C:\"
 	// both match what the disk source reports.

@@ -91,6 +91,52 @@ func TestAMovedAddressMakesTheNextPassAnnounceAgain(t *testing.T) {
 	}
 }
 
+// A ranked list is one entity with a table beside it, not five entities whose
+// meaning changes whenever two programs swap places.
+func TestARankedListAnnouncesItsTableAsAttributes(t *testing.T) {
+	cfg := testConfig()
+	reading := metrics.Table(metrics.TopCPU, "", []metrics.Row{
+		{Label: "firefox.exe", Value: 41.2},
+		{Label: "cs2.exe", Value: 12},
+	})
+
+	topic, payload := decode(t, reading)
+	if want := "homeassistant/sensor/rig_corganpc2/top_cpu/config"; topic != want {
+		t.Errorf("topic = %q, want %q", topic, want)
+	}
+
+	if want := "{{ value_json.top_cpu.top }}"; payload.ValueTemplate != want {
+		t.Errorf("value_template = %q, want the leader %q", payload.ValueTemplate, want)
+	}
+	if payload.JSONAttributesTopic != cfg.StateTopic() {
+		t.Errorf("attributes topic = %q, want the state topic — one message, not two",
+			payload.JSONAttributesTopic)
+	}
+	if want := "{{ value_json.top_cpu | tojson }}"; payload.JSONAttributesTemplate != want {
+		t.Errorf("attributes template = %q, want %q", payload.JSONAttributesTemplate, want)
+	}
+
+	// The unit describes the rows. On the state, which is a program name, it
+	// would render as "firefox.exe %".
+	if payload.UnitOfMeasurement != "" {
+		t.Errorf("unit = %q, want none on a state that is a name", payload.UnitOfMeasurement)
+	}
+	// Display precision applies to numbers; Home Assistant rejects the whole
+	// discovery when it arrives on a text state.
+	if payload.SuggestedPrecision != nil {
+		t.Errorf("suggested_display_precision = %v, want none", *payload.SuggestedPrecision)
+	}
+}
+
+// Everything else must keep its unit — the table case is an exception, not a
+// new default.
+func TestOrdinaryReadingsKeepTheirUnit(t *testing.T) {
+	_, payload := decode(t, metrics.Gauge(metrics.CPULoad, "", 24.5))
+	if payload.UnitOfMeasurement != "%" {
+		t.Errorf("unit = %q, want %%", payload.UnitOfMeasurement)
+	}
+}
+
 // The entity naming the whole thing is built around: sensor.re_corganpc2_fps.
 func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	cfg := testConfig()

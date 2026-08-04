@@ -144,6 +144,33 @@ var (
 		Prom: "rig_exporter_memory_megabytes", Help: "Working set of this exporter",
 		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:memory",
 	}
+	// TopCPU and TopMemory answer the question the per-device values cannot:
+	// the processor was at eighty per cent, but who put it there.
+	//
+	// One entity each rather than one per rank. The program behind rank two
+	// changes every few minutes, so a series called "rank two" records a
+	// different thing every time it moves — useless as history. The list travels
+	// as attributes instead, where five rows stay five rows.
+	//
+	// The unit describes the rows, not the state: the state is the leading
+	// program's name. Discovery leaves the unit out for exactly that reason.
+	//
+	// Collected only when their own sensor group is switched on, because one
+	// pass reads every process on the machine.
+	TopCPU = Definition{
+		ID: "top_cpu", Name: i18n.Text{DE: "Top-Prozesse CPU", EN: "Top processes CPU"},
+		Unit: "%", Kind: KindTable, Precision: 1, Group: GroupCore,
+		Prom: "rig_top_cpu_percent", PromLabel: "app",
+		Help: "Share of the whole machine's CPU per program, highest first",
+		Icon: "mdi:chart-bar",
+	}
+	TopMemory = Definition{
+		ID: "top_memory", Name: i18n.Text{DE: "Top-Prozesse Speicher", EN: "Top processes memory"},
+		Unit: "%", Kind: KindTable, Precision: 1, Group: GroupCore,
+		Prom: "rig_top_memory_percent", PromLabel: "app",
+		Help: "Share of physical memory held privately per program, highest first",
+		Icon: "mdi:chart-bar-stacked",
+	}
 	// Processes is a coarse but useful measure of what the machine is carrying;
 	// a number that climbs and never falls is the shape of a leak.
 	Processes = Definition{
@@ -730,7 +757,7 @@ var All = []Definition{
 	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion, Processes,
-	ExporterVersion, ExporterCPU, ExporterMemory,
+	ExporterVersion, ExporterCPU, ExporterMemory, TopCPU, TopMemory,
 
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
