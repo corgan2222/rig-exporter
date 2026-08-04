@@ -9,7 +9,7 @@ probe.txt
 .code-review-graph
 
 # Working notes, kept on disk but out of the repository. The README is the
-# documentation that ships; these two are the project's memory for whoever
+# documentation that ships; these are the project's memory for whoever
 # continues it, and they are nobody else's business.
 HANDOVER.md
 maybe_later.md
