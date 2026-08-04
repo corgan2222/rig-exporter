@@ -2,3 +2,7 @@
 *.exe~
 reading.txt
 probe.txt
+
+# Editor settings are personal. They also made every build report itself as
+# .dirty, because the build identifier asks git whether the tree is clean.
+.vscode/
