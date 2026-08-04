@@ -21,6 +21,9 @@ import (
 	"github.com/corgan/rig-exporter/internal/metrics"
 )
 
+// gb converts the byte counts Windows reports into the unit the readings use.
+const gb = 1024 * 1024 * 1024
+
 // Source collects the disk group.
 type Source struct {
 	// wants decides which drive letters to report; nil means all fixed ones.
@@ -65,14 +68,22 @@ func (s *Source) Collect(set *metrics.Set) error {
 	s.lastAt = now
 	s.mu.Unlock()
 
+	// Summed here rather than in the collector, because this is the one place
+	// that knows which volumes were actually reported: an excluded drive, or
+	// one that could not be read, must not count towards the total either.
 	found := 0
+	var totalAll, freeAll uint64
 	for _, letter := range letters {
 		if !s.wants(letter) {
 			continue
 		}
-		if s.collectVolume(set, letter, previous, current, elapsed) {
-			found++
+		total, free, ok := s.collectVolume(set, letter, previous, current, elapsed)
+		if !ok {
+			continue
 		}
+		found++
+		totalAll += total
+		freeAll += free
 	}
 
 	s.mu.Lock()
@@ -82,20 +93,39 @@ func (s *Source) Collect(set *metrics.Set) error {
 	if found == 0 {
 		return fmt.Errorf("no volume could be read")
 	}
+	addOverall(set, totalAll, freeAll)
 	return nil
 }
 
-// collectVolume appends the readings of one drive letter and reports whether
-// anything was collected.
-func (s *Source) collectVolume(set *metrics.Set, letter string, previous, current map[string]sample, elapsed float64) bool {
+// addOverall reports every reported volume together. Nothing is added for a
+// machine whose volumes all read zero capacity — a total of zero would divide
+// by zero below and would say something false besides.
+func addOverall(set *metrics.Set, total, free uint64) {
+	if total == 0 {
+		return
+	}
+
+	used := total - free
+	set.Add(
+		metrics.Gauge(metrics.HDDOverallCapacity, "", float64(total)/gb),
+		metrics.Gauge(metrics.HDDOverallUsed, "", float64(used)/gb),
+		metrics.Gauge(metrics.HDDOverallFree, "", float64(free)/gb),
+		metrics.Gauge(metrics.HDDOverallUsage, "", float64(used)/float64(total)*100),
+		metrics.Gauge(metrics.HDDOverallFreePercent, "", float64(free)/float64(total)*100),
+	)
+}
+
+// collectVolume appends the readings of one drive letter. It returns the
+// volume's capacity and free space so the caller can sum them, and false when
+// nothing could be read.
+func (s *Source) collectVolume(set *metrics.Set, letter string, previous, current map[string]sample, elapsed float64) (uint64, uint64, bool) {
 	instance := letter + ":"
 
 	total, free, err := spaceOf(letter)
 	if err != nil || total == 0 {
-		return false
+		return 0, 0, false
 	}
 
-	const gb = 1024 * 1024 * 1024
 	used := total - free
 	set.Add(
 		metrics.Gauge(metrics.DiskTotal, instance, float64(total)/gb),
@@ -125,13 +155,13 @@ func (s *Source) collectVolume(set *metrics.Set, letter string, previous, curren
 
 	now, err := performanceOf(letter)
 	if err != nil {
-		return true // space readings are still worth having
+		return total, free, true // space readings are still worth having
 	}
 	current[letter] = now
 
 	before, seen := previous[letter]
 	if !seen || elapsed <= 0 {
-		return true // the first collection has no interval to divide by
+		return total, free, true // the first collection has no interval to divide by
 	}
 
 	const mb = 1024 * 1024
@@ -152,7 +182,7 @@ func (s *Source) collectVolume(set *metrics.Set, letter string, previous, curren
 		}
 		set.Add(metrics.Gauge(metrics.DiskBusy, instance, busy))
 	}
-	return true
+	return total, free, true
 }
 
 // delta is the increase of a cumulative counter between two samples. Windows

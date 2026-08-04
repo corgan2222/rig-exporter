@@ -27,13 +27,13 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 50 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 55 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
 * **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
   Problems, im Alltag selten.
 
-Auf dem Entwicklungsrechner sind das 127 Werte gegenüber 84. Welcher Messwert in
+Auf dem Entwicklungsrechner sind das 132 Werte gegenüber 89. Welcher Messwert in
 welchem Satz steckt, listet die Einstellungsseite ausklappbar auf — erzeugt aus
 dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
 nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
@@ -65,10 +65,10 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Grafikkarte** | Name, Hersteller, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
-| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume | Windows |
+| **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 
-Auf dem Entwicklungsrechner ergibt das rund 128 Werte: zwei Grafikkarten, vier
+Auf dem Entwicklungsrechner ergibt das rund 132 Werte: zwei Grafikkarten, vier
 NVMe, ein aktiver Adapter. „Rund", weil die Zahl der Hardware folgt — einem
 Laufwerk ohne auslesbaren Hersteller fehlt dieser eine Wert, und niemand
 erfindet ihn.
@@ -111,6 +111,28 @@ einmal, und eine Karte, für die sich kein Name findet, bekommt eine eigene
 Instanz, statt eine fremde zu überschreiben. Auf einem Notebook, dessen
 integrierte Grafik bei Afterburner Karte 0 ist, wäre sonst deren Eintrag mit dem
 VRAM und der Leistungsgrenze der dedizierten Karte überschrieben worden.
+
+### Alle Laufwerke zusammen
+
+Neben den Werten je Volume gibt es fünf Summen über alle gemeldeten Laufwerke:
+
+| Feld | Bedeutung |
+|---|---|
+| `hdd_overall_capacity` | Kapazität aller Laufwerke zusammen, in GB |
+| `hdd_overall_used` | davon belegt, in GB |
+| `hdd_overall_free` | davon frei, in GB |
+| `hdd_overall_usage` | belegter Anteil in % |
+| `hdd_overall_free_percent` | freier Anteil in % |
+
+„Wie voll ist dieser Rechner" ist die Frage, die vor jeder Frage nach einem
+einzelnen Laufwerk kommt, und sie aus vier Entities in einem Template
+zusammenzurechnen ist Arbeit, die niemand zweimal machen will. Die Summen
+gehören deshalb zum **Standardsatz**.
+
+Summiert wird genau das, was auch gemeldet wird: ein über **Nur diese
+Laufwerke** ausgeschlossenes Volume zählt nicht mit, und eines, das sich nicht
+lesen ließ, ebenso wenig. Gerechnet wird in Bytes und erst am Ende gerundet —
+die Summe ist damit genauer als die Summe der gerundeten Einzelwerte.
 
 ### Der aktive Netzwerkadapter
 
@@ -245,7 +267,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wo Home Assistant die Werte einsortiert
 
-45 Messwerte stehen im Hauptbereich, 31 unter **Diagnose**, 7 werden gar nicht
+49 Messwerte stehen im Hauptbereich, 32 unter **Diagnose**, 7 werden gar nicht
 als Entität veröffentlicht. Die Regel dahinter:
 
 * **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
@@ -823,7 +845,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-211 Testfunktionen in 28 Dateien. Abgedeckt sind: die drei Parser, die
+238 Testfunktionen in 33 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

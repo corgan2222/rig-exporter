@@ -47,6 +47,11 @@ gpu_voltage              mV         gauge  prec=0 group=gpu   panel=gpu   cat=no
 gpu_vram_percent         %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_vram_percent
 gpu_vram_total           MB         gauge  prec=0 group=gpu   panel=gpu   cat=diagnostic prom=rig_gpu_vram_total_megabytes
 gpu_vram_used            MB         gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_vram_used_megabytes
+hdd_overall_capacity     GB         gauge  prec=1 group=disk  panel=disk  cat=diagnostic prom=rig_hdd_overall_total_gigabytes
+hdd_overall_free         GB         gauge  prec=1 group=disk  panel=disk  cat=primary    prom=rig_hdd_overall_free_gigabytes
+hdd_overall_free_percent %          gauge  prec=1 group=disk  panel=disk  cat=primary    prom=rig_hdd_overall_free_percent
+hdd_overall_usage        %          gauge  prec=1 group=disk  panel=disk  cat=primary    prom=rig_hdd_overall_used_percent
+hdd_overall_used         GB         gauge  prec=1 group=disk  panel=disk  cat=primary    prom=rig_hdd_overall_used_gigabytes
 height                   px         gauge  prec=0 group=core  panel=core  cat=none       prom=rig_display_height_pixels
 idle_seconds             s          gauge  prec=0 group=core  panel=core  cat=primary    prom=rig_input_idle_seconds
 net_discards             1/s        gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_discards_per_second
