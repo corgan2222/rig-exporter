@@ -209,11 +209,14 @@
   </form>
 
   <!-- Outside the form on purpose: the button that opens the log is a form of
-       its own, and forms do not nest. Nothing at all while the push target is
-       switched off — ExportStatus is nil then, and a line saying "off" about
-       something the box above already says is off would be noise. -->
-  {{ with .ExportStatus "influx" }}
-  <div class="targetstatus" id="influx-status">
+       its own, and forms do not nest.
+       The container is always emitted, empty and hidden while the push target
+       is switched off, because the script below needs a stable place to write
+       into. A write only fails at the next publish interval, so the state right
+       after saving is not the state a second later — this has to follow along
+       rather than be a snapshot of the moment the page was built. -->
+  <div class="targetstatus" id="influx-status" {{ if not (.ExportStatus "influx") }}hidden{{ end }}>
+    {{ with .ExportStatus "influx" }}
     <span class="badge">
       <span class="dot {{ if .Healthy }}ok{{ else }}bad{{ end }}"></span>
       <strong>{{ .Label }}</strong>
@@ -226,8 +229,8 @@
       <button class="ghost small" type="submit" name="what" value="log">{{ $.T "export.openLog" }}</button>
     </form>
     {{ end }}
+    {{ end }}
   </div>
-  {{ end }}
 
   <form method="post" action="/save/app" data-block="app">
     <div class="card" id="app">
@@ -259,6 +262,62 @@
       {{ template "save" . }}
     </div>
   </form>
+
+<script>
+// The InfluxDB push status follows along instead of being a snapshot.
+//
+// Saving redirects back to this page, but the first write only happens at the
+// next publish interval — so at the moment the page is rebuilt there is no
+// error yet, and wrong credentials looked fine until somebody pressed F5. A
+// connection can also fail long after the page was opened.
+//
+// Three seconds: this is a settings page, not a dashboard. Fast enough that
+// saving and seeing the result feel connected, slow enough to be invisible.
+const IL = {
+  lastError: {{ .T "export.lastError" }},
+  openLog: {{ .T "export.openLog" }},
+  delivered: {{ .T "export.delivered" }},
+};
+
+function influxEscape(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+async function refreshInfluxStatus() {
+  const host = document.getElementById("influx-status");
+  if (!host) return;
+
+  let target = null;
+  try {
+    const s = await (await fetch("/api/status", { cache: "no-store" })).json();
+    target = (s.exports || []).find((e) => e.name === "influx") || null;
+  } catch {
+    return; // the exporter is gone; leave the last known state alone
+  }
+
+  // Switched off between two polls: say nothing rather than a stale line.
+  host.hidden = !target;
+  if (!target) {
+    host.innerHTML = "";
+    return;
+  }
+
+  const head =
+    '<span class="badge"><span class="dot ' + (target.healthy ? "ok" : "bad") + '"></span>' +
+    "<strong>" + influxEscape(target.label) + "</strong></span>";
+  host.innerHTML = target.healthy
+    ? head + '<span class="note">' + influxEscape(target.detail) +
+      " &middot; " + target.delivered + " " + influxEscape(IL.delivered) + "</span>"
+    : head + '<span class="note err">' + influxEscape(IL.lastError) + ": " +
+      influxEscape(target.detail) + "</span>" +
+      '<form method="post" action="/open">' +
+      '<button class="ghost small" type="submit" name="what" value="log">' +
+      influxEscape(IL.openLog) + "</button></form>";
+}
+
+setInterval(refreshInfluxStatus, 3000);
+</script>
 {{ end }}
 
 {{ define "save" }}
