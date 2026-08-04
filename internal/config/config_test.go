@@ -192,6 +192,25 @@ func TestAConfigurationWithoutTheNewKeysGetsTheDefaults(t *testing.T) {
 	}
 }
 
+// PowerShell's Set-Content -Encoding utf8 and several editors put a byte order
+// mark in front of the file. encoding/json refuses it, and the error names a
+// character the reader will never find in their editor.
+func TestAConfigurationWithAByteOrderMarkStillLoads(t *testing.T) {
+	path := t.TempDir() + `\config.json`
+	raw := append([]byte{0xEF, 0xBB, 0xBF}, `{"web_port":9999,"node_id":"withbom"}`...)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, _, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.WebPort != 9999 || cfg.NodeID != "withbom" {
+		t.Errorf("port %d, node %q — the file was not read", cfg.WebPort, cfg.NodeID)
+	}
+}
+
 // A setting nobody chose has to mean more rather than silently less.
 func TestAnUnknownSensorSetFallsBackToExtended(t *testing.T) {
 	for _, given := range []string{"", "standard", "extended", "STANDARD", "nonsense"} {

@@ -225,14 +225,6 @@ func (a *App) pollsPerPublish(rendering bool) uint64 {
 	return every
 }
 
-// rendering reports whether a game is actually producing frames, which is what
-// picks between the two publish intervals. Both halves matter: RTSS keeps an
-// entry alive for a moment after the last frame, and a game sitting at zero
-// frames a second has nothing to say that is worth a fast series.
-func rendering(snap collector.Snapshot) bool {
-	return snap.GameRunning() && snap.FPS() > 0
-}
-
 // tick takes one reading and reports whether it reached the export targets.
 // polls is how many reads have happened since the last export, this one
 // included; zero forces an export whatever the interval says.
@@ -254,7 +246,7 @@ func (a *App) tick(polls uint64) bool {
 
 	// While paused the counter keeps running, so lifting the pause exports at
 	// once rather than after another full interval of silence.
-	due := polls == 0 || polls >= a.pollsPerPublish(rendering(snap))
+	due := polls == 0 || polls >= a.pollsPerPublish(snap.Rendering())
 	if due && !paused {
 		for _, r := range runners {
 			r.export(snap)

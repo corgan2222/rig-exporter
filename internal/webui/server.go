@@ -587,6 +587,18 @@ type statusResponse struct {
 
 	Paused    bool   `json:"paused"`
 	UpdatedAt string `json:"updated_at"`
+
+	// What the exporter is currently doing, for the chips under the tiles.
+	// They come through the API rather than the template because the page is
+	// not reloaded when a setting is saved from the other tab.
+	SensorSet   string `json:"sensor_set"`
+	Decimals    bool   `json:"decimals"`
+	EntityCount int    `json:"entity_count"`
+	// PublishMs is the pace in force right now, and Rendering says which of
+	// the two it is — showing a number without saying which one would be
+	// worse than showing nothing.
+	PublishMs int  `json:"publish_ms"`
+	Rendering bool `json:"rendering"`
 }
 
 // groupStatus is one optional sensor group as the page renders it.
@@ -665,6 +677,11 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		Groups:      groupStatuses(st, lang),
 		Exports:     make([]exportStatus, 0, len(st.Exports)),
 		Paused:      st.Paused,
+		SensorSet:   st.Config.SensorSet,
+		Decimals:    st.Config.Decimals,
+		EntityCount: len(snap.Entities()),
+		PublishMs:   publishPace(st),
+		Rendering:   snap.Rendering(),
 	}
 	for _, e := range st.Exports {
 		resp.Exports = append(resp.Exports, exportStatus{
@@ -684,6 +701,17 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.log.Debug("status encode failed", "error", err)
 	}
+}
+
+// publishPace is the export interval in force at this moment: the game rate
+// while something is rendering, the idle rate otherwise. Reading it off the
+// snapshot rather than off a flag keeps the chip honest — it says what is
+// happening, not what was configured for a case that does not apply.
+func publishPace(st app.Status) int {
+	if st.Snapshot.Rendering() {
+		return st.Config.PublishIntervalMs
+	}
+	return st.Config.IdlePublishIntervalMs
 }
 
 // groupStatuses turns the optional sensor groups into display rows.

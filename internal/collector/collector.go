@@ -77,6 +77,14 @@ func (s Snapshot) Game() string { return s.Str(metrics.Game.ID) }
 // GameRunning reports whether an application is currently rendering.
 func (s Snapshot) GameRunning() bool { return s.Flag(metrics.GameRunning.ID) }
 
+// Rendering reports whether a game is actually producing frames, which is what
+// picks between the two publish intervals.
+//
+// Both halves matter: RTSS keeps an entry alive for a moment after the last
+// frame, and a game sitting at zero frames a second has nothing to say that is
+// worth a fast series.
+func (s Snapshot) Rendering() bool { return s.GameRunning() && s.FPS() > 0 }
+
 // Resolution is the primary display mode, e.g. "2560x1440".
 func (s Snapshot) Resolution() string { return s.Str(metrics.Resolution.ID) }
 

@@ -5,6 +5,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	neturl "net/url"
@@ -27,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.4.0"
+	Version = "1.4.1"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -336,7 +337,7 @@ func MigrateLegacy(path string) (bool, error) {
 	}
 
 	cfg := Defaults()
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := json.Unmarshal(stripBOM(raw), &cfg); err != nil {
 		return false, fmt.Errorf("parse %s: %w", legacy, err)
 	}
 
@@ -359,6 +360,16 @@ func MigrateLegacy(path string) (bool, error) {
 	return true, nil
 }
 
+// utf8BOM is what several Windows tools put at the front of a text file —
+// PowerShell's `Set-Content -Encoding utf8` and older editors among them.
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// stripBOM removes that mark. encoding/json refuses a document that starts with
+// it, and the error it gives ("invalid character 'ï'") sends the reader looking
+// for a typo that is not there. Somebody who edited their configuration by hand
+// should not lose it to an invisible three bytes.
+func stripBOM(raw []byte) []byte { return bytes.TrimPrefix(raw, utf8BOM) }
+
 // Load reads path, filling anything absent from the file with defaults. A
 // missing file is not an error: defaults are written back so the user has
 // something to edit. The returned bool reports whether the file was created.
@@ -375,7 +386,7 @@ func Load(path string) (Config, bool, error) {
 	if err != nil {
 		return cfg, false, fmt.Errorf("read %s: %w", path, err)
 	}
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := json.Unmarshal(stripBOM(raw), &cfg); err != nil {
 		return Defaults(), false, fmt.Errorf("parse %s: %w", path, err)
 	}
 

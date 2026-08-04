@@ -376,6 +376,13 @@ Drei Seiten, erreichbar über die Kopfzeile:
 * **Anzeige** — Live-Werte, Zustand der Exportziele, ein Panel je Sensorgruppe
   und die Adressen der aktiven Endpunkte. Aktualisiert sich im
   Auslese-Intervall.
+
+  Unter den Kacheln sagen vier Chips, was gerade eingestellt ist: welcher
+  Messwertsatz, ob mit Nachkommastellen, wie viele Entities entstehen, und in
+  welchem Takt gesendet wird — dabei der Takt, der **gerade** gilt, mit dem
+  Zusatz „im Spiel" oder „Leerlauf". Eine Zahl ohne diesen Zusatz wäre wertlos,
+  weil es zwei davon gibt. Kacheln für Werte, die der gewählte Satz gar nicht
+  misst, werden ausgeblendet statt leer angezeigt.
 * **Datengewinnung** — welcher Messwertsatz, welche Sensorgruppen gelesen
   werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,

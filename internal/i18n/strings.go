@@ -160,6 +160,16 @@ var catalogue = map[string]Text{
 	"settings.influx.tokenNone":   {DE: "InfluxDB-2-Token, bei 1.8: benutzer:passwort", EN: "InfluxDB 2 token; for 1.8 use user:password"},
 	"settings.influx.clearToken":  {DE: "Gespeicherten Token löschen", EN: "Delete the stored token"},
 
+	// Status page, the chips under the tiles. Each says what the exporter is
+	// set to do right now, so each is prefixed with what it is about.
+	"status.chipSet":         {DE: "Messwerte:", EN: "Measurements:"},
+	"status.chipDecimals":    {DE: "Nachkommastellen:", EN: "Decimals:"},
+	"status.chipDecimalsOn":  {DE: "an", EN: "on"},
+	"status.chipDecimalsOff": {DE: "aus", EN: "off"},
+	"status.chipInterval":    {DE: "Senden alle", EN: "Publishing every"},
+	"status.chipInGame":      {DE: "im Spiel", EN: "in game"},
+	"status.chipIdle":        {DE: "Leerlauf", EN: "idle"},
+
 	// Settings, the two sensor sets.
 	"settings.sensors.set":         {DE: "Messwerte", EN: "Measurements"},
 	"settings.sensors.setStandard": {DE: "Standard", EN: "Standard"},

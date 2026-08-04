@@ -14,7 +14,7 @@
       <div class="tile"><div class="label">{{ .T "status.fps" }}</div><div class="value" id="v-fps">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.frametime" }}</div><div class="value" id="v-frametime">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.game" }}</div><div class="value small" id="v-game">&ndash;</div></div>
-      <div class="tile"><div class="label">{{ .T "status.resolution" }}</div><div class="value small" id="v-resolution">&ndash;</div></div>
+      <div class="tile" id="tile-resolution"><div class="label">{{ .T "status.resolution" }}</div><div class="value small" id="v-resolution">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.cpu" }}</div><div class="value" id="v-cpu">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.ram" }}</div><div class="value" id="v-ram">&ndash;</div></div>
     </div>
@@ -24,6 +24,14 @@
       <form method="post" action="/pause" style="margin-left:auto">
         <button class="ghost" type="submit" id="pause-btn">{{ .T "status.pause" }}</button>
       </form>
+    </div>
+    <!-- What the exporter is currently doing. Filled from the API so a setting
+         saved in another tab shows up here without a reload. -->
+    <div class="actions" style="margin-top:.6rem">
+      <span class="badge" id="c-set"></span>
+      <span class="badge" id="c-decimals"></span>
+      <span class="badge" id="c-entities"></span>
+      <span class="badge" id="c-interval"></span>
     </div>
     <div class="actions" id="export-badges" style="margin-top:.6rem"></div>
   </div>
@@ -103,10 +111,36 @@ const L = {
   disabled: {{ .T "hardware.disabled" }},
   noData: {{ .T "hardware.noData" }},
   noGroups: {{ .T "hardware.none" }},
+  setStandard: {{ .T "settings.sensors.setStandard" }},
+  setExtended: {{ .T "settings.sensors.setExtended" }},
+  chipSet: {{ .T "status.chipSet" }},
+  chipDecimals: {{ .T "status.chipDecimals" }},
+  chipDecimalsOn: {{ .T "status.chipDecimalsOn" }},
+  chipDecimalsOff: {{ .T "status.chipDecimalsOff" }},
+  chipEntities: {{ .T "export.entities" }},
+  chipInterval: {{ .T "status.chipInterval" }},
+  chipInGame: {{ .T "status.chipInGame" }},
+  chipIdle: {{ .T "status.chipIdle" }},
 };
 
 function setDot(el, state) {
   el.className = "dot" + (state ? " " + state : "");
+}
+
+// The four chips under the tiles. They carry no dot: none of them is a health
+// state, they say what the exporter is set to do right now.
+function renderChips(s) {
+  const set = s.sensor_set === "standard" ? L.setStandard : L.setExtended;
+  $("c-set").textContent = L.chipSet + " " + set;
+  $("c-decimals").textContent =
+    L.chipDecimals + " " + (s.decimals ? L.chipDecimalsOn : L.chipDecimalsOff);
+  $("c-entities").textContent = s.entity_count + " " + L.chipEntities;
+
+  // Seconds, because a publish interval in milliseconds reads as noise; the
+  // label says which of the two rates this is, or the number means nothing.
+  const seconds = (s.publish_ms / 1000).toFixed(s.publish_ms % 1000 ? 1 : 0);
+  $("c-interval").textContent =
+    L.chipInterval + " " + seconds + " s · " + (s.rendering ? L.chipInGame : L.chipIdle);
 }
 
 function escapeHTML(s) {
@@ -210,12 +244,17 @@ async function refresh() {
   $("v-fps").textContent = s.rtss_status === "ok" ? Math.round(s.fps) : "–";
   $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
+  // The display mode belongs to the extended set, so with the standard set it
+  // is simply not measured. An empty tile would look like a fault; no tile is
+  // the honest picture.
+  $("tile-resolution").hidden = !s.resolution;
   $("v-resolution").textContent = s.resolution + (s.refresh_rate ? " @ " + s.refresh_rate + " Hz" : "");
   $("v-cpu").textContent = s.cpu.toFixed(1) + " %";
   $("v-ram").textContent = s.ram.toFixed(1) + " %";
 
   renderExports(s.exports);
   renderGroups(s.groups);
+  renderChips(s);
 
   const rtssOK = s.rtss_status === "ok";
   setDot($("d-rtss"), rtssOK ? "ok" : "warn");
