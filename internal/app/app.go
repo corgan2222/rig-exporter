@@ -78,10 +78,19 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger) *App {
 		restart: make(chan struct{}, 1),
 		done:    make(chan struct{}),
 	}
-	metrics.SetDecimals(cfg.Decimals)
+	applyMetricsOptions(cfg)
 	a.collector, a.sensors = buildCollector(cfg, a.reader, a.system, log)
 	a.runners = buildRunners(cfg, log)
 	return a
+}
+
+// applyMetricsOptions hands the two settings that live as package state in
+// metrics over to it. Both take effect from the next reading, so neither needs
+// anything rebuilt — which is exactly why they are package state and not
+// constructor arguments to a dozen hardware sources.
+func applyMetricsOptions(cfg config.Config) {
+	metrics.SetDecimals(cfg.Decimals)
+	metrics.SetStandardOnly(cfg.SensorSet == config.SensorSetStandard)
 }
 
 // buildCollector wires the core source together with the optional ones the
@@ -349,9 +358,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 	rebuildSensors := sensorsChanged(oldCfg, newCfg)
 
 	a.cfg = newCfg
-	// Precision is package state in metrics, so it changes for the next
-	// reading without rebuilding anything.
-	metrics.SetDecimals(newCfg.Decimals)
+	applyMetricsOptions(newCfg)
 	if rebuildSensors {
 		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log)
 	}
@@ -423,6 +430,10 @@ func exportsChanged(a, b config.Config) bool {
 	// is in here for the same reason — the discovery payload carries the
 	// display precision, and promising a decimal that no longer arrives would
 	// render every value as x.0 until the next restart.
+	//
+	// The sensor set is not: going from standard to extended only adds
+	// measurements, and announceNew picks those up on its own at the next
+	// reading.
 	return a.Language != b.Language ||
 		a.Decimals != b.Decimals ||
 		a.MQTTEnabled != b.MQTTEnabled ||

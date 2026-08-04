@@ -160,6 +160,25 @@ var catalogue = map[string]Text{
 	"settings.influx.tokenNone":   {DE: "InfluxDB-2-Token, bei 1.8: benutzer:passwort", EN: "InfluxDB 2 token; for 1.8 use user:password"},
 	"settings.influx.clearToken":  {DE: "Gespeicherten Token löschen", EN: "Delete the stored token"},
 
+	// Settings, the two sensor sets.
+	"settings.sensors.set":         {DE: "Messwerte", EN: "Measurements"},
+	"settings.sensors.setStandard": {DE: "Standard", EN: "Standard"},
+	"settings.sensors.setExtended": {DE: "Erweitert", EN: "Extended"},
+	"settings.sensors.setHint": {
+		DE: "Gilt über alle Gruppen hinweg: die Schalter darunter sagen, welche Hardware gelesen wird, diese Auswahl, wie ausführlich.",
+		EN: "Applies across all groups: the switches below say which hardware is read, this says how much detail of it.",
+	},
+	"settings.sensors.setWhat":         {DE: "Was steckt in den beiden?", EN: "What is in each?"},
+	"settings.sensors.setExtendedAdds": {DE: "Erweitert ergänzt", EN: "Extended adds"},
+	"settings.sensors.setStandardWhat": {
+		DE: "Was man sich ansieht, wenn man wissen will, wie es dem Rechner geht: Temperatur, Auslastung, freier Platz, Durchsatz.",
+		EN: "What you look at to see how the machine is doing: temperature, load, free space, throughput.",
+	},
+	"settings.sensors.setExtendedWhat": {
+		DE: "Aufbau und Feinheiten: Taktraten, Speicherriegel, Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen, im Alltag selten.",
+		EN: "Inventory and fine detail: clock rates, memory modules, per-thread load, display mode, the state of RTSS. Useful when hunting a problem, rarely otherwise.",
+	},
+
 	// Settings, sensor groups.
 	"settings.sensors.title": {DE: "Sensorgruppen", EN: "Sensor groups"},
 	"settings.sensors.nav":   {DE: "Sensoren", EN: "Sensors"},
