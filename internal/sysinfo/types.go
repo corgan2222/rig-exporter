@@ -13,9 +13,9 @@ type Memory struct {
 
 // SelfUsage is what this process itself costs the machine.
 //
-// Reported only with debug logging switched on: it answers "is the exporter the
-// thing making the numbers move", which is a question about the tool and not
-// about the PC it measures.
+// Reported only when its own sensor group is switched on: it answers "is the
+// exporter the thing making the numbers move", which is a question about the
+// tool and not about the PC it measures.
 type SelfUsage struct {
 	// CPUPercent is measured against every core together, the same denominator
 	// Task Manager uses — 100 % means every core saturated, not one.

@@ -98,23 +98,29 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	return s, nil
 }
 
-// Start listens on the configured loopback port. If that port is busy it
-// falls back to an ephemeral one rather than leaving the user without an
-// interface; URL reports where it actually ended up.
+// Start listens on the configured port. If that port is busy it falls back to
+// an ephemeral one rather than leaving the user without an interface; URL
+// reports where it actually ended up.
 func (s *Server) Start() error {
-	address := s.app.Config().WebAddress()
+	cfg := s.app.Config()
+	address := cfg.WebAddress()
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		s.log.Warn("web port unavailable, using a random one", "address", address, "error", err)
-		listener, err = net.Listen("tcp", "127.0.0.1:0")
+		fallback := "127.0.0.1:0"
+		if cfg.WebBindAll {
+			fallback = "0.0.0.0:0"
+		}
+		listener, err = net.Listen("tcp", fallback)
 		if err != nil {
-			return fmt.Errorf("listen on loopback: %w", err)
+			return fmt.Errorf("listen on %s: %w", fallback, err)
 		}
 	}
 
-	s.url = "http://" + listener.Addr().String()
-	s.log.Info("web interface listening", "url", s.url)
+	s.url = reachableURL(cfg, listener.Addr())
+	s.log.Info("web interface listening",
+		"url", s.url, "bound", listener.Addr().String(), "network", cfg.WebBindAll)
 
 	go func() {
 		if err := s.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -124,8 +130,30 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// URL is the address to open in a browser.
+// URL is the address to open in a browser, and the one the Home Assistant
+// device page links to.
 func (s *Server) URL() string { return s.url }
+
+// reachableURL turns what the listener bound onto something somebody can type.
+//
+// The port has to come from the listener rather than from the configuration,
+// because a busy port sends the server to an ephemeral one. The host cannot:
+// bound to every interface the listener says 0.0.0.0, which is an instruction
+// to the kernel and not an address. Then the machine's own address on the
+// default route is what another machine would use — and it is also what makes
+// the "Visit" link on the device page work from Home Assistant.
+func reachableURL(cfg config.Config, bound net.Addr) string {
+	host := "127.0.0.1"
+	if cfg.WebBindAll {
+		host = localAddress(host)
+	}
+
+	port := cfg.WebPort
+	if tcp, ok := bound.(*net.TCPAddr); ok {
+		port = tcp.Port
+	}
+	return fmt.Sprintf("http://%s:%d", host, port)
+}
 
 // Stop shuts the server down.
 func (s *Server) Stop() {
@@ -399,13 +427,8 @@ var blockPages = map[string]string{
 	"app":     "/export",
 }
 
-// handleSave applies one block of settings.
-//
-// Only the fields of that block are read: a form carries no evidence of the
-// checkboxes it does not contain, so applying the whole configuration from a
-// partial form would silently switch off everything on the other page.
-// localAddress is the machine's own IPv4 address on the interface that
-// carries the default route.
+// localAddress is the machine's own IPv4 address on the interface that carries
+// the default route.
 //
 // The connection is never established — a UDP socket only picks a route — but
 // choosing the route is exactly what reveals which address another machine
@@ -424,6 +447,11 @@ func localAddress(fallback string) string {
 	return addr.IP.String()
 }
 
+// handleSave applies one block of settings.
+//
+// Only the fields of that block are read: a form carries no evidence of the
+// checkboxes it does not contain, so applying the whole configuration from a
+// partial form would silently switch off everything on the other page.
 func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	block := r.PathValue("block")
 	page, known := blockPages[block]
@@ -488,6 +516,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.PingTarget = strings.TrimSpace(r.FormValue("ping_target"))
 		cfg.PingCount = formInt(r, "ping_count", cfg.PingCount)
 		cfg.PingIntervalMs = formInt(r, "ping_interval_ms", cfg.PingIntervalMs)
+		cfg.SelfUsageEnabled = r.FormValue("self_usage_enabled") != ""
 
 	case "capture":
 		cfg.PollIntervalMs = formInt(r, "poll_interval_ms", cfg.PollIntervalMs)
@@ -499,6 +528,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	case "app":
 		cfg.Language = r.FormValue("language")
 		cfg.WebPort = formInt(r, "web_port", cfg.WebPort)
+		cfg.WebBindAll = r.FormValue("web_bind_all") != ""
 		cfg.Autostart = r.FormValue("autostart") != ""
 		cfg.Debug = r.FormValue("debug") != ""
 	}

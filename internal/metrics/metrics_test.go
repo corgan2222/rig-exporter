@@ -231,7 +231,8 @@ func TestTheHardwareLeadsTheDisplayName(t *testing.T) {
 		{Gauge(CPUCoreLoad, "5", 1), "Kern 5 Last"},
 
 		// The adapter already names itself; "NIC Ethernet 2" would only add noise.
-		{Gauge(NetRx, "Ethernet 2", 1), "Ethernet 2 Empfangen"},
+		{Gauge(NetRx, "Ethernet 2", 1), "Ethernet 2 Download"},
+		{Gauge(NetRxTotal, "Ethernet 2", 1), "Ethernet 2 Empfangen gesamt"},
 
 		// Nothing to group, nothing to prefix.
 		{Gauge(FPS, "", 1), "FPS"},

@@ -60,11 +60,11 @@ func TestAFailedProcessCountIsSimplyAbsent(t *testing.T) {
 	}
 }
 
-// What the exporter costs the machine is only measured when debug logging asks
+// What the exporter costs the machine is only measured when its own group asks
 // for it. Two entities that are almost always flat are two entities nobody
 // wants by default — and one of them would be a percentage that reads 0.0 all
 // day, which looks like a broken sensor rather than a well-behaved program.
-func TestTheOwnResourceUsageFollowsTheDebugSwitch(t *testing.T) {
+func TestTheOwnResourceUsageFollowsItsSwitch(t *testing.T) {
 	system := newSystem()
 	system.self = sysinfo.SelfUsage{CPUPercent: 0.4, MemoryMB: 21.5}
 

@@ -251,6 +251,11 @@
         <span class="hint">{{ .T "settings.app.webPortHint" }}</span>
       </label>
       <div class="check">
+        <input type="checkbox" name="web_bind_all" id="web_bind_all" value="1" {{ if .Config.WebBindAll }}checked{{ end }}>
+        <label for="web_bind_all" style="margin:0"><span class="name">{{ .T "settings.app.webBindAll" }}</span></label>
+      </div>
+      <p class="note indent">{{ .H "settings.app.webBindAllHint" }}</p>
+      <div class="check">
         <input type="checkbox" name="autostart" id="autostart" value="1" {{ if .Status.Autostart }}checked{{ end }}>
         <label for="autostart" style="margin:0"><span class="name">{{ .T "settings.app.autostart" }}</span></label>
       </div>

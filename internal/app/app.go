@@ -129,7 +129,7 @@ func applyMetricsOptions(cfg config.Config) {
 func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger) (*collector.Collector, *sensors) {
 	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
 	c.ReportVersion(config.VersionString())
-	c.ReportSelfUsage(cfg.Debug)
+	c.ReportSelfUsage(cfg.SelfUsageEnabled)
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
 	return c, s
@@ -466,7 +466,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 // exist, not about what happened to be readable this second.
 func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collector.Snapshot, log *slog.Logger) {
 	dropped := droppedByStandardSet(oldCfg, newCfg, snap)
-	dropped = append(dropped, droppedByDebug(oldCfg, newCfg, snap)...)
+	dropped = append(dropped, droppedBySelfUsage(oldCfg, newCfg, snap)...)
 	if len(dropped) == 0 {
 		return
 	}
@@ -498,11 +498,11 @@ func droppedByStandardSet(oldCfg, newCfg config.Config, snap collector.Snapshot)
 	return dropped
 }
 
-// droppedByDebug is the same decision for the two self-usage figures: switching
-// debug logging off says they should stop existing, and they are in the
+// droppedBySelfUsage is the same decision for the two self-usage figures:
+// switching the group off says they should stop existing, and they are in the
 // standard set, so the check above never covers them.
-func droppedByDebug(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
-	if !oldCfg.Debug || newCfg.Debug {
+func droppedBySelfUsage(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
+	if !oldCfg.SelfUsageEnabled || newCfg.SelfUsageEnabled {
 		return nil
 	}
 

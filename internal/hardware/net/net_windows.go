@@ -102,6 +102,20 @@ func (s *Source) Collect(set *metrics.Set) error {
 		if !ok {
 			continue
 		}
+
+		// The totals come first because they need no interval: they are the
+		// counters themselves, so the very first collection already has them
+		// while the rates below still have nothing to divide by.
+		//
+		// 1024-based, like every other GB in this catalogue and like Windows
+		// Explorer. Two meanings of the same unit inside one device page would
+		// be worse than either convention.
+		const bytesPerGigabyte = 1024 * 1024 * 1024
+		set.Add(
+			metrics.Gauge(metrics.NetRxTotal, instance, float64(current.inOctets)/bytesPerGigabyte),
+			metrics.Gauge(metrics.NetTxTotal, instance, float64(current.outOctets)/bytesPerGigabyte),
+		)
+
 		before, seen := previous[adapter.LUID]
 		if !seen || elapsed <= 0 {
 			continue // the first collection has no interval to divide by

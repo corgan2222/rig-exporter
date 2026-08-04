@@ -61,7 +61,9 @@ net_errors               1/s        gauge  prec=2 group=net   panel=net   cat=pr
 net_ip                   -          text   prec=0 group=net   panel=net   cat=diagnostic prom=rig_net_ip_info
 net_link                 Mbit/s     gauge  prec=0 group=net   panel=net   cat=diagnostic prom=rig_net_link_megabits_per_second
 net_rx                   Mbit/s     gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_receive_megabits_per_second
+net_rx_total             GB         gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_receive_gigabytes_total
 net_tx                   Mbit/s     gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_transmit_megabits_per_second
+net_tx_total             GB         gauge  prec=2 group=net   panel=net   cat=primary    prom=rig_net_transmit_gigabytes_total
 net_type                 -          text   prec=0 group=net   panel=net   cat=diagnostic prom=rig_net_info
 net_wifi_signal          %          gauge  prec=0 group=net   panel=net   cat=primary    prom=rig_net_wifi_signal_percent
 os_version               -          text   prec=0 group=core  panel=core  cat=diagnostic prom=rig_os_version_info

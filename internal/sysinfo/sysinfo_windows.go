@@ -20,7 +20,7 @@ type Provider struct {
 	lastUser uint64
 
 	// The self counters keep a baseline of their own rather than sharing the
-	// one above. SelfUsage is only read with debug logging on, and a baseline
+	// one above. SelfUsage is only read when its group is on, and a baseline
 	// that exists only sometimes would make CPUPercent depend on a setting that
 	// has nothing to do with it.
 	haveLastSelf bool
