@@ -42,6 +42,9 @@ type Tray struct {
 
 	// labelled is the language the fixed menu labels currently carry.
 	labelled i18n.Lang
+	// header is the top entry's current text, so the address is written only
+	// when it has actually changed rather than on every reading.
+	header string
 
 	items struct {
 		header    *systray.MenuItem
@@ -83,7 +86,9 @@ func (t *Tray) onReady() {
 
 	// The name at the top is the obvious thing to click, so it opens the
 	// interface rather than sitting there greyed out.
-	t.items.header = systray.AddMenuItem(fmt.Sprintf("%s %s", config.AppName, config.Version), "")
+	// Without the address for now — the web server may not have a port yet.
+	// renderHeader adds it on the first reading and owns the text from then on.
+	t.items.header = systray.AddMenuItem(fmt.Sprintf("%s %s", config.AppName, config.VersionString()), "")
 	systray.AddSeparator()
 
 	t.items.fps = addReadout()
@@ -114,6 +119,40 @@ func (t *Tray) onReady() {
 	t.app.OnUpdate(t.render)
 
 	go t.handleClicks()
+}
+
+// renderHeader keeps the top entry saying where the interface actually is.
+//
+// Resolved on every render rather than once when the menu is built: the web
+// server may still have been starting then, and it falls back to a random port
+// whenever the configured one is taken. A number that is not the one that works
+// would be worse than none — this is the entry somebody clicks to get there.
+func (t *Tray) renderHeader() {
+	text := headerTitle(t.address())
+	if text == t.header {
+		return
+	}
+	t.header = text
+	t.items.header.SetTitle(text)
+}
+
+// headerTitle is the top entry's text. Separated from the menu so it can be
+// checked without a notification area.
+func headerTitle(address string) string {
+	text := fmt.Sprintf("%s %s", config.AppName, config.VersionString())
+	if address != "" {
+		text += " — " + address
+	}
+	return text
+}
+
+// address is host and port without the scheme: "127.0.0.1:8787" is what a
+// person needs out of "http://127.0.0.1:8787", and the menu line is short.
+func (t *Tray) address() string {
+	if t.opts.SettingsURL == nil {
+		return ""
+	}
+	return strings.TrimPrefix(t.opts.SettingsURL(), "http://")
 }
 
 func addReadout() *systray.MenuItem {
@@ -203,6 +242,7 @@ func (t *Tray) open(target string) {
 func (t *Tray) render(status app.Status) {
 	lang := status.Config.Lang()
 	t.relabel(lang)
+	t.renderHeader()
 
 	snap := status.Snapshot
 

@@ -5,6 +5,7 @@ package webui
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -122,9 +123,9 @@ func TestTheExportBadgesComeBeforeTheSettingChips(t *testing.T) {
 	}
 }
 
-// The hint about the Home Assistant database sits between the two cards, links
-// to the block that fixes it, and can be put away for good.
-func TestTheRecorderNoticeIsShownOnceAndCanBeDismissed(t *testing.T) {
+// The hint about the Home Assistant database sits between the two cards and
+// links to the block that fixes it.
+func TestTheRecorderNoticeSitsBetweenTheCards(t *testing.T) {
 	_, ts := newServer(t, nil)
 
 	_, body := get(t, ts.URL+"/")
@@ -139,8 +140,46 @@ func TestTheRecorderNoticeIsShownOnceAndCanBeDismissed(t *testing.T) {
 	if !strings.Contains(body, `href="/export#recorder"`) {
 		t.Error("the notice does not link to the recorder block")
 	}
-	if !strings.Contains(body, `rig.recorderNoticeRead`) {
-		t.Error("dismissing the notice is not remembered")
+}
+
+// Read once, gone for good. The answer belongs in the configuration: the
+// interface falls back to a random port when the configured one is taken, and
+// a different port is a different origin — anything kept in the browser was
+// thrown away on the next start, which is exactly how this was found.
+func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
+	server, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/")
+	if !strings.Contains(body, `id="recorder-notice"`) {
+		t.Fatal("the notice is not shown to somebody who has not read it")
+	}
+
+	resp := post(t, ts.URL, "/dismiss", url.Values{"what": {"recorder"}})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", resp.StatusCode)
+	}
+	if !server.app.Config().RecorderNoticeRead {
+		t.Fatal("the configuration does not remember that it was read")
+	}
+
+	_, body = get(t, ts.URL+"/")
+	if strings.Contains(body, `id="recorder-notice"`) {
+		t.Error("the notice came back after it was read")
+	}
+
+	// A fresh server over the same configuration is what a restart looks like.
+	_, again := newServer(t, func(c *config.Config) { c.RecorderNoticeRead = true })
+	if _, body := get(t, again.URL+"/"); strings.Contains(body, `id="recorder-notice"`) {
+		t.Error("the notice came back after a restart")
+	}
+}
+
+// Anything else must not be able to write into the configuration through it.
+func TestOnlyAKnownNoticeCanBeDismissed(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	if resp := post(t, ts.URL, "/dismiss", url.Values{"what": {"everything"}}); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", resp.StatusCode)
 	}
 }
 

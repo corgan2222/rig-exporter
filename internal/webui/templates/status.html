@@ -38,16 +38,20 @@
     </div>
   </div>
 
-  <!-- Hidden until the script has looked at what was dismissed, so somebody
-       who has read it once never sees it flash by again. -->
-  <div class="banner warn" id="recorder-notice" hidden>
+  <!-- Gone for good once it has been read. The answer lives in the
+       configuration, not in the browser: the interface moves to a random port
+       whenever the configured one is taken, and a different port is a
+       different origin — local storage was thrown away on most restarts. -->
+  {{ if not .Config.RecorderNoticeRead }}
+  <div class="banner warn" id="recorder-notice">
     <strong>{{ .T "status.recorder.title" }}</strong><br>
     {{ .T "status.recorder.body" }}
     <a href="/export#recorder">{{ .T "status.recorder.link" }}</a>
-    <div class="actions" style="margin-top:.7rem">
-      <button class="ghost" type="button" id="recorder-dismiss">{{ .T "status.recorder.dismiss" }}</button>
-    </div>
+    <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
+      <button class="ghost" type="submit" name="what" value="recorder">{{ .T "status.recorder.dismiss" }}</button>
+    </form>
   </div>
+  {{ end }}
 
   <div class="card">
     <div class="cardhead">
@@ -281,16 +285,6 @@ async function refresh() {
   banner.hidden = rtssOK;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
 }
-
-// The recorder notice is a one-off hint, not a status: once somebody has read
-// it, it stays gone. Kept in the browser like the grouping preference — it is a
-// property of this reader, not of the machine.
-const recorderNotice = $("recorder-notice");
-recorderNotice.hidden = localStorage.getItem("rig.recorderNoticeRead") === "1";
-$("recorder-dismiss").addEventListener("click", () => {
-  localStorage.setItem("rig.recorderNoticeRead", "1");
-  recorderNotice.hidden = true;
-});
 
 setGrouping(byDevice);
 setInterval(refresh, {{ .RefreshMs }});
