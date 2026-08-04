@@ -606,6 +606,12 @@ Zwei Wege, unabhängig schaltbar.
 InfluxDB 1.8 versteht dieselbe API: Organisation leer lassen, als Token
 `benutzer:passwort` eintragen.
 
+Direkt unter dem Kasten steht, was das Ziel gerade tut: Ziel und Anzahl
+gesendeter Messungen, solange es läuft — und andernfalls die letzte
+Fehlermeldung im Wortlaut, mit einem Knopf, der das Log öffnet. Push ist das
+einzige Ziel, das aktiv hinausschreibt und damit als einziges scheitern kann,
+ohne dass man es merkt; das Log zu suchen soll dann keine eigene Übung sein.
+
 Jede Gruppe wird ein eigenes Measurement, jede Instanz ein eigener Punkt:
 
 ```

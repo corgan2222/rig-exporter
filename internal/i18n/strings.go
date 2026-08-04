@@ -293,6 +293,9 @@ var catalogue = map[string]Text{
 	"export.entities":     {DE: "Entities", EN: "entities"},
 	"export.notStarted":   {DE: "nicht gestartet", EN: "not started"},
 	"export.dropped":      {DE: "Messwerte verworfen", EN: "readings dropped"},
+	"export.delivered":    {DE: "gesendet", EN: "delivered"},
+	"export.lastError":    {DE: "Letzter Fehler", EN: "Last error"},
+	"export.openLog":      {DE: "Log öffnen", EN: "Open the log"},
 
 	// Tray menu.
 	"tray.game":            {DE: "Spiel", EN: "Game"},
