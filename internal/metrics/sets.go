@@ -76,6 +76,12 @@ var standardSet = map[string]bool{
 	"ram_used_mb":               true,
 	"uptime":                    true,
 	"version":                   true,
+	// The two self-usage figures are in the standard set because the setting
+	// that decides whether they exist at all is debug logging, not this one.
+	// Being filtered out here by a switch that has nothing to do with them
+	// would leave somebody who turned debugging on with nothing to look at.
+	"exporter_cpu":    true,
+	"exporter_memory": true,
 }
 
 // standardOnly drops everything outside the standard set at collection time.

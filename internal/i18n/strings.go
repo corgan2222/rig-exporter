@@ -281,7 +281,7 @@ var catalogue = map[string]Text{
 	"settings.app.webPort":      {DE: "Port dieser Seite", EN: "Port of this page"},
 	"settings.app.webPortHint":  {DE: "Änderung wirkt erst nach einem Neustart.", EN: "Takes effect after a restart."},
 	"settings.app.autostart":    {DE: "Mit Windows starten", EN: "Start with Windows"},
-	"settings.app.debug":        {DE: "Debug-Logging (wirkt nach Neustart)", EN: "Debug logging (takes effect after a restart)"},
+	"settings.app.debug":        {DE: "Debug-Logging und eigene Ressourcennutzung (Loglevel erst nach Neustart)", EN: "Debug logging and own resource usage (log level after a restart)"},
 
 	// Export target status.
 	"export.mqtt":         {DE: "MQTT", EN: "MQTT"},

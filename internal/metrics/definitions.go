@@ -124,6 +124,26 @@ var (
 		Help:           "Version and build of rig-exporter that produced this reading",
 		EntityCategory: "diagnostic", Icon: "mdi:tag-outline",
 	}
+	// ExporterCPU and ExporterMemory are what this program costs the machine it
+	// measures. They exist because the honest answer to "does running this cost
+	// me frames" is a number, not a reassurance — and because a working set that
+	// only ever climbs is the shape of a leak.
+	//
+	// Collected only with debug logging switched on. Two entities that are
+	// almost always flat are two entities nobody asked for; somebody who has
+	// turned debugging on has asked.
+	ExporterCPU = Definition{
+		ID: "exporter_cpu", Name: i18n.Text{DE: "Exporter CPU", EN: "Exporter CPU"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore,
+		Prom: "rig_exporter_cpu_percent", Help: "CPU this exporter used, across every core together",
+		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:chip",
+	}
+	ExporterMemory = Definition{
+		ID: "exporter_memory", Name: i18n.Text{DE: "Exporter Speicher", EN: "Exporter memory"},
+		Unit: "MB", Kind: KindGauge, Precision: 1, Group: GroupCore,
+		Prom: "rig_exporter_memory_megabytes", Help: "Working set of this exporter",
+		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:memory",
+	}
 	// Processes is a coarse but useful measure of what the machine is carrying;
 	// a number that climbs and never falls is the shape of a leak.
 	Processes = Definition{
@@ -522,36 +542,39 @@ var (
 	// four per-volume entities means doing arithmetic in a template.
 	//
 	// No instance: there is one of each, whatever the machine has plugged in.
+	// Having none is also what makes them read as "Laufwerke Gesamtkapazität"
+	// and "Drives Overall capacity" — the plural group prefix rather than the
+	// singular device label, because they describe no single disk.
 	DiskOverallCapacity = Definition{
-		ID: "disk_overall_capacity", Name: i18n.Text{DE: "Gesamtkapazität", EN: "Total capacity"},
+		ID: "disk_overall_capacity", Name: i18n.Text{DE: "Gesamtkapazität", EN: "Overall capacity"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
 		Prom:  "rig_disk_overall_total_gigabytes", Help: "Capacity of every reported volume together",
 		EntityCategory: "diagnostic", Icon: "mdi:harddisk",
 	}
 	DiskOverallUsed = Definition{
-		ID: "disk_overall_used", Name: i18n.Text{DE: "Gesamt belegt", EN: "Total used"},
+		ID: "disk_overall_used", Name: i18n.Text{DE: "Gesamt belegt", EN: "Overall used"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
 		Prom:  "rig_disk_overall_used_gigabytes", Help: "Space in use across every reported volume",
 		StateClass: "measurement", Icon: "mdi:harddisk",
 	}
 	DiskOverallFree = Definition{
-		ID: "disk_overall_free", Name: i18n.Text{DE: "Gesamt frei", EN: "Total free"},
+		ID: "disk_overall_free", Name: i18n.Text{DE: "Gesamt frei", EN: "Overall free"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
 		Prom:  "rig_disk_overall_free_gigabytes", Help: "Space available across every reported volume",
 		StateClass: "measurement", Icon: "mdi:harddisk",
 	}
 	DiskOverallUsage = Definition{
-		ID: "disk_overall_usage", Name: i18n.Text{DE: "Gesamtbelegung", EN: "Total usage"},
+		ID: "disk_overall_usage", Name: i18n.Text{DE: "Gesamtbelegung", EN: "Overall usage"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
 		Prom:  "rig_disk_overall_used_percent", Help: "Share in use across every reported volume",
 		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	DiskOverallFreePercent = Definition{
-		ID: "disk_overall_free_percent", Name: i18n.Text{DE: "Gesamt frei %", EN: "Total free %"},
+		ID: "disk_overall_free_percent", Name: i18n.Text{DE: "Gesamt frei %", EN: "Overall free %"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
 		Prom:  "rig_disk_overall_free_percent", Help: "Share available across every reported volume",
@@ -674,7 +697,7 @@ var All = []Definition{
 	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion, Processes,
-	ExporterVersion,
+	ExporterVersion, ExporterCPU, ExporterMemory,
 
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,

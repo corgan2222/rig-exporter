@@ -111,7 +111,10 @@ func sensorsChanged(a, b config.Config) bool {
 		a.PingTarget != b.PingTarget ||
 		a.PingCount != b.PingCount ||
 		a.PingIntervalMs != b.PingIntervalMs ||
-		a.IdleTimeoutMs != b.IdleTimeoutMs {
+		a.IdleTimeoutMs != b.IdleTimeoutMs ||
+		// Debug decides whether the collector measures this process itself, so
+		// it changes which readings exist and not just what lands in the log.
+		a.Debug != b.Debug {
 		return true
 	}
 	return !sameStrings(a.DiskInclude, b.DiskInclude)

@@ -30,6 +30,8 @@ disk_used                GB         gauge  prec=1 group=disk  panel=disk  cat=pr
 disk_used_percent        %          gauge  prec=1 group=disk  panel=disk  cat=primary    prom=rig_disk_used_percent
 disk_vendor              -          text   prec=0 group=disk  panel=disk  cat=diagnostic prom=rig_disk_vendor_info
 disk_write               MB/s       gauge  prec=2 group=disk  panel=disk  cat=primary    prom=rig_disk_write_megabytes_per_second
+exporter_cpu             %          gauge  prec=1 group=core  panel=core  cat=diagnostic prom=rig_exporter_cpu_percent
+exporter_memory          MB         gauge  prec=1 group=core  panel=core  cat=diagnostic prom=rig_exporter_memory_megabytes
 fps                      fps        gauge  prec=1 group=core  panel=core  cat=primary    prom=rig_fps
 frametime                ms         gauge  prec=2 group=core  panel=core  cat=primary    prom=rig_frametime_milliseconds
 game                     -          text   prec=0 group=core  panel=core  cat=primary    prom=rig_game_info

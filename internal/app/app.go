@@ -62,9 +62,40 @@ type App struct {
 	paused    bool
 	listeners []func(Status)
 
+	// webURLFn reports where the settings interface is really listening. It
+	// arrives after New, because the web server picks its port later, and it is
+	// read from the export goroutine — hence a lock of its own rather than a
+	// plain field.
+	webURLMu sync.RWMutex
+	webURLFn func() string
+
 	stop    chan struct{}
 	restart chan struct{}
 	done    chan struct{}
+}
+
+// SetWebURL tells the app where the settings interface can be reached, so the
+// Home Assistant device page can link to it.
+//
+// Called once the web server has bound a port, which is after the runtime is
+// built: the address is not knowable earlier, because a busy port sends the
+// server to an ephemeral one.
+func (a *App) SetWebURL(fn func() string) {
+	a.webURLMu.Lock()
+	a.webURLFn = fn
+	a.webURLMu.Unlock()
+}
+
+// currentWebURL is that address, empty while nothing has reported one.
+func (a *App) currentWebURL() string {
+	a.webURLMu.RLock()
+	fn := a.webURLFn
+	a.webURLMu.RUnlock()
+
+	if fn == nil {
+		return ""
+	}
+	return fn()
 }
 
 // New builds the runtime. cfgPath is where ApplyConfig persists changes.
@@ -80,7 +111,7 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger) *App {
 	}
 	applyMetricsOptions(cfg)
 	a.collector, a.sensors = buildCollector(cfg, a.reader, a.system, log)
-	a.runners = buildRunners(cfg, log)
+	a.runners = a.buildRunners(cfg, log)
 	return a
 }
 
@@ -98,6 +129,7 @@ func applyMetricsOptions(cfg config.Config) {
 func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger) (*collector.Collector, *sensors) {
 	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
 	c.ReportVersion(config.VersionString())
+	c.ReportSelfUsage(cfg.Debug)
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
 	return c, s
@@ -376,7 +408,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 			r.target.Stop()
 		}
 
-		live := startRunners(buildRunners(newCfg, a.log), a.log)
+		live := startRunners(a.buildRunners(newCfg, a.log), a.log)
 		a.mu.Lock()
 		a.runners = live
 		a.mu.Unlock()
@@ -434,11 +466,12 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 // exist, not about what happened to be readable this second.
 func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collector.Snapshot, log *slog.Logger) {
 	dropped := droppedByStandardSet(oldCfg, newCfg, snap)
+	dropped = append(dropped, droppedByDebug(oldCfg, newCfg, snap)...)
 	if len(dropped) == 0 {
 		return
 	}
 
-	log.Info("retiring entities the standard set does not contain", "count", len(dropped))
+	log.Info("retiring entities the new configuration no longer produces", "count", len(dropped))
 	for _, r := range runners {
 		if publisher, ok := r.target.(*hamqtt.Publisher); ok {
 			publisher.Retire(hamqtt.EntityRefs(dropped))
@@ -459,6 +492,24 @@ func droppedByStandardSet(oldCfg, newCfg config.Config, snap collector.Snapshot)
 	var dropped []metrics.Reading
 	for _, r := range snap.Entities() {
 		if !r.Def.InStandardSet() {
+			dropped = append(dropped, r)
+		}
+	}
+	return dropped
+}
+
+// droppedByDebug is the same decision for the two self-usage figures: switching
+// debug logging off says they should stop existing, and they are in the
+// standard set, so the check above never covers them.
+func droppedByDebug(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
+	if !oldCfg.Debug || newCfg.Debug {
+		return nil
+	}
+
+	var dropped []metrics.Reading
+	for _, r := range snap.Entities() {
+		switch r.Def.ID {
+		case metrics.ExporterCPU.ID, metrics.ExporterMemory.ID:
 			dropped = append(dropped, r)
 		}
 	}
@@ -543,11 +594,16 @@ func (a *App) notify() {
 }
 
 // buildRunners creates one runner per enabled export target.
-func buildRunners(cfg config.Config, log *slog.Logger) []*runner {
+//
+// A method rather than a function because the MQTT publisher needs the address
+// of the settings interface, and that is not known yet the first time this runs.
+// Passing the accessor rather than the string is what lets the publisher ask
+// again later.
+func (a *App) buildRunners(cfg config.Config, log *slog.Logger) []*runner {
 	var runners []*runner
 
 	if cfg.MQTTEnabled {
-		runners = append(runners, newRunner(hamqtt.New(cfg, log), log))
+		runners = append(runners, newRunner(hamqtt.New(cfg, log, a.currentWebURL), log))
 	}
 	if cfg.DataServerEnabled {
 		runners = append(runners, newRunner(dataserver.New(cfg, log), log))

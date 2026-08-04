@@ -41,6 +41,12 @@ type Publisher struct {
 	cfg config.Config
 	log *slog.Logger
 
+	// webURL reports where the settings interface is actually listening, asked
+	// afresh at every announcement rather than copied at construction: the web
+	// server may not have picked its port yet when the publisher is built, and
+	// after a fallback that port is not the configured one.
+	webURL func() string
+
 	published export.Counter
 
 	mu        sync.RWMutex
@@ -50,6 +56,11 @@ type Publisher struct {
 	// announced remembers which entity keys have a retained discovery message,
 	// so each one is announced once per connection rather than every second.
 	announced map[string]EntityRef
+	// announcedURL is the interface address those messages carry. The publisher
+	// usually connects before the web server has picked its port, so the first
+	// announcement goes out with the configured address and the real one only
+	// becomes known a moment later.
+	announcedURL string
 	// pendingRetire holds entities to retire that could not be retired yet
 	// because the broker was unreachable at the time. Somebody who narrows the
 	// sensor set while the broker is down still means it.
@@ -65,8 +76,41 @@ type EntityRef struct {
 }
 
 // New builds a publisher for cfg. Nothing happens until Start is called.
-func New(cfg config.Config, log *slog.Logger) *Publisher {
-	return &Publisher{cfg: cfg, log: log, announced: map[string]EntityRef{}}
+//
+// webURL may be nil, in which case the device page links to the configured
+// address. Everything that has one should pass it: see configURL.
+func New(cfg config.Config, log *slog.Logger, webURL func() string) *Publisher {
+	return &Publisher{cfg: cfg, log: log, webURL: webURL, announced: map[string]EntityRef{}}
+}
+
+// currentWebURL is the interface's real address, empty when nobody reports one.
+func (p *Publisher) currentWebURL() string {
+	if p.webURL == nil {
+		return ""
+	}
+	return p.webURL()
+}
+
+// forgetAnnouncementsIfURLChanged makes the next pass announce everything again
+// when the interface address has moved.
+//
+// The address is part of every discovery message, and those are retained: one
+// published with the wrong port sits on the broker until something overwrites
+// it. In practice this fires once per run, right after the web server reports
+// the port it actually got.
+func (p *Publisher) forgetAnnouncementsIfURLChanged(webURL string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if webURL == p.announcedURL {
+		return
+	}
+	if len(p.announced) > 0 {
+		p.log.Info("interface address changed, re-announcing the device link",
+			"from", p.announcedURL, "to", webURL, "entities", len(p.announced))
+	}
+	p.announced = map[string]EntityRef{}
+	p.announcedURL = webURL
 }
 
 // Start connects to the broker. It returns as soon as the attempt is under
@@ -176,6 +220,9 @@ func (p *Publisher) Export(snap collector.Snapshot) error {
 // going — an external drive, a second monitor — should not make Home Assistant
 // forget its history and any dashboard referring to it.
 func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) error {
+	webURL := p.currentWebURL()
+	p.forgetAnnouncementsIfURLChanged(webURL)
+
 	for _, reading := range snap.Entities() {
 		if !announceable(reading) {
 			continue
@@ -206,7 +253,7 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 			}
 		}
 
-		topic, payload, err := discoveryMessage(p.cfg, reading)
+		topic, payload, err := discoveryMessage(p.cfg, webURL, reading)
 		if err != nil {
 			return err
 		}

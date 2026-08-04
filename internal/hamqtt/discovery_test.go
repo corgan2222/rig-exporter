@@ -21,7 +21,7 @@ func testConfig() config.Config {
 func decode(t *testing.T, reading metrics.Reading) (string, discoveryPayload) {
 	t.Helper()
 
-	topic, raw, err := discoveryMessage(testConfig(), reading)
+	topic, raw, err := discoveryMessage(testConfig(), "", reading)
 	if err != nil {
 		t.Fatalf("discoveryMessage(%s): %v", reading.Key(), err)
 	}
@@ -30,6 +30,37 @@ func decode(t *testing.T, reading metrics.Reading) (string, discoveryPayload) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	return topic, payload
+}
+
+// The device page's "Visit" link has to open the port the server actually got.
+//
+// A configured 8787 that was busy leaves the interface on an ephemeral port,
+// and the configuration still says 8787. Discovery messages are retained, so
+// one published with the wrong port stays wrong until something overwrites it.
+func TestTheDeviceLinkFollowsTheRealAddress(t *testing.T) {
+	cfg := testConfig()
+	cfg.WebPort = 8787
+	reading := metrics.Gauge(metrics.FPS, "", 143.2)
+
+	_, raw, err := discoveryMessage(cfg, "http://127.0.0.1:48352", reading)
+	if err != nil {
+		t.Fatalf("discoveryMessage: %v", err)
+	}
+	var payload discoveryPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if want := "http://127.0.0.1:48352"; payload.Device.ConfigURL != want {
+		t.Errorf("ConfigURL = %q, want the address the server reported, %q",
+			payload.Device.ConfigURL, want)
+	}
+
+	// Before the server has reported anything there is nothing better than the
+	// configured address, and no link at all would be worse.
+	if got := configURL(cfg, ""); got != cfg.WebURL() {
+		t.Errorf("without a reported address ConfigURL = %q, want the configured %q",
+			got, cfg.WebURL())
+	}
 }
 
 // The entity naming the whole thing is built around: sensor.re_corganpc2_fps.
@@ -77,8 +108,8 @@ func TestOnlyTheNameFollowsTheInterfaceLanguage(t *testing.T) {
 	english := testConfig()
 	english.Language = "en"
 
-	de := discoveryFor(german, reading)
-	en := discoveryFor(english, reading)
+	de := discoveryFor(german, "", reading)
+	en := discoveryFor(english, "", reading)
 
 	if de.Name != "GPU 0 Temperatur" || en.Name != "GPU 0 Temperature" {
 		t.Errorf("names = %q / %q, want them translated", de.Name, en.Name)
@@ -179,7 +210,7 @@ func TestTextEntitiesOmitNumericAttributes(t *testing.T) {
 		metrics.Text(metrics.Resolution, "", "2560x1440"),
 		metrics.Text(metrics.DiskMedia, "C:", "NVMe"),
 	} {
-		_, raw, err := discoveryMessage(testConfig(), reading)
+		_, raw, err := discoveryMessage(testConfig(), "", reading)
 		if err != nil {
 			t.Fatalf("discoveryMessage: %v", err)
 		}
@@ -221,7 +252,7 @@ func TestEveryDefinitionProducesADistinctTopic(t *testing.T) {
 			instance = "0"
 		}
 
-		topic, _, err := discoveryMessage(cfg, metrics.Reading{Def: def, Instance: instance})
+		topic, _, err := discoveryMessage(cfg, "", metrics.Reading{Def: def, Instance: instance})
 		if err != nil {
 			t.Fatalf("discoveryMessage(%s): %v", def.ID, err)
 		}

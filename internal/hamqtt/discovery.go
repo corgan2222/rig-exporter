@@ -69,7 +69,21 @@ type discoveryPayload struct {
 }
 
 // discoveryFor builds the announcement for one reading.
-func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
+// configURL is what the "Visit" link on the Home Assistant device page opens.
+//
+// webURL is where the interface is really listening, which is not always where
+// the configuration says it should be: a busy port makes the server fall back
+// to an ephemeral one, and a link to the port nobody is listening on is worse
+// than no link. Empty means nothing has reported an address yet, and then the
+// configured one is the best guess there is.
+func configURL(cfg config.Config, webURL string) string {
+	if webURL != "" {
+		return webURL
+	}
+	return cfg.WebURL()
+}
+
+func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discoveryPayload {
 	key := r.Key()
 
 	payload := discoveryPayload{
@@ -100,7 +114,7 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 			Manufacturer: config.AppName,
 			Model:        "PC telemetry",
 			SWVersion:    config.Version,
-			ConfigURL:    cfg.WebURL(),
+			ConfigURL:    configURL(cfg, webURL),
 		},
 		Origin: originInfo{
 			Name:       config.AppName,
@@ -125,8 +139,8 @@ func discoveryFor(cfg config.Config, r metrics.Reading) discoveryPayload {
 }
 
 // discoveryMessage returns the topic and payload announcing one reading.
-func discoveryMessage(cfg config.Config, r metrics.Reading) (string, []byte, error) {
-	payload, err := json.Marshal(discoveryFor(cfg, r))
+func discoveryMessage(cfg config.Config, webURL string, r metrics.Reading) (string, []byte, error) {
+	payload, err := json.Marshal(discoveryFor(cfg, webURL, r))
 	if err != nil {
 		return "", nil, fmt.Errorf("encode discovery for %s: %w", r.Key(), err)
 	}
