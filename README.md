@@ -381,8 +381,15 @@ Drei Seiten, erreichbar über die Kopfzeile:
   Messwertsatz, ob mit Nachkommastellen, wie viele Entities entstehen, und in
   welchem Takt gesendet wird — dabei der Takt, der **gerade** gilt, mit dem
   Zusatz „im Spiel" oder „Leerlauf". Eine Zahl ohne diesen Zusatz wäre wertlos,
-  weil es zwei davon gibt. Kacheln für Werte, die der gewählte Satz gar nicht
-  misst, werden ausgeblendet statt leer angezeigt.
+  weil es zwei davon gibt. Jeder Chip führt auf die Einstellung, die ihn
+  bestimmt; einen Wert zu lesen und ihn zu ändern soll nicht zwei Suchen sein.
+  Kacheln für Werte, die der gewählte Satz gar nicht misst, werden ausgeblendet
+  statt leer angezeigt.
+
+  Beim ersten Besuch steht darunter ein Hinweis auf die wachsende
+  Home-Assistant-Datenbank samt Verweis auf den fertigen `recorder:`-Abschnitt.
+  „Gelesen, nicht wieder anzeigen" räumt ihn dauerhaft weg — im Browser
+  gemerkt, wie die Sortierung der Hardware-Panels.
 * **Datengewinnung** — welcher Messwertsatz, welche Sensorgruppen gelesen
   werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,

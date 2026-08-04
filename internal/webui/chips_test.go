@@ -93,6 +93,57 @@ func TestTheEntityCountLeftTheMqttBadge(t *testing.T) {
 	}
 }
 
+// Reading a value and changing it should not be two searches, so every chip
+// leads to the control that decides it.
+func TestEveryChipLinksToItsSetting(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/")
+
+	for _, want := range []struct{ id, href string }{
+		{"c-set", "/capture#sensors"},
+		{"c-decimals", "/capture#capture"},
+		{"c-entities", "/capture#sensors"},
+		{"c-interval", "/capture#capture"},
+	} {
+		if !strings.Contains(body, `id="`+want.id+`" href="`+want.href+`"`) {
+			t.Errorf("chip %s does not link to %s", want.id, want.href)
+		}
+	}
+}
+
+// The export targets come first, the settings chips below them.
+func TestTheExportBadgesComeBeforeTheSettingChips(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/")
+	if strings.Index(body, `id="export-badges"`) > strings.Index(body, `id="c-set"`) {
+		t.Error("the setting chips are above the export badges")
+	}
+}
+
+// The hint about the Home Assistant database sits between the two cards, links
+// to the block that fixes it, and can be put away for good.
+func TestTheRecorderNoticeIsShownOnceAndCanBeDismissed(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/")
+
+	notice := strings.Index(body, `id="recorder-notice"`)
+	if notice < 0 {
+		t.Fatal("no notice about the Home Assistant database")
+	}
+	if status, hardware := strings.Index(body, `id="export-badges"`), strings.Index(body, `id="sensor-groups"`); !(status < notice && notice < hardware) {
+		t.Errorf("the notice is not between the status and the hardware card (%d, %d, %d)", status, notice, hardware)
+	}
+	if !strings.Contains(body, `href="/export#recorder"`) {
+		t.Error("the notice does not link to the recorder block")
+	}
+	if !strings.Contains(body, `rig.recorderNoticeRead`) {
+		t.Error("dismissing the notice is not remembered")
+	}
+}
+
 // A measurement that is not collected must not leave an empty tile behind.
 func TestTheStatusPageCanHideTheResolutionTile(t *testing.T) {
 	_, ts := newServer(t, nil)
