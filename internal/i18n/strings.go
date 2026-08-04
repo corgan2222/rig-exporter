@@ -40,6 +40,7 @@ var catalogue = map[string]Text{
 	"rtss.bannerBody":        {DE: "Ohne RTSS gibt es keine FPS-Werte — alle übrigen Gruppen melden weiter.", EN: "Without RTSS there are no FPS values; every other group keeps reporting."},
 	"rtss.download":          {DE: "RTSS herunterladen", EN: "Download RTSS"},
 	"rtss.alsoInAfterburner": {DE: "(auch in MSI Afterburner enthalten)", EN: "(also part of MSI Afterburner)"},
+	"rtss.dismissNoGPU":      {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
 
 	// Hardware panels.
 	"hardware.title":    {DE: "Hardware", EN: "Hardware"},
@@ -319,6 +320,11 @@ var catalogue = map[string]Text{
 	},
 	"settings.app.autostart": {DE: "Mit Windows starten", EN: "Start with Windows"},
 	"settings.app.debug":     {DE: "Debug-Logging (wirkt nach Neustart)", EN: "Debug logging (takes effect after a restart)"},
+	"settings.app.noGPU":     {DE: "Keine GPU / keine Spieldaten auf diesem Rechner", EN: "No GPU / no game data on this machine"},
+	"settings.app.noGPUHint": {
+		DE: "Blendet auf der Statusseite FPS, Frametime, Spiel und die RTSS-Hinweise aus. Messung und Exporte bleiben unverändert.",
+		EN: "Hides FPS, frame time, game and RTSS notices on the status page. Collection and exports remain unchanged.",
+	},
 
 	// Export target status.
 	"export.mqtt":         {DE: "MQTT", EN: "MQTT"},

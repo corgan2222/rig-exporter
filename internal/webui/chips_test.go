@@ -174,6 +174,81 @@ func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
 	}
 }
 
+// A machine that does not provide game telemetry must be able to put the RTSS
+// warning away permanently. This is an installation setting, not a browser
+// preference, for the same reason as the recorder notice above.
+func TestTheRTSSWarningCanRememberThatThisMachineHasNoGPU(t *testing.T) {
+	server, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/")
+	if !strings.Contains(body, `name="what" value="no_gpu"`) {
+		t.Fatal("the RTSS warning has no no-GPU dismissal")
+	}
+
+	resp := post(t, ts.URL, "/dismiss", url.Values{"what": {"no_gpu"}})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", resp.StatusCode)
+	}
+	if !server.app.Config().NoGPU {
+		t.Fatal("the configuration does not remember no_gpu")
+	}
+	if got := apiStatus(t, ts.URL)["no_gpu"]; got != true {
+		t.Errorf("status API no_gpu = %v, want true", got)
+	}
+}
+
+// Server-side hiding prevents a flash of game-only controls before the first
+// status poll. The elements stay in the document so a settings change in
+// another tab can reveal them again without a reload.
+func TestNoGPUHidesTheGameStatusOnFirstRender(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) { c.NoGPU = true })
+
+	_, body := get(t, ts.URL+"/")
+	for _, id := range []string{"tile-fps", "tile-frametime", "tile-game", "rtss-badge"} {
+		tag := openingTagWithID(t, body, id)
+		if !strings.Contains(tag, " hidden") {
+			t.Errorf("%s is visible with no_gpu: %s", id, tag)
+		}
+	}
+	if tag := openingTagWithID(t, body, "tile-resolution"); strings.Contains(tag, " hidden") {
+		t.Errorf("no_gpu hid the resolution tile although only game status was requested: %s", tag)
+	}
+}
+
+// The dismissal is reversible from the regular settings; otherwise one click
+// would require editing config.json by hand to undo.
+func TestNoGPUCanBeClearedInApplicationSettings(t *testing.T) {
+	server, ts := newServer(t, func(c *config.Config) { c.NoGPU = true })
+
+	_, body := get(t, ts.URL+"/export")
+	if tag := openingTagWithID(t, body, "no_gpu"); !strings.Contains(tag, " checked") {
+		t.Errorf("the no_gpu setting is not shown as enabled: %s", tag)
+	}
+
+	post(t, ts.URL, "/save/app", url.Values{
+		"language": {server.app.Config().Language},
+		"web_port": {"8787"},
+	})
+	if server.app.Config().NoGPU {
+		t.Error("no_gpu stayed on although its settings checkbox was cleared")
+	}
+}
+
+func openingTagWithID(t *testing.T, body, id string) string {
+	t.Helper()
+
+	position := strings.Index(body, `id="`+id+`"`)
+	if position < 0 {
+		t.Fatalf("no element with id %q", id)
+	}
+	start := strings.LastIndex(body[:position], "<")
+	endOffset := strings.Index(body[position:], ">")
+	if start < 0 || endOffset < 0 {
+		t.Fatalf("could not isolate opening tag for %q", id)
+	}
+	return body[start : position+endOffset+1]
+}
+
 // Anything else must not be able to write into the configuration through it.
 func TestOnlyAKnownNoticeCanBeDismissed(t *testing.T) {
 	_, ts := newServer(t, nil)

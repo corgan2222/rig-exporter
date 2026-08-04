@@ -245,6 +245,11 @@
         </select>
         <span class="hint">{{ .T "settings.app.languageHint" }}</span>
       </label>
+      <div class="check">
+        <input type="checkbox" name="no_gpu" id="no_gpu" value="1" {{ if .Config.NoGPU }}checked{{ end }}>
+        <label for="no_gpu" style="margin:0"><span class="name">{{ .T "settings.app.noGPU" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.app.noGPUHint" }}</p>
       <label>
         <span class="name">{{ .T "settings.app.webPort" }}</span>
         <input type="number" name="web_port" value="{{ .Config.WebPort }}" min="1" max="65535">

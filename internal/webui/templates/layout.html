@@ -27,6 +27,8 @@
     color: var(--text);
     font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
   }
+  /* A component's display style must never override semantic visibility. */
+  [hidden] { display: none !important; }
   .wrap { max-width: 880px; margin: 0 auto; }
 
   /* Header and navigation */

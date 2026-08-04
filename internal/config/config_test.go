@@ -337,8 +337,16 @@ func TestLoadCreatesDefaultsThenReadsThemBack(t *testing.T) {
 
 	cfg.MQTTHost = "broker.example"
 	cfg.MQTTPassword = "s3cret"
+	cfg.NoGPU = true
 	if err := Save(path, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read saved config: %v", err)
+	}
+	if !strings.Contains(string(raw), `"no_gpu": true`) {
+		t.Errorf("saved configuration has no no_gpu setting: %s", raw)
 	}
 
 	reloaded, created, err := Load(path)
@@ -350,6 +358,9 @@ func TestLoadCreatesDefaultsThenReadsThemBack(t *testing.T) {
 	}
 	if reloaded.MQTTHost != "broker.example" || reloaded.MQTTPassword != "s3cret" {
 		t.Errorf("reloaded = %+v, want the saved host and password", reloaded)
+	}
+	if !reloaded.NoGPU {
+		t.Error("reload forgot that this machine has no GPU")
 	}
 }
 
