@@ -155,6 +155,56 @@ func TestTheCaptureBlockCarriesBothPublishRatesAndTheDecimals(t *testing.T) {
 	}
 }
 
+// The sensor set is the first control on the sensors card, and the box below
+// it lists both sets out of the catalogue rather than out of a typed-up
+// example.
+func TestTheSensorSetIsOfferedWithBothListings(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	code, body := get(t, ts.URL+"/capture")
+	if code != http.StatusOK {
+		t.Fatalf("GET /capture = %d", code)
+	}
+	if !strings.Contains(body, `name="sensor_set"`) {
+		t.Fatal("no way to choose the sensor set")
+	}
+	// Extended is the default, so it must come up selected.
+	if !strings.Contains(body, `<option value="extended" selected>`) {
+		t.Error("extended is not preselected")
+	}
+	// The listing is generated: a measurement from each set has to appear.
+	for _, want := range []string{"<details", "<code>fps</code>", "<code>cpu_clock</code>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the listing does not contain %q", want)
+		}
+	}
+	// It is the first control, ahead of the group checkboxes.
+	if strings.Index(body, `name="sensor_set"`) > strings.Index(body, `name="gpu_enabled"`) {
+		t.Error("the sensor set is not the first control on the card")
+	}
+}
+
+func TestSavingTheSensorSetKeepsIt(t *testing.T) {
+	server, ts := newServer(t, nil)
+
+	post(t, ts.URL, "/save/sensors", url.Values{
+		"sensor_set":  {"standard"},
+		"gpu_enabled": {"1"},
+	})
+	if got := server.app.Config().SensorSet; got != config.SensorSetStandard {
+		t.Errorf("sensor set = %q, want standard", got)
+	}
+
+	// And back, because a one-way switch would be a trap.
+	post(t, ts.URL, "/save/sensors", url.Values{
+		"sensor_set":  {"extended"},
+		"gpu_enabled": {"1"},
+	})
+	if got := server.app.Config().SensorSet; got != config.SensorSetExtended {
+		t.Errorf("sensor set = %q, want extended", got)
+	}
+}
+
 // Within its own block an absent checkbox does mean off, which is how a box
 // gets unticked at all.
 func TestAnAbsentCheckboxWithinTheBlockMeansOff(t *testing.T) {

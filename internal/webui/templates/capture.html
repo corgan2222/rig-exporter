@@ -17,6 +17,33 @@
         {{ .T "settings.sensors.entityCount" }}: <strong>{{ .EntityCount }}</strong> {{ .T "settings.sensors.entities" }}.
       </p>
 
+      <label>
+        <span class="name">{{ .T "settings.sensors.set" }}</span>
+        <select name="sensor_set">
+          <option value="extended" {{ if eq .Config.SensorSet "extended" }}selected{{ end }}>{{ .T "settings.sensors.setExtended" }}</option>
+          <option value="standard" {{ if eq .Config.SensorSet "standard" }}selected{{ end }}>{{ .T "settings.sensors.setStandard" }}</option>
+        </select>
+        <span class="hint">{{ .T "settings.sensors.setHint" }}</span>
+      </label>
+
+      <!-- The lists come from the catalogue itself. An example typed out by
+           hand would be wrong the first time somebody adds a measurement. -->
+      <details class="sets">
+        <summary>{{ .T "settings.sensors.setWhat" }}</summary>
+        <div class="setlists">
+          <div>
+            <h3>{{ .T "settings.sensors.setStandard" }} <span class="count">{{ len .StandardSet }}</span></h3>
+            <p class="note">{{ .T "settings.sensors.setStandardWhat" }}</p>
+            <ul>{{ range .StandardSet }}<li><code>{{ .ID }}</code> <span>{{ .Label }}</span></li>{{ end }}</ul>
+          </div>
+          <div>
+            <h3>{{ .T "settings.sensors.setExtendedAdds" }} <span class="count">{{ len .ExtendedSet }}</span></h3>
+            <p class="note">{{ .T "settings.sensors.setExtendedWhat" }}</p>
+            <ul>{{ range .ExtendedSet }}<li><code>{{ .ID }}</code> <span>{{ .Label }}</span></li>{{ end }}</ul>
+          </div>
+        </div>
+      </details>
+
       <div class="check">
         <input type="checkbox" name="gpu_enabled" id="gpu_enabled" value="1" {{ if .Config.GPUEnabled }}checked{{ end }}>
         <label for="gpu_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.gpu" }}</span></label>

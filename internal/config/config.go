@@ -27,7 +27,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.3.0"
+	Version = "1.4.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -97,6 +97,13 @@ type Config struct {
 	InfluxToken       string `json:"influx_token"`
 	InfluxMeasurement string `json:"influx_measurement"`
 
+	// SensorSet decides how much of each group is reported: SensorSetStandard
+	// keeps what somebody watching their machine looks at, SensorSetExtended
+	// adds the inventory and the fine detail. It cuts across the group
+	// switches below rather than replacing them — the groups say which
+	// hardware is read at all, this says how much of it is worth an entity.
+	SensorSet string `json:"sensor_set"`
+
 	// Sensor groups. Each is collected only when switched on, and drops out
 	// silently when the machine cannot supply it.
 	GPUEnabled       bool `json:"gpu_enabled"`
@@ -154,6 +161,15 @@ type Config struct {
 	Debug     bool   `json:"debug"`
 }
 
+// The two sensor sets. Which measurement is in which is decided in
+// internal/metrics; these are only the names the configuration stores.
+const (
+	// SensorSetStandard reports what somebody watching their machine looks at.
+	SensorSetStandard = "standard"
+	// SensorSetExtended adds the inventory and the fine detail on top.
+	SensorSetExtended = "extended"
+)
+
 // Bounds applied by Normalize. Exported so the web UI can label its inputs.
 const (
 	MinIntervalMs = 250
@@ -189,7 +205,10 @@ func Defaults() Config {
 		InfluxMeasurement: IDPrefix,
 
 		// Everything the machine can supply is on by default; a group that
-		// has no source simply produces nothing.
+		// has no source simply produces nothing. The extended set likewise:
+		// somebody who wants less can say so, but a value that was never
+		// offered is a value nobody knows to ask for.
+		SensorSet:        SensorSetExtended,
 		GPUEnabled:       true,
 		CPUDetailEnabled: true,
 		CPUPerCore:       false, // one entity per thread is a lot for a 16-core CPU
@@ -445,6 +464,13 @@ func (c *Config) Normalize() {
 }
 
 func (c *Config) normalizeSensors() {
+	// Anything unrecognised means extended, including the empty string an
+	// older configuration file leaves behind: a setting nobody chose should
+	// report more rather than silently less.
+	if c.SensorSet != SensorSetStandard {
+		c.SensorSet = SensorSetExtended
+	}
+
 	c.PingTarget = strings.TrimSpace(c.PingTarget)
 	c.PingCount = clampInt(c.PingCount, 1, 10, Defaults().PingCount)
 	c.PingIntervalMs = clampInt(c.PingIntervalMs, 2000, 600_000, Defaults().PingIntervalMs)

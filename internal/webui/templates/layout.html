@@ -101,6 +101,26 @@
   .banner.warn { border-color: #78500a; background: #2b1e05; }
   .banner a { color: var(--accent); }
   code { background: var(--panel-2); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+  /* The two sensor sets, folded away until asked for. Two columns while there
+     is room, one when there is not; the lists are long enough that side by
+     side is the whole point. */
+  details.sets { margin: -.4rem 0 1rem; }
+  details.sets > summary {
+    cursor: pointer; color: var(--accent); font-size: .85rem;
+    padding: .2rem 0; width: fit-content;
+  }
+  details.sets > summary:hover { text-decoration: underline; }
+  .setlists {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.2rem; margin-top: .6rem; padding: .8rem .9rem;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .setlists h3 { margin: 0 0 .2rem; font-size: .9rem; }
+  .setlists h3 .count { color: var(--muted); font-weight: normal; font-size: .8rem; }
+  .setlists ul { margin: .5rem 0 0; padding: 0; list-style: none; }
+  .setlists li { display: flex; gap: .5rem; align-items: baseline; padding: .1rem 0; font-size: .78rem; }
+  .setlists li code { flex: 0 0 auto; }
+  .setlists li span { color: var(--muted); }
   /* A snippet meant to be copied out: it scrolls rather than wraps, because a
      wrapped line of YAML is a broken line of YAML. */
   pre.snippet {

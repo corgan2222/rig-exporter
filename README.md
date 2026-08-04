@@ -24,6 +24,22 @@ Es wird nur gemeldet, was der Rechner tatsächlich liefert. Fehlt die Quelle
 einer Gruppe, entstehen dafür gar keine Entities — und sie erscheinen von
 selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 
+Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
+Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
+
+* **Standard** — 50 Messwerte: was man sich ansieht, wenn man wissen will, wie
+  es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
+* **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
+  Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
+  Problems, im Alltag selten.
+
+Auf dem Entwicklungsrechner sind das 127 Werte gegenüber 84. Welcher Messwert in
+welchem Satz steckt, listet die Einstellungsseite ausklappbar auf — erzeugt aus
+dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
+nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
+Prometheus, InfluxDB **und** auf der eigenen Anzeigeseite. Ein Wert, den das
+Dashboard zeigt und Home Assistant nie bekommt, wäre die schlechtere Einstellung.
+
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
@@ -289,7 +305,7 @@ aus und baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
 
 ```
-rig-exporter 1.3.0+65.7785e59
+rig-exporter 1.4.0+<commits>.<hash>
 ```
 
 Also Commit-Anzahl und Kurz-Hash, bei uncommitteten Änderungen zusätzlich
@@ -341,7 +357,8 @@ Drei Seiten, erreichbar über die Kopfzeile:
 * **Anzeige** — Live-Werte, Zustand der Exportziele, ein Panel je Sensorgruppe
   und die Adressen der aktiven Endpunkte. Aktualisiert sich im
   Auslese-Intervall.
-* **Datengewinnung** — welche Sensorgruppen gelesen werden und wie oft.
+* **Datengewinnung** — welcher Messwertsatz, welche Sensorgruppen gelesen
+  werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,
   Speicherung, Datenserver, InfluxDB) und wie sich die Anwendung selbst
   verhält.
@@ -762,7 +779,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-204 Testfunktionen in 27 Dateien. Abgedeckt sind: die drei Parser, die
+211 Testfunktionen in 28 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

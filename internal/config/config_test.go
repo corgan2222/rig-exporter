@@ -187,6 +187,26 @@ func TestAConfigurationWithoutTheNewKeysGetsTheDefaults(t *testing.T) {
 	if !cfg.Decimals {
 		t.Error("decimals switched themselves off for a file that never mentioned them")
 	}
+	if cfg.SensorSet != SensorSetExtended {
+		t.Errorf("sensor set = %q, want the extended default for a file without the key", cfg.SensorSet)
+	}
+}
+
+// A setting nobody chose has to mean more rather than silently less.
+func TestAnUnknownSensorSetFallsBackToExtended(t *testing.T) {
+	for _, given := range []string{"", "standard", "extended", "STANDARD", "nonsense"} {
+		cfg := Defaults()
+		cfg.SensorSet = given
+		cfg.Normalize()
+
+		want := SensorSetExtended
+		if given == SensorSetStandard {
+			want = SensorSetStandard
+		}
+		if cfg.SensorSet != want {
+			t.Errorf("%q normalised to %q, want %q", given, cfg.SensorSet, want)
+		}
+	}
 }
 
 func TestLanguageFallsBackToTheDefault(t *testing.T) {
