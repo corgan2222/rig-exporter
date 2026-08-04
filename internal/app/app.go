@@ -353,6 +353,12 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 	oldCfg := a.cfg
 	oldRunners := a.runners
 	oldSensors := a.sensors
+	// The last reading was taken under the old configuration, so it still names
+	// every measurement that is about to be dropped — with its real instances,
+	// which no list of definitions could supply. Captured under the same lock
+	// that swaps the configuration, or a tick landing in between would replace
+	// it with an already-filtered one and there would be nothing left to retire.
+	lastSnapshot := a.last
 	rebuild := exportsChanged(oldCfg, newCfg)
 	identityChanged := topicsChanged(oldCfg, newCfg)
 	rebuildSensors := sensorsChanged(oldCfg, newCfg)
@@ -384,6 +390,18 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 		a.mu.Unlock()
 	}
 
+	// After the rebuild, on whichever targets are now live. Handing the
+	// retirement to a publisher that is about to be thrown away would lose it,
+	// and a freshly built one is not connected yet — it queues and flushes when
+	// it connects. Skipped when the identity changed, because clearDiscovery
+	// above already retired everything.
+	if !identityChanged {
+		a.mu.RLock()
+		liveRunners := a.runners
+		a.mu.RUnlock()
+		retireDropped(liveRunners, oldCfg, newCfg, lastSnapshot, a.log)
+	}
+
 	if oldCfg.Autostart != newCfg.Autostart {
 		if err := autostart.Set(config.AppName, newCfg.Autostart); err != nil {
 			a.log.Error("autostart update failed", "error", err)
@@ -412,6 +430,47 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 	default: // a reset is already pending, which achieves the same thing
 	}
 	return nil
+}
+
+// retireDropped removes the Home Assistant entities that the new configuration
+// will no longer produce.
+//
+// Only a narrowed sensor set counts. Switching a group off, or hardware that
+// stops answering, deliberately leaves its entities alone: those come back, and
+// an entity that comes back after being retired has lost its history for
+// nothing. Narrowing the set is different — it is a statement about what should
+// exist, not about what happened to be readable this second.
+func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collector.Snapshot, log *slog.Logger) {
+	dropped := droppedByStandardSet(oldCfg, newCfg, snap)
+	if len(dropped) == 0 {
+		return
+	}
+
+	log.Info("retiring entities the standard set does not contain", "count", len(dropped))
+	for _, r := range runners {
+		if publisher, ok := r.target.(*hamqtt.Publisher); ok {
+			publisher.Retire(hamqtt.EntityRefs(dropped))
+		}
+	}
+}
+
+// droppedByStandardSet is the decision on its own: which of the readings taken
+// under the old configuration the new one will no longer produce.
+//
+// Nothing at all unless the set actually narrowed. Going the other way only
+// adds measurements, and announceNew picks those up by itself.
+func droppedByStandardSet(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
+	if oldCfg.SensorSet == newCfg.SensorSet || newCfg.SensorSet != config.SensorSetStandard {
+		return nil
+	}
+
+	var dropped []metrics.Reading
+	for _, r := range snap.Entities() {
+		if !r.Def.InStandardSet() {
+			dropped = append(dropped, r)
+		}
+	}
+	return dropped
 }
 
 // clearDiscovery retires the Home Assistant entities of the old identity.

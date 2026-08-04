@@ -40,6 +40,25 @@ nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
 Prometheus, InfluxDB **und** auf der eigenen Anzeigeseite. Ein Wert, den das
 Dashboard zeigt und Home Assistant nie bekommt, wäre die schlechtere Einstellung.
 
+Beim Wechsel auf den Standardsatz werden die abgewählten Entities in Home
+Assistant **entfernt**, nicht bloß nicht mehr beliefert: für jede geht eine leere
+retained Nachricht auf ihr Discovery-Topic, und genau das ist der Löschbefehl.
+Der Weg zurück kündigt sie wieder an. Home Assistant behält dabei einen
+Grabstein mit Bereich, Name, Symbol und Beschriftungen, sodass eigene Anpassungen
+den Rundweg überleben; der aufgezeichnete Verlauf bleibt ohnehin unberührt.
+
+> **Beim Umschalten sollte Home Assistant laufen.** Die Löschung ist eine
+> Nachricht, kein Zustand — wer nicht zuhört, verpasst sie. Und weil die leere
+> Nachricht die alte zugleich vom Broker nimmt, findet ein später startendes
+> Home Assistant nichts mehr vor und holt die Entities aus seiner eigenen
+> Registry als dauerhaft *nicht verfügbar* zurück. Läuft es mit, verschwinden
+> sie sauber.
+
+Das Entfernen passiert **nur** bei dieser einen, ausdrücklichen Änderung. Eine
+abgeschaltete Sensorgruppe oder Hardware, die gerade nicht antwortet, lässt ihre
+Entities stehen — die kommen wieder, und eine Entity, die zwischendurch entfernt
+wurde, hätte ihren Verlauf für nichts verloren.
+
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |

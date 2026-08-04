@@ -25,6 +25,7 @@ import (
 	"github.com/corgan/rig-exporter/internal/config"
 	"github.com/corgan/rig-exporter/internal/export"
 	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan/rig-exporter/internal/metrics"
 )
 
 const (
@@ -48,18 +49,24 @@ type Publisher struct {
 	lastError string
 	// announced remembers which entity keys have a retained discovery message,
 	// so each one is announced once per connection rather than every second.
-	announced map[string]entityRef
+	announced map[string]EntityRef
+	// pendingRetire holds entities to retire that could not be retired yet
+	// because the broker was unreachable at the time. Somebody who narrows the
+	// sensor set while the broker is down still means it.
+	pendingRetire []EntityRef
 }
 
-// entityRef is what is needed to retire an entity again.
-type entityRef struct {
+// EntityRef names one entity's discovery topic — everything needed to retire
+// it again. Built by EntityRefs; the fields stay unexported so the mapping from
+// a reading to a topic has exactly one home.
+type EntityRef struct {
 	component string
 	key       string
 }
 
 // New builds a publisher for cfg. Nothing happens until Start is called.
 func New(cfg config.Config, log *slog.Logger) *Publisher {
-	return &Publisher{cfg: cfg, log: log, announced: map[string]entityRef{}}
+	return &Publisher{cfg: cfg, log: log, announced: map[string]EntityRef{}}
 }
 
 // Start connects to the broker. It returns as soon as the attempt is under
@@ -109,7 +116,7 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	// Forget what was announced, so discovery is republished. A Home Assistant
 	// that was reinstalled or had its retained messages purged then picks the
 	// device up again without restarting rig-exporter.
-	p.announced = map[string]entityRef{}
+	p.announced = map[string]EntityRef{}
 	p.mu.Unlock()
 
 	p.log.Info("broker connected", "broker", p.cfg.BrokerURL())
@@ -119,6 +126,9 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	if err := publish(client, p.cfg.AvailabilityTopic(), []byte(availableOnline), 1, true); err != nil {
 		p.recordError(fmt.Errorf("publish availability: %w", err))
 	}
+	// Before anything is announced: a retirement decided while the broker was
+	// away must not undo an announcement made a moment later.
+	p.flushPendingRetire(client)
 	if p.cfg.LegacyCleanupPending {
 		p.clearLegacyDiscovery(client)
 	}
@@ -167,6 +177,10 @@ func (p *Publisher) Export(snap collector.Snapshot) error {
 // forget its history and any dashboard referring to it.
 func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) error {
 	for _, reading := range snap.Entities() {
+		if !announceable(reading) {
+			continue
+		}
+
 		key := reading.Key()
 
 		p.mu.RLock()
@@ -201,12 +215,96 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 		}
 
 		p.mu.Lock()
-		p.announced[key] = entityRef{component: reading.Def.Component(), key: key}
+		p.announced[key] = EntityRef{component: reading.Def.Component(), key: key}
 		p.mu.Unlock()
 
 		p.log.Debug("entity announced", "topic", topic)
 	}
 	return nil
+}
+
+// announceable reports whether a reading may be announced right now.
+//
+// It exists because exports run on their own goroutine: a snapshot taken before
+// the sensor set was narrowed can reach announceNew after the entities it names
+// have just been retired, and would put every one of them back — retained, and
+// indistinguishable from a genuine announcement. Asking the same package state
+// the collector filters on makes a stale snapshot harmless.
+//
+// Deliberately not read from p.cfg: that copy is frozen when the publisher is
+// built and is not refreshed when a configuration change does not rebuild it.
+func announceable(r metrics.Reading) bool {
+	return !metrics.StandardOnly() || r.Def.InStandardSet()
+}
+
+// Retire removes named entities from Home Assistant by emptying their retained
+// discovery messages.
+//
+// This is for a deliberate choice — the user narrowing which measurements are
+// reported — and never for a measurement that merely failed to appear. That
+// distinction is the whole reason announceNew leaves absent entities alone: a
+// drive that is unplugged for an afternoon must not cost anybody their history.
+//
+// Retiring works whether or not this process announced the entity itself.
+// announced is cleared on every reconnect, but the retained message on the
+// broker outlives both the reconnect and the process, so what has to be emptied
+// is the topic, not a bookkeeping entry. Publishing into a topic that holds
+// nothing does nothing.
+func (p *Publisher) Retire(refs []EntityRef) {
+	if len(refs) == 0 {
+		return
+	}
+
+	p.mu.Lock()
+	client, connected := p.client, p.connected
+	for _, ref := range refs {
+		delete(p.announced, ref.key)
+	}
+	if client == nil || !connected {
+		p.pendingRetire = append(p.pendingRetire, refs...)
+		p.mu.Unlock()
+		p.log.Info("entities queued for retirement until the broker is back", "count", len(refs))
+		return
+	}
+	p.mu.Unlock()
+
+	p.retire(client, refs)
+}
+
+// EntityRefs turns readings into what Retire needs. It lives here because the
+// mapping from a reading to its discovery topic is this package's business.
+func EntityRefs(readings []metrics.Reading) []EntityRef {
+	refs := make([]EntityRef, 0, len(readings))
+	for _, r := range readings {
+		refs = append(refs, EntityRef{component: r.Def.Component(), key: r.Key()})
+	}
+	return refs
+}
+
+func (p *Publisher) retire(client mqtt.Client, refs []EntityRef) {
+	failed := 0
+	for _, ref := range refs {
+		topic := p.cfg.DiscoveryTopic(ref.component, ref.key)
+		if err := publish(client, topic, nil, 1, true); err != nil {
+			p.log.Warn("could not retire an entity", "topic", topic, "error", err)
+			failed++
+		}
+	}
+	p.log.Info("entities retired", "count", len(refs)-failed, "failed", failed)
+}
+
+// flushPendingRetire runs the retirements that were queued while the broker was
+// away. Called from onConnect, before any discovery is republished, so an
+// entity cannot be retired straight after being announced again.
+func (p *Publisher) flushPendingRetire(client mqtt.Client) {
+	p.mu.Lock()
+	refs := p.pendingRetire
+	p.pendingRetire = nil
+	p.mu.Unlock()
+
+	if len(refs) > 0 {
+		p.retire(client, refs)
+	}
 }
 
 // ClearDiscovery retires every entity this publisher announced, by publishing
@@ -215,7 +313,7 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 func (p *Publisher) ClearDiscovery() {
 	p.mu.RLock()
 	client, connected := p.client, p.connected
-	refs := make([]entityRef, 0, len(p.announced))
+	refs := make([]EntityRef, 0, len(p.announced))
 	for _, ref := range p.announced {
 		refs = append(refs, ref)
 	}
