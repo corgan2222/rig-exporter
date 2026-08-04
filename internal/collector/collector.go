@@ -113,6 +113,7 @@ type SystemSource interface {
 	UptimeHours() float64
 	WindowsVersion() string
 	ProcessCount() (int, error)
+	SelfUsage() (sysinfo.SelfUsage, error)
 }
 
 // Collector produces snapshots.
@@ -133,10 +134,18 @@ type Collector struct {
 	// version is this program's own build, reported alongside the readings so
 	// a series can say what wrote it.
 	version string
+
+	// selfUsage adds what this process costs the machine. Off unless debug
+	// logging is on: it is a measurement of the tool, not of the PC.
+	selfUsage bool
 }
 
 // ReportVersion makes the collector publish which build produced its readings.
 func (c *Collector) ReportVersion(version string) { c.version = version }
+
+// ReportSelfUsage makes the collector publish this process's own CPU share and
+// working set, which debug logging asks for.
+func (c *Collector) ReportSelfUsage(on bool) { c.selfUsage = on }
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
 // entry may go without a new frame before it stops counting as the game.
@@ -288,6 +297,21 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 		reading := metrics.Text(metrics.ExporterVersion, "", c.version)
 		reading.Origin = originExporter
 		snap.Add(reading)
+	}
+
+	// Also the program talking about itself, so also credited to it rather than
+	// to Windows. A failure is left out rather than reported as zero: "the
+	// exporter is using no CPU" and "the counter could not be read" are
+	// different answers, and only one of them is reassuring.
+	if c.selfUsage {
+		if usage, err := c.system.SelfUsage(); err == nil {
+			cpu := metrics.Gauge(metrics.ExporterCPU, "", usage.CPUPercent)
+			memory := metrics.Gauge(metrics.ExporterMemory, "", usage.MemoryMB)
+			cpu.Origin, memory.Origin = originExporter, originExporter
+			snap.Add(cpu, memory)
+		} else {
+			c.log.Debug("own resource usage unavailable", "error", err)
+		}
 	}
 
 	// The operating system cannot change while the process runs, so it is read

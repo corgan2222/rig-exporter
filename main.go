@@ -337,6 +337,13 @@ func run(configPath string, background bool) error {
 		log.Error("settings ui unavailable", "error", err)
 	}
 
+	// The "Visit" link on the Home Assistant device page opens this. It has to
+	// be the address the server actually got, which is known only now: a busy
+	// port sends it to an ephemeral one, and a link to a port nobody listens on
+	// is worse than no link. Passed as the accessor so a later fallback still
+	// reaches the discovery message.
+	application.SetWebURL(settings.URL)
+
 	application.Start()
 
 	// Only now, with the exporters running and the settings page reachable: a

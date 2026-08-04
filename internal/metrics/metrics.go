@@ -332,11 +332,15 @@ var deviceLabels = map[string]i18n.Text{
 //
 // The core panel has no prefix. FPS and the running game are the headline
 // values and belong at the top, not behind a label.
+//
+// The drive prefix is plural where deviceLabels has it singular, and that is
+// deliberate: the only instance-less drive readings are the sums over every
+// volume. "Laufwerk Gesamtkapazität" would claim to describe one disk.
 var groupPrefixes = map[Group]i18n.Text{
 	GroupCPU:  {DE: "CPU", EN: "CPU"},
 	GroupRAM:  {DE: "RAM", EN: "RAM"},
 	GroupGPU:  {DE: "GPU", EN: "GPU"},
-	GroupDisk: {DE: "Laufwerk", EN: "Drive"},
+	GroupDisk: {DE: "Laufwerke", EN: "Drives"},
 	GroupNet:  {DE: "Netzwerk", EN: "Network"},
 }
 

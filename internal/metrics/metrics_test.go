@@ -299,6 +299,14 @@ func TestSingletonsAreGroupedByTheirPanel(t *testing.T) {
 		{Text(RAMType, "", "DDR4"), "RAM Typ"},
 		{Text(GPUSource, "", "x"), "GPU Datenquelle"},
 
+		// The sums over every volume carry the plural prefix. "Laufwerk
+		// Gesamtkapazität" would read as a statement about one disk.
+		{Gauge(DiskOverallCapacity, "", 8382.9), "Laufwerke Gesamtkapazität"},
+		{Gauge(DiskOverallUsed, "", 7148.3), "Laufwerke Gesamt belegt"},
+		{Gauge(DiskOverallFree, "", 1234.6), "Laufwerke Gesamt frei"},
+		{Gauge(DiskOverallUsage, "", 85.3), "Laufwerke Gesamtbelegung"},
+		{Gauge(DiskOverallFreePercent, "", 14.7), "Laufwerke Gesamt frei %"},
+
 		// The headline values carry no prefix; they are what the tool is for.
 		{Gauge(FPS, "", 143), "FPS"},
 		{Text(Game, "", "x"), "Spiel"},
@@ -320,6 +328,9 @@ func TestNamesTranslateAndIdentifiersDoNot(t *testing.T) {
 	}{
 		{Gauge(GPUTemperature, "0", 61), "GPU 0 Temperatur", "GPU 0 Temperature"},
 		{Gauge(DiskFree, "C:", 1), "Laufwerk C: Frei", "Drive C: Free"},
+
+		// One volume is a "Laufwerk", the sum over all of them is not.
+		{Gauge(DiskOverallFree, "", 1), "Laufwerke Gesamt frei", "Drives Overall free"},
 		{Gauge(CPUClockBase, "", 3394), "CPU Basistakt", "CPU Base clock"},
 		{Gauge(RAMUsed, "", 1), "RAM Belegt", "RAM Used"},
 	} {

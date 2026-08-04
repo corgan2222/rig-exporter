@@ -60,6 +60,48 @@ func TestAFailedProcessCountIsSimplyAbsent(t *testing.T) {
 	}
 }
 
+// What the exporter costs the machine is only measured when debug logging asks
+// for it. Two entities that are almost always flat are two entities nobody
+// wants by default — and one of them would be a percentage that reads 0.0 all
+// day, which looks like a broken sensor rather than a well-behaved program.
+func TestTheOwnResourceUsageFollowsTheDebugSwitch(t *testing.T) {
+	system := newSystem()
+	system.self = sysinfo.SelfUsage{CPUPercent: 0.4, MemoryMB: 21.5}
+
+	c := New(fakeRTSS{}, system, 3000, nil)
+	quiet := c.Collect()
+	if quiet.Has(metrics.ExporterCPU.ID) || quiet.Has(metrics.ExporterMemory.ID) {
+		t.Error("the exporter measured itself without being asked to")
+	}
+
+	c.ReportSelfUsage(true)
+	got := c.Collect()
+	if cpu := got.Number(metrics.ExporterCPU.ID); cpu != 0.4 {
+		t.Errorf("own cpu = %v, want 0.4", cpu)
+	}
+	if mem := got.Number(metrics.ExporterMemory.ID); mem != 21.5 {
+		t.Errorf("own memory = %v, want 21.5", mem)
+	}
+}
+
+// A counter that cannot be read is left out rather than reported as zero: "the
+// exporter is using no CPU" and "nobody could say" are different answers.
+func TestAFailedSelfMeasurementIsSimplyAbsent(t *testing.T) {
+	system := newSystem()
+	system.selfErr = errors.New("nope")
+
+	c := New(fakeRTSS{}, system, 3000, nil)
+	c.ReportSelfUsage(true)
+
+	got := c.Collect()
+	if got.Has(metrics.ExporterCPU.ID) || got.Has(metrics.ExporterMemory.ID) {
+		t.Error("a failed measurement was reported anyway")
+	}
+	if got.Str(metrics.OSVersion.ID) == "" {
+		t.Error("one failure took the other system facts with it")
+	}
+}
+
 type fakeSystem struct {
 	cpu        float64
 	cpuErr     error
@@ -74,6 +116,9 @@ type fakeSystem struct {
 	osVersion    string
 	processes    int
 	processesErr error
+
+	self    sysinfo.SelfUsage
+	selfErr error
 }
 
 func (f *fakeSystem) CPUPercent() (float64, error)      { return f.cpu, f.cpuErr }
@@ -85,6 +130,8 @@ func (f *fakeSystem) IdleSeconds() float64              { return f.idle }
 func (f *fakeSystem) UptimeHours() float64              { return f.uptime }
 func (f *fakeSystem) WindowsVersion() string            { return f.osVersion }
 func (f *fakeSystem) ProcessCount() (int, error)        { return f.processes, f.processesErr }
+
+func (f *fakeSystem) SelfUsage() (sysinfo.SelfUsage, error) { return f.self, f.selfErr }
 
 func newSystem() *fakeSystem {
 	return &fakeSystem{

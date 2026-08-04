@@ -27,7 +27,7 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 55 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 57 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
 * **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
@@ -123,6 +123,11 @@ Neben den Werten je Volume gibt es fünf Summen über alle gemeldeten Laufwerke:
 | `disk_overall_free` | davon frei, in GB |
 | `disk_overall_usage` | belegter Anteil in % |
 | `disk_overall_free_percent` | freier Anteil in % |
+
+In Home Assistant heißen sie **„Laufwerke Gesamtkapazität"**, „Laufwerke Gesamt
+belegt" und so weiter — plural, während ein einzelnes Volume „Laufwerk C: Frei"
+heißt. Der Unterschied ist Absicht: die Summen beschreiben kein bestimmtes
+Laufwerk.
 
 „Wie voll ist dieser Rechner" ist die Frage, die vor jeder Frage nach einem
 einzelnen Laufwerk kommt, und sie aus vier Entities in einem Template
@@ -279,7 +284,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wo Home Assistant die Werte einsortiert
 
-49 Messwerte stehen im Hauptbereich, 32 unter **Diagnose**, 7 werden gar nicht
+49 Messwerte stehen im Hauptbereich, 34 unter **Diagnose**, 7 werden gar nicht
 als Entität veröffentlicht. Die Regel dahinter:
 
 * **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
@@ -553,6 +558,20 @@ Historie und Dashboards nicht kaputtgehen. Stirbt der Prozess, setzt der Broker
 über den Last Will alles auf `unavailable`. Beim Ändern von Node-ID oder Präfix
 werden die alten Entities selbst entfernt.
 
+**Der „Visit"-Link** auf der Geräteseite in Home Assistant zeigt auf die
+Oberfläche dieses Exporters — und zwar auf den Port, auf dem sie *tatsächlich*
+lauscht. Ist der eingestellte Port belegt, weicht der Webserver auf einen
+zufälligen aus; die Discovery-Nachricht wird dann mit der richtigen Adresse neu
+geschrieben, sobald sie feststeht. Das ist nötig, weil Discovery retained ist:
+eine einmal mit dem falschen Port veröffentlichte Nachricht bliebe sonst falsch,
+bis sie jemand überschreibt.
+
+Die Adresse ist `http://127.0.0.1:<port>`, denn die Oberfläche lauscht
+ausschließlich auf Loopback. Der Link funktioniert also, wenn Home Assistant im
+Browser **auf diesem PC** geöffnet ist — vom Handy aus nicht. Das ist Absicht:
+in den Einstellungen steht das MQTT-Passwort, und die ins Netz zu hängen wäre
+eine andere Entscheidung als „zeig mir einen Link".
+
 ### 2. HTTP-Datenserver (Pull)
 
 Ein zweiter Listener, standardmäßig `0.0.0.0:9838`, damit Home Assistant von
@@ -704,6 +723,30 @@ und ihr Pfad steht am Ende der Ausgabe.
 | Keine CPU-Leistung | Gibt es ausschließlich über PawnIO: eingeschaltet, AMD, eleviert. |
 | Keine Durchsatzwerte | Erst ab der zweiten Messung vorhanden, sie sind eine Differenz. |
 | Entities fehlen in HA | MQTT-Integration aktiv? Discovery-Präfix identisch? Log prüfen. |
+
+### Was der Exporter selbst kostet
+
+Mit **Debug-Logging** kommen zwei weitere Werte dazu, und nur dann:
+
+| Feld | Bedeutung |
+|---|---|
+| `exporter_cpu` | CPU-Anteil dieses Prozesses in %, über alle Kerne zusammen |
+| `exporter_memory` | Working Set dieses Prozesses in MB |
+
+Sie beantworten „kostet mich das Messen Frames" und „wächst der Speicherbedarf
+über Tage" mit einer Zahl statt mit einer Beteuerung. Der Prozentwert nimmt
+denselben Nenner wie der Task-Manager: 100 % hieße jeder Kern ausgelastet, nicht
+einer. Die erste Messung nach dem Start meldet 0 %, weil eine Differenz zwei
+Messungen braucht.
+
+Standardmäßig aus, weil zwei Werte, die fast immer flach sind, zwei Entities
+sind, nach denen niemand gefragt hat — und ein Prozentwert, der den ganzen Tag
+0,0 zeigt, sieht nach einem kaputten Sensor aus statt nach einem sparsamen
+Programm. Wer Debug einschaltet, hat gefragt.
+
+Die beiden Werte erscheinen sofort nach dem Speichern, ohne Neustart; nur der
+Loglevel selbst braucht einen. Wird Debug wieder ausgeschaltet, verschwinden die
+beiden Entities auch in Home Assistant, dafür muss HA in dem Moment laufen.
 
 ## Wie die Werte zustande kommen
 
@@ -857,7 +900,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-238 Testfunktionen in 33 Dateien. Abgedeckt sind: die drei Parser, die
+241 Testfunktionen in 33 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

@@ -11,6 +11,18 @@ type Memory struct {
 	AvailableMB uint64
 }
 
+// SelfUsage is what this process itself costs the machine.
+//
+// Reported only with debug logging switched on: it answers "is the exporter the
+// thing making the numbers move", which is a question about the tool and not
+// about the PC it measures.
+type SelfUsage struct {
+	// CPUPercent is measured against every core together, the same denominator
+	// Task Manager uses — 100 % means every core saturated, not one.
+	CPUPercent float64
+	MemoryMB   float64
+}
+
 // Display is the current mode of the primary monitor.
 type Display struct {
 	Width     int

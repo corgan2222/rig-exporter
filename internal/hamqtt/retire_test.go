@@ -13,7 +13,7 @@ func testPublisher(t *testing.T) *Publisher {
 
 	cfg := config.Defaults()
 	cfg.NodeID = "corganpc2"
-	return New(cfg, applog.Discard())
+	return New(cfg, applog.Discard(), nil)
 }
 
 // This is the one that matters. Exports run on their own goroutine, so a
@@ -99,7 +99,7 @@ func TestARetirementTargetsTheAnnouncedTopic(t *testing.T) {
 	p := testPublisher(t)
 
 	reading := metrics.Gauge(metrics.GPUCoreClock, "1", 2700)
-	announced, _, err := discoveryMessage(p.cfg, reading)
+	announced, _, err := discoveryMessage(p.cfg, "", reading)
 	if err != nil {
 		t.Fatalf("discoveryMessage: %v", err)
 	}
