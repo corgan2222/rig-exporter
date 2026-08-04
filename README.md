@@ -944,27 +944,44 @@ die Liste als Ränge veröffentlicht wird. Wer den Namen zum aktuellen Zeitpunkt
 will, stellt die Markdown-Karte von oben darunter; die Nummerierung stellt die
 Verbindung her.
 
-Wer ihn unbedingt *in* der Legende haben will, kann sie über `apex_config`
-umbiegen — mit dem ausdrücklichen Vorbehalt, dass das in die Interna des
-Frontends greift und mit jedem Home-Assistant-Update brechen kann:
+Wer ihn unbedingt *in* der Karte haben will, kann Legende **und** Tooltip über
+`apex_config` umbiegen — mit dem ausdrücklichen Vorbehalt, dass das in die
+Interna des Frontends greift und mit jedem Home-Assistant-Update brechen kann:
 
 ```yaml
 apex_config:
   legend:
     formatter: >-
-      EVAL:function (seriesName, opts) {
+      EVAL:function (s) {
         try {
-          var attrs = document.querySelector('home-assistant')
+          var i = String(s).split(' ').pop();
+          var a = document.querySelector('home-assistant')
             .hass.states['sensor.re_corgan_pc3_top_cpu'].attributes;
-          var name = attrs['rank' + (opts.seriesIndex + 1) + '_name'];
-          return name ? name : seriesName;
-        } catch (e) { return seriesName; }
+          var n = a['rank' + i + '_name'];
+          return n ? n : s;
+        } catch (e) { return s; }
       }
+  tooltip:
+    y:
+      title:
+        formatter: >-
+          EVAL:function (s) { … dieselbe Funktion … }
 ```
 
+Beides ist nötig: die Legende und der Tooltip laufen durch **verschiedene**
+Formatter, und die Karte selbst setzt nur `tooltip.y.formatter` für den *Wert*.
+Der Titel davor bleibt sonst „Platz 1". Weil `apex_config` per Deep Merge
+übernommen wird, überschreibt der eigene `title.formatter` den Wert-Formatter
+der Karte nicht — Einheit und Rundung bleiben.
+
+Der Platz wird aus dem Seriennamen gelesen (`"Platz 3"` → `3`), weil der
+Tooltip-Formatter nur den Namen bekommt und keinen Index. Wer die Serien
+umbenennt, muss die Funktion mit umbauen.
+
 Das `try`/`catch` ist nicht optional: ohne es nimmt ein Fehler im Formatter die
-ganze Karte mit. Und der angezeigte Name ist immer der **aktuelle**, auch über
-historischen Säulen, an denen ein anderes Programm stand.
+ganze Karte mit, mit ihm steht im schlimmsten Fall wieder „Platz 1" da. Und der
+angezeigte Name ist immer der **aktuelle**, auch über historischen Säulen, an
+denen ein anderes Programm stand.
 
 In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
 eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
