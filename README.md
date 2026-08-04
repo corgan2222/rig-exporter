@@ -877,3 +877,27 @@ Shared-Memory-Blöcke braucht eine `uintptr`-Konvertierung, die vet nicht
 beurteilen kann. Strukturen, deren Größe exakt zur Windows-Definition passen
 muss, sichern sich stattdessen selbst über eine Größenzusicherung ab, die zur
 Übersetzungszeit bricht.
+
+### staticcheck
+
+Dazu läuft [staticcheck](https://staticcheck.dev) mit **allen** Prüfungen, die
+sein Kommandozeilenwerkzeug kennt — 149 an der Zahl: 95 zur Korrektheit, 35
+Vereinfachungen, 18 zum Stil und eine für unbenutzten Code. Auch die, die
+staticcheck nicht von sich aus einschaltet: Paketkommentare, Doku-Kommentare,
+die mit dem Namen beginnen, den sie beschreiben, einheitliche
+Empfängernamen. Der Code erfüllt sie ohnehin, das Einschalten kostet also
+nichts und hält die Konvention fest.
+
+Was in der Dokumentation als Gruppe **QF** steht, fehlt nicht aus Nachlässigkeit:
+diese Prüfungen gibt es im Kommandozeilenwerkzeug gar nicht. Sie treiben
+automatische Umformungen in gopls und beschreiben Vorlieben, keine Fehler.
+
+Die Auswahl steht in `staticcheck.conf`. Ist das Werkzeug nicht installiert,
+überspringt der Prüflauf es mit einem Hinweis; eine **veraltete** Fassung wird
+dagegen abgelehnt. Vor Go 1.18 gebaute Versionen verstehen keine Generics und
+scheitern mit seitenweise Unsinn über die Standardbibliothek statt mit einer
+brauchbaren Meldung.
+
+```bash
+go install honnef.co/go/tools/cmd/staticcheck@latest
+```

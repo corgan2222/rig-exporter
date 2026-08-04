@@ -29,6 +29,28 @@ if ($Check) {
     Write-Host "==> go vet" -ForegroundColor Cyan
     go vet -unsafeptr=false ./...
 
+    # staticcheck catches a different class than vet: misused standard library,
+    # ineffective code, unused declarations, style that has drifted. Which
+    # checks run is in staticcheck.conf, next to this file.
+    #
+    # Skipped with a warning when it is not installed, so somebody who just
+    # cloned the repository still gets a binary. A stale one is worse than none
+    # and is refused: the version shipped before Go 1.18 cannot parse generics
+    # and fails with pages of nonsense about the standard library.
+    Write-Host "==> staticcheck" -ForegroundColor Cyan
+    $staticcheck = Get-Command staticcheck -ErrorAction SilentlyContinue
+    if (-not $staticcheck) {
+        Write-Host "   staticcheck not installed, skipping" -ForegroundColor Yellow
+        Write-Host "   go install honnef.co/go/tools/cmd/staticcheck@latest" -ForegroundColor Yellow
+    } else {
+        $version = (& staticcheck -version) -replace '.*?(\d{4})\.\d+.*', '$1'
+        if ([int]$version -lt 2022) {
+            throw "staticcheck $version predates generics and cannot read this code; go install honnef.co/go/tools/cmd/staticcheck@latest"
+        }
+        & staticcheck ./...
+        if ($LASTEXITCODE -ne 0) { throw "staticcheck found problems" }
+    }
+
     Write-Host "==> go test" -ForegroundColor Cyan
     go test ./...
 }
