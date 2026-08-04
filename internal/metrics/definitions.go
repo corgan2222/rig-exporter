@@ -157,9 +157,14 @@ var (
 	//
 	// Collected only when their own sensor group is switched on, because one
 	// pass reads every process on the machine.
+	// Two decimals on the processor, one on memory, and the difference is not
+	// cosmetic. A share of the whole machine puts most background programs
+	// under one per cent — at one decimal the lower four ranks all land on
+	// "1.0" and the chart is four identical columns. A memory share is never
+	// that small, so the second decimal there would be noise.
 	TopCPU = Definition{
 		ID: "top_cpu", Name: i18n.Text{DE: "Top-Prozesse CPU", EN: "Top processes CPU"},
-		Unit: "%", Kind: KindTable, Precision: 1, Group: GroupCore,
+		Unit: "%", Kind: KindTable, Precision: 2, Group: GroupCore,
 		Prom: "rig_top_cpu_percent", PromLabel: "app",
 		Help: "Share of the whole machine's CPU per program, highest first",
 		Icon: "mdi:chart-bar",
