@@ -840,14 +840,25 @@ Jede der beiden Listen ist **eine** Entity. Ihr Zustand ist der Name des
 Spitzenreiters, die vollständige Liste hängt als Attribut daran:
 
 ```yaml
-sensor.re_corganpc3_top_cpu
+sensor.re_corgan_pc3_top_cpu
   state: firefox.exe
   attributes:
     top: firefox.exe
     apps:
       - {name: firefox.exe, value: 41.2}
       - {name: cs2.exe,     value: 12.0}
+    rank1: 41.2
+    rank1_name: firefox.exe
+    rank2: 12.0
+    rank2_name: cs2.exe
 ```
+
+Dieselben fünf Zeilen dreimal, weil drei verschiedene Leser drei verschiedene
+Formen brauchen: `top` für den Zustand der Entity, `apps` zum Anzeigen einer
+Tabelle, und `rank1`…`rank5` flach — denn **nur eine Zahl lässt sich zeichnen**,
+eine Liste von Objekten nicht. Sind weniger Programme da als N, fehlen die
+hinteren Ränge, statt als Null aufzutauchen: eine Null hieße „Programm, das
+nichts verbraucht", und das ist nicht, was passiert ist.
 
 Fünf Entities je Liste wären die Alternative gewesen — `top_cpu_1` bis
 `top_cpu_5`. Dagegen spricht, dass sich das Programm hinter Platz 2 alle paar
@@ -862,10 +873,24 @@ Entities stehen deshalb in der `include`-Liste des erzeugten
 `recorder:`-Blocks — würde man sie ausschließen, gäbe es gar nichts zu
 zeichnen.
 
-#### Säulendiagramm in Home Assistant
+#### Die aktuelle Liste, ohne Zusatzkarte
 
-Zum Zeichnen der Attribut-Historie braucht es **ApexCharts Card** aus HACS; die
-Bordmittel-Karten lesen nur Zustände, keine Attribute.
+Eine Markdown-Karte reicht und braucht kein HACS:
+
+```yaml
+type: markdown
+content: |
+  {% set apps = state_attr('sensor.re_corgan_pc3_top_cpu', 'apps') %}
+  {% for app in apps %}
+  - **{{ app.name }}** — {{ app.value }} %
+  {% endfor %}
+```
+
+#### Säulendiagramm über die Zeit
+
+Dafür braucht es **ApexCharts Card** aus HACS. Entscheidend ist `attribute:`
+mit einem der flachen Ränge — die Karte liest den Wert aus **jedem**
+historischen Zustand.
 
 ```yaml
 type: custom:apexcharts-card
@@ -874,14 +899,23 @@ stacked: true
 apex_config:
   chart: {type: column}
 series:
-  - entity: sensor.re_corganpc3_top_cpu
-    name: Platz 1
-    type: column
-    data_generator: |
-      return entity.attributes.apps[0]
-        ? [[new Date(entity.last_changed).getTime(), entity.attributes.apps[0].value]]
-        : [];
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank1, name: "Platz 1", type: column}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank2, name: "Platz 2", type: column}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank3, name: "Platz 3", type: column}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank4, name: "Platz 4", type: column}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank5, name: "Platz 5", type: column}
 ```
+
+> **Nicht `data_generator` benutzen.** Das liegt nahe, weil `apps` so schön
+> passt — die Option „completely bypasses the history retrieval" und sieht nur
+> den *aktuellen* Zustand. Sie kann damit nie mehr als einen Punkt erzeugen,
+> und die Karte lädt endlos, statt einen Fehler zu zeigen. `data_generator` ist
+> für Attribute gedacht, die selbst schon eine Zeitreihe enthalten, etwa eine
+> Wettervorhersage.
+
+Die Legende sagt „Platz 1", nicht „firefox.exe" — das Programm hinter einem
+Platz wechselt ja. Wer den Namen braucht, findet ihn im Attribut
+`rank1_name` und kann ihn über eine zweite Karte oder ein Template dazustellen.
 
 In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
 eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
@@ -1046,7 +1080,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-264 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
+265 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

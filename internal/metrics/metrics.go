@@ -434,11 +434,28 @@ func (r Reading) Value() any {
 		}
 		return PayloadOff
 	case KindTable:
+		// Three views of the same five rows, because three different readers
+		// need three different shapes.
+		//
 		// "top" is separate from the list rather than something a consumer has
 		// to index out of it, because that is what a Home Assistant value
 		// template reads to get the entity's state, and a template that has to
 		// subscript an array fails silently when the array is empty.
-		return map[string]any{"top": r.Rows[0].Label, "apps": r.Rows}
+		//
+		// "apps" is the list, for anything that wants to render the table.
+		//
+		// rank1..rankN are the same numbers again, flat. That is the only shape
+		// a chart can use: a card plotting an attribute over time reads
+		// attributes[name] out of every historical state and expects a number
+		// there, so a list of objects gives it nothing to draw. The names come
+		// along as rankN_name so a legend can say who rank two was.
+		out := map[string]any{"top": r.Rows[0].Label, "apps": r.Rows}
+		for i, row := range r.Rows {
+			rank := strconv.Itoa(i + 1)
+			out["rank"+rank] = row.Value
+			out["rank"+rank+"_name"] = row.Label
+		}
+		return out
 	default:
 		return r.Number
 	}
