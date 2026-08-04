@@ -1,0 +1,67 @@
+name: Release
+
+# On publishing a release, not on pushing a tag. The draft that release-drafter
+# has been keeping up to date is reviewed and published by hand; that click is
+# the decision, and this is what carries it out.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      # Only to attach the binary to the release that triggered this.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag rather than the default branch: a release must be built
+          # from what it claims to be. Full history because the build
+          # identifier counts commits.
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@2026.1
+
+      - name: Build and check
+        # -Check and not a bare build: nothing ships that the test suite has
+        # not seen, even though the same commit passed CI on its way in.
+        run: .\build.ps1 -Check
+
+      - name: Verify the binary reports the released version
+        # A tag that disagrees with the version compiled into the binary means
+        # the version bump never landed. Better to fail here than to publish it.
+        shell: pwsh
+        run: |
+          $reported = (.\rig-exporter.exe -version)
+          Write-Host "reported: $reported"
+          $expected = "${{ github.event.release.tag_name }}".TrimStart('v')
+          if ($reported -notmatch [regex]::Escape($expected)) {
+            throw "binary reports '$reported', which does not carry the tagged version $expected"
+          }
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash .\rig-exporter.exe -Algorithm SHA256).Hash
+          "$hash  rig-exporter.exe" | Out-File -Encoding ascii rig-exporter.exe.sha256
+          Write-Host $hash
+
+      - name: Attach to the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" `
+            rig-exporter.exe rig-exporter.exe.sha256 --clobber

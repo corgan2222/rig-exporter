@@ -1,0 +1,60 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+# The sections follow the branch prefixes this project already uses, so a
+# release note writes itself from how the work was branched.
+categories:
+  - title: New
+    labels: [feature]
+  - title: Fixed
+    labels: [fix]
+  - title: Documentation
+    labels: [docs]
+  - title: Tests
+    labels: [test]
+  - title: Build and tooling
+    labels: [chore]
+
+# A pull request that carries no label still has to appear somewhere, or the
+# notes would quietly omit it.
+exclude-labels: [skip-changelog]
+
+change-template: "- $TITLE (#$NUMBER)"
+# Backticks and underscores in a title would otherwise become markup.
+change-title-escapes: '\<*_&`#@'
+
+version-resolver:
+  minor:
+    labels: [feature]
+  patch:
+    labels: [fix, docs, test, chore]
+  default: patch
+
+autolabeler:
+  - label: feature
+    branch: ['/^feature\/.*/']
+  - label: fix
+    branch: ['/^fix\/.*/']
+  - label: docs
+    branch: ['/^docs\/.*/']
+  - label: test
+    branch: ['/^test\/.*/']
+  - label: chore
+    branch: ['/^chore\/.*/', '/^release\/.*/']
+
+template: |
+  $CHANGES
+
+  ## Installing
+
+  Download `rig-exporter.exe` below and run it. No installer, no runtime, no
+  administrator rights. Settings live in a local web interface the tray icon
+  opens; the configuration is written to `%APPDATA%\rig-exporter`.
+
+  Verify the download against `rig-exporter.exe.sha256`:
+
+  ```powershell
+  (Get-FileHash .\rig-exporter.exe -Algorithm SHA256).Hash
+  ```
+
+  **Full changelog:** $PREVIOUS_TAG...v$RESOLVED_VERSION

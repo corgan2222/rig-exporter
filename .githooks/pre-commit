@@ -1,0 +1,55 @@
+#!/bin/sh
+# Runs the checks that decide a review before the commit exists, rather than
+# after somebody has read the diff.
+#
+# Enable once:
+#     git config core.hooksPath .githooks
+#
+# Deliberately not the whole of build.ps1 -Check: the icon does not need
+# regenerating for a commit, and go test already compiles everything. What is
+# here is what actually catches things — formatting, vet, staticcheck, tests.
+#
+# To skip it for a work-in-progress commit: git commit --no-verify
+
+set -e
+
+say() { printf '\n== %s\n' "$1"; }
+fail() { printf '\n%s\n' "$1" >&2; exit 1; }
+
+say "gofmt"
+unformatted=$(gofmt -l . 2>/dev/null || true)
+if [ -n "$unformatted" ]; then
+    printf '%s\n' "$unformatted"
+    fail "gofmt: the files above are not formatted. Run: gofmt -w ."
+fi
+
+say "go vet"
+# -unsafeptr=false for the same reason build.ps1 sets it: the Win32 wrappers
+# convert pointers the way the Windows API requires, and vet cannot tell that
+# from a mistake.
+go vet -unsafeptr=false ./... || fail "go vet found problems"
+
+say "staticcheck"
+if command -v staticcheck >/dev/null 2>&1; then
+    # Anything older than 2022 predates generics and buries real findings under
+    # pages of complaints about the standard library.
+    year=$(staticcheck -version 2>/dev/null | sed -n 's/.*\([0-9]\{4\}\)\.[0-9].*/\1/p')
+    if [ -n "$year" ] && [ "$year" -lt 2022 ]; then
+        fail "staticcheck $year is too old to read this code. Run: go install honnef.co/go/tools/cmd/staticcheck@latest"
+    fi
+    staticcheck ./... || fail "staticcheck found problems"
+else
+    printf '   not installed, skipping — go install honnef.co/go/tools/cmd/staticcheck@latest\n'
+fi
+
+say "go test"
+# The httptest tests occasionally lose a loopback connection under machine
+# load. One retry tells a real failure from that without hiding anything: a
+# genuine break fails twice.
+if ! go test ./...; then
+    printf '\n   a test failed — retrying once, because the loopback tests are\n'
+    printf '   known to drop connections while the machine is busy\n\n'
+    go test -count=1 ./... || fail "go test failed twice; this is not the flaky loopback case"
+fi
+
+printf '\nall checks passed\n'

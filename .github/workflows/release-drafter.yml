@@ -1,0 +1,41 @@
+name: Release drafter
+
+# Two jobs from one configuration. The draft is rebuilt on every merge to main,
+# so the notes for the next release are always current rather than written from
+# memory at release time. The labeller runs on the pull request itself, because
+# the label is what decides which section of those notes it lands in.
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  label:
+    # Labels come from the branch prefix, which this project uses consistently:
+    # feature/, fix/, docs/, test/, chore/. Nothing to remember at review time.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          disable-releaser: true
+          disable-autolabeler: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

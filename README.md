@@ -1211,3 +1211,17 @@ brauchbaren Meldung.
 ```bash
 go install honnef.co/go/tools/cmd/staticcheck@latest
 ```
+
+---
+
+## Mitmachen
+
+Fehlerberichte und Pull Requests sind willkommen. Die Regeln stehen in
+[CONTRIBUTING.md](CONTRIBUTING.md) — die kurze Fassung: Änderungen kommen
+ausschließlich über einen Pull Request, `.\build.ps1 -Check` muss grün sein, und
+der Messwert-Vertrag in `internal/metrics/testdata/catalogue.txt` wird nur
+bewusst geändert.
+
+Bei einem Fehlerbericht ist die Ausgabe von `-probe` mehr wert als eine
+Beschreibung. **Vor dem Einfügen lesen:** darin stehen der Rechnername,
+Laufwerksbezeichnungen und Netzwerkadressen.
