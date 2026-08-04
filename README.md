@@ -33,9 +33,10 @@ Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
   Problems, im Alltag selten.
 
-Auf dem Entwicklungsrechner sind das 134 Werte gegenüber 91. Welcher Messwert in
-welchem Satz steckt, listet die Einstellungsseite ausklappbar auf — erzeugt aus
-dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
+Wie viele Entities daraus auf einem bestimmten Rechner werden, sagt die
+Einstellungsseite oben an — sie zählt, was dieser PC tatsächlich hergibt.
+Welcher Messwert in welchem Satz steckt, listet sie ausklappbar auf — erzeugt
+aus dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
 nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
 Prometheus, InfluxDB **und** auf der eigenen Anzeigeseite. Ein Wert, den das
 Dashboard zeigt und Home Assistant nie bekommt, wäre die schlechtere Einstellung.
@@ -70,10 +71,10 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
 | **Top-Prozesse** | die Programme mit dem größten CPU- und Speicherbedarf | Windows |
 
-Auf dem Entwicklungsrechner ergibt das rund 134 Werte: zwei Grafikkarten, vier
-NVMe, ein aktiver Adapter. „Rund", weil die Zahl der Hardware folgt — einem
-Laufwerk ohne auslesbaren Hersteller fehlt dieser eine Wert, und niemand
-erfindet ihn.
+Wie viele Werte daraus werden, entscheidet die Hardware: jede Grafikkarte, jedes
+Laufwerk und jeder Adapter bringt seinen eigenen Satz mit. Fest ist die Zahl
+auch dann nicht — einem Laufwerk ohne auslesbaren Hersteller fehlt dieser eine
+Wert, und niemand erfindet ihn.
 
 CPU- und RAM-Last gehören zu **FPS & System**, damit sie unabhängig von jedem
 Schalter da sind — die Kacheln oben auf der Seite brauchen sie. Angezeigt werden
@@ -284,8 +285,8 @@ unlesbar.
 In Home Assistant kommt davor, wer den Wert liefert und von welchem Rechner:
 
 ```
-sensor.re_corgan_pc3_gpu0_vendor
-sensor.re_corgan_pc3_diskc_free
+sensor.re_corganpc2_gpu0_vendor
+sensor.re_corganpc2_diskc_free
 ```
 
 `re` steht für rig-exporter. Von links nach rechts beantwortet die Kennung damit
@@ -338,9 +339,11 @@ das soll im Review auffallen statt beim Nutzer.
 ### Wer welchen Wert geliefert hat
 
 Die Anzeigeseite hat ein Panel **Datenquellen**, und `-probe` denselben
-Abschnitt: welche Quelle, wie viele Werte, und welche. Auf dem
-Entwicklungsrechner zuletzt Windows 92, MSI Afterburner 14, NVIDIA NVML 13,
-RivaTuner 7, rig-exporter 1 — dazu PawnIO, sobald das Programm eleviert läuft.
+Abschnitt: welche Quelle, wie viele Werte, und welche. Windows stellt überall
+die große Mehrheit, Afterburner und NVML teilen sich die Grafikwerte, RivaTuner
+liefert die Bilder pro Sekunde, PawnIO die zwei Werte, die Kernelrechte
+brauchen, und rig-exporter meldet seine eigene Version.
+
 Die Summe liegt über der Zahl der Werte, weil Afterburner und NVML sich
 überschneiden und der Zähler zeigt, wer geliefert *hat*, nicht wer gewonnen hat.
 
@@ -813,26 +816,30 @@ der Prozessor lag bei 80 %, aber *wer* war das.
 | `top_memory` | die N Programme mit dem meisten privaten Speicher, in % des RAM |
 
 Gruppiert wird nach Programm, nicht nach Prozess: ein Browser ist ein Eintrag,
-nicht die 28 Prozesse, auf die er sich verteilt hat. Der Speicher zählt
+nicht die Dutzende Prozesse, auf die er sich verteilt hat. Der Speicher zählt
 **Private Bytes** statt Working Set, weil sich Working Sets nicht addieren
-lassen — jeder dieser 28 Prozesse bildet dieselben DLLs ein und die Summe läge
-um Gigabytes daneben. Die Buchhaltungs-Töpfe `Idle`, `System`,
+lassen — jeder dieser Prozesse bildet dieselben DLLs ein, und wer sie zusammen­zählt,
+schreibt dem Browser Gigabytes zu, die es nur einmal gibt. Die Buchhaltungs-Töpfe `Idle`, `System`,
 `Memory Compression`, `Registry` und `vmmem` fallen heraus; `Idle` würde die
 CPU-Liste auf einem ruhigen Rechner sonst mit Abstand anführen.
 
 Der CPU-Anteil bezieht sich auf die ganze Maschine, wie im Task-Manager: ein
-Programm, das einen von 32 Threads auslastet, steht bei 3 %, nicht bei 100.
+Programm, das genau einen Thread voll auslastet, steht bei hundert geteilt durch
+die Zahl der Threads — nicht bei 100. Das ist der einzige Nenner, unter dem sich
+zwei Rechner mit unterschiedlicher Kernzahl überhaupt vergleichen lassen.
 
-**Warum das teuer ist,** in Zahlen von diesem Rechner: jede Messung liest alle
-laufenden Prozesse in einem Rutsch — 665 Stück, 1,58 MB Puffer, gemessene 19 ms.
-Deshalb läuft die Messung in einem **eigenen Takt** (Voreinstellung 10 s, ab
-2000 ms) und nicht im Auslese-Intervall; bei 1 s wären das dauerhaft 2 % eines
-Kerns und 19 ms Blockade in der Messschleife.
+**Warum das teuer ist:** jede Messung liest jeden laufenden Prozess, in einem
+einzigen Aufruf. Auf einem gewöhnlichen Windows sind das mehrere hundert, und
+der Aufruf braucht Millisekunden statt Mikrosekunden — er kostet Rechenzeit und
+blockiert, solange er läuft. Deshalb hat die Messung einen **eigenen Takt**
+(Voreinstellung 10 s, Minimum 2000 ms) und hängt nicht am Auslese-Intervall: bei
+einer Sekunde liefe sie dauernd und stünde jedes Mal in der Messschleife.
 
-Der zweite Preis steht in der Datenbank von Home Assistant: die Attribute
-ändern sich bei jeder Messung, das sind bei 10 s rund 17 000 zusätzliche Zeilen
-pro Tag. Und die Namen der laufenden Programme stehen damit dauerhaft im
-Verlauf — wer den Rechner teilt, sollte das wissen.
+Der zweite Preis steht in der Datenbank von Home Assistant. Die Attribute ändern
+sich bei jeder Messung, es entstehen also zwei Zeilen pro Messung — bei
+10 Sekunden über 17 000 am Tag, bei 30 Sekunden ein Drittel davon. Und die Namen
+der laufenden Programme stehen damit dauerhaft im Verlauf; wer den Rechner
+teilt, sollte das wissen.
 
 #### Die Form: ein Sensor mit Tabelle statt fünf Entities
 
@@ -840,7 +847,7 @@ Jede der beiden Listen ist **eine** Entity. Ihr Zustand ist der Name des
 Spitzenreiters, die vollständige Liste hängt als Attribut daran:
 
 ```yaml
-sensor.re_corgan_pc3_top_cpu
+sensor.re_corganpc2_top_cpu
   state: firefox.exe
   attributes:
     top: firefox.exe
@@ -883,14 +890,10 @@ geschrieben. Kosten würde die Rundung dagegen genau das, wofür die Liste da is
 
 Der CPU-Anteil hat deshalb **zwei** Nachkommastellen, der Speicher eine. Ein
 Anteil an der ganzen Maschine liegt bei den meisten Hintergrundprogrammen unter
-einem Prozent — mit einer Stelle landen die hinteren vier Plätze alle auf „1.0"
-und das Diagramm sind vier gleich hohe Säulen. Gemessen auf einem ruhigen
-Rechner:
-
-```
-eine Stelle:   3.0 · 2.0 · 1.0 · 1.0 · 1.0
-zwei Stellen:  3.47 · 2.59 · 1.54 · 1.54 · 0.88
-```
+einem Prozent, und je mehr Kerne ein Rechner hat, desto kleiner werden die
+Zahlen. Mit einer Stelle fallen die hinteren Plätze dann alle auf denselben Wert
+— das Diagramm sind gleich hohe Säulen, obwohl die Programme sich um ein
+Mehrfaches unterscheiden. Die zweite Stelle trennt sie wieder.
 
 Ein Speicheranteil wird nie so klein, dort wäre die zweite Stelle nur Rauschen.
 
@@ -902,9 +905,9 @@ sie mit der Legende des Diagramms verbindet:
 ```yaml
 type: markdown
 entity_id:
-  - sensor.re_corgan_pc3_top_cpu
+  - sensor.re_corganpc2_top_cpu
 content: |
-  {% set apps = state_attr('sensor.re_corgan_pc3_top_cpu','apps') %}
+  {% set apps = state_attr('sensor.re_corganpc2_top_cpu','apps') %}
   {% if apps %}{% for app in apps %}**{{ loop.index }}.** {{ app.name }} — **{{ app.value }} %**
 
   {% endfor %}{% else %}_noch keine Messung_{% endif %}
@@ -913,7 +916,7 @@ content: |
 #### Säulendiagramm über die Zeit
 
 Dafür braucht es **ApexCharts Card** aus HACS. Die vollständige Karte, für den
-Speicher genauso mit `sensor.re_corgan_pc3_top_memory`:
+Speicher genauso mit `sensor.re_corganpc2_top_memory`:
 
 ```yaml
 type: custom:apexcharts-card
@@ -929,17 +932,17 @@ all_series_config:
     func: avg
     duration: 5min
 series:
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank1, name: Platz 1}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank2, name: Platz 2}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank3, name: Platz 3}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank4, name: Platz 4}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank5, name: Platz 5}
+  - {entity: sensor.re_corganpc2_top_cpu, attribute: rank1, name: Platz 1}
+  - {entity: sensor.re_corganpc2_top_cpu, attribute: rank2, name: Platz 2}
+  - {entity: sensor.re_corganpc2_top_cpu, attribute: rank3, name: Platz 3}
+  - {entity: sensor.re_corganpc2_top_cpu, attribute: rank4, name: Platz 4}
+  - {entity: sensor.re_corganpc2_top_cpu, attribute: rank5, name: Platz 5}
 apex_config:
   legend:
     formatter: >-
       EVAL:function (s) { try { var i = String(s).split(' ').pop();
       var a = document.querySelector('home-assistant').hass
-        .states['sensor.re_corgan_pc3_top_cpu'].attributes;
+        .states['sensor.re_corganpc2_top_cpu'].attributes;
       var n = a['rank' + i + '_name']; return n ? n : s; }
       catch (e) { return s; } }
   tooltip:
@@ -948,7 +951,7 @@ apex_config:
         formatter: >-
           EVAL:function (s) { try { var i = String(s).split(' ').pop();
           var a = document.querySelector('home-assistant').hass
-            .states['sensor.re_corgan_pc3_top_cpu'].attributes;
+            .states['sensor.re_corganpc2_top_cpu'].attributes;
           var n = a['rank' + i + '_name']; return n ? n : s; }
           catch (e) { return s; } }
 ```
@@ -997,7 +1000,7 @@ zielen — synthetische Mouse-Events lösen bei ApexCharts ohnehin keinen aus:
 ```js
 // durch die Shadow-Roots nach <apexcharts-card> laufen, dann:
 const chart = card[Object.keys(card).find(k => k.toLowerCase().includes('apexchart'))];
-chart.w.config.tooltip.y.title.formatter('Platz 1');   // -> "firefox.exe"
+chart.w.config.tooltip.y.title.formatter("Platz 1");   // -> "firefox.exe"
 typeof chart.w.config.tooltip.y.formatter === 'function'; // -> true, Einheit intakt
 ```
 
@@ -1005,8 +1008,8 @@ In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
 eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
 
 ```
-rig_top_cpu_percent{host="corgan_pc3",app="firefox.exe",rank="1"} 5.37
-rig_top_cpu_percent{host="corgan_pc3",app="WmiPrvSE.exe",rank="2"} 1.78
+rig_top_cpu_percent{host="corganpc2",app="Cyberpunk2077.exe",rank="1"} 62.40
+rig_top_cpu_percent{host="corganpc2",app="firefox.exe",rank="2"} 4.15
 ```
 
 Wer die Werte langfristig als Diagramm braucht und HACS meiden will, ist mit
@@ -1054,8 +1057,8 @@ Thread kommt aus `NtQuerySystemInformation`.
 
 **CPU-Takt** ist der wirksame Takt, nicht der Basistakt. `CallNtPowerInformation`
 wäre der naheliegende Weg, liefert auf jedem aktuellen AMD und den meisten Intel
-aber unverändert den Nennwert — ein 5950X mit 4,2 GHz meldet dort seine 3,4 GHz
-Basistakt, und die Anzeige steht still. Der einzige bewegliche Wert ist der
+aber unverändert den Nennwert — ein Prozessor, der gerade mit 4,2 GHz läuft,
+meldet dort seinen Basistakt, und die Anzeige steht still. Der einzige bewegliche Wert ist der
 Leistungsindikator `% Processor Performance`, ein Prozentsatz des Basistakts,
 der beim Boosten über hundert geht. Gelesen wird er über PDH mit
 `PdhAddEnglishCounterW`, weil Indikatornamen übersetzt sind und derselbe Zähler
