@@ -9,7 +9,7 @@ package export
 import (
 	"sync/atomic"
 
-	"github.com/corgan/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/collector"
 )
 
 // Status is what the tray and the settings page show for one target.

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/corgan/rig-exporter/internal/metrics"
-	"github.com/corgan/rig-exporter/internal/sysinfo"
-	"github.com/corgan/rig-exporter/internal/winapi"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/sysinfo"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // Source collects the memory group: how much is in the machine, how fast it

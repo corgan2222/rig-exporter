@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
 )
 
 // sampleSet is a reading set with singletons and two instanced groups, which

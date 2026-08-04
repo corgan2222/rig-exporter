@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
 )
 
 const (

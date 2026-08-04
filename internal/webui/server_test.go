@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/app"
-	"github.com/corgan/rig-exporter/internal/applog"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/i18n"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/app"
+	"github.com/corgan2222/rig-exporter/internal/applog"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 // newServer wires a server against a real App with everything that would

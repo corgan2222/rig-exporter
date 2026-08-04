@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/applog"
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/export"
+	"github.com/corgan2222/rig-exporter/internal/applog"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/export"
 )
 
 // countingTarget records how often it was handed a reading.

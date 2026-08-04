@@ -7,7 +7,7 @@ package sysinfo
 import (
 	"sync"
 
-	"github.com/corgan/rig-exporter/internal/winapi"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // Provider implements the system half of collector.Sources. It keeps the CPU

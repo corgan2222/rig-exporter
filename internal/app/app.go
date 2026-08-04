@@ -12,16 +12,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/autostart"
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/export"
-	"github.com/corgan/rig-exporter/internal/export/dataserver"
-	"github.com/corgan/rig-exporter/internal/export/influxpush"
-	"github.com/corgan/rig-exporter/internal/hamqtt"
-	"github.com/corgan/rig-exporter/internal/metrics"
-	"github.com/corgan/rig-exporter/internal/rtss"
-	"github.com/corgan/rig-exporter/internal/sysinfo"
+	"github.com/corgan2222/rig-exporter/internal/autostart"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/export"
+	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
+	"github.com/corgan2222/rig-exporter/internal/export/influxpush"
+	"github.com/corgan2222/rig-exporter/internal/hamqtt"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/rtss"
+	"github.com/corgan2222/rig-exporter/internal/sysinfo"
 )
 
 // Status is a consistent view of everything the UI shows.

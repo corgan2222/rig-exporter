@@ -5,10 +5,10 @@ package app
 import (
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/applog"
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/applog"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 // -probe has to show what is published, not what the catalogue could produce.

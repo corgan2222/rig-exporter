@@ -3,7 +3,7 @@ package metrics
 import (
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
 )
 
 // The two sets together have to be the catalogue, exactly. A measurement in

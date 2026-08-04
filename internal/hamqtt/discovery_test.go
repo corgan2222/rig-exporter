@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 func testConfig() config.Config {

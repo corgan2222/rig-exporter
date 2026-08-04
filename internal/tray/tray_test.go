@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/config"
 )
 
 // The top entry is the one somebody clicks to reach the interface, so it says

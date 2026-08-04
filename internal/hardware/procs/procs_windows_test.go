@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/winapi"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // A browser is one program, however many processes it spread itself over. That

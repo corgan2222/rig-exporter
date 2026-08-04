@@ -1,6 +1,6 @@
 package metrics
 
-import "github.com/corgan/rig-exporter/internal/i18n"
+import "github.com/corgan2222/rig-exporter/internal/i18n"
 
 // The measurement catalogue. Adding an entry here is all it takes for a value
 // to appear in MQTT discovery, the JSON endpoint, Prometheus and InfluxDB.
