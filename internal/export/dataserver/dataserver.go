@@ -131,6 +131,7 @@ func (s *Server) Status() export.Status {
 		Name:      "http",
 		Label:     i18n.T(lang, "export.dataserver"),
 		Healthy:   address != "" && lastErr == "",
+		Failed:    lastErr != "",
 		Delivered: s.counter.Count(),
 	}
 	switch {

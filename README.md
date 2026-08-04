@@ -483,7 +483,10 @@ Drei Seiten, erreichbar über die Kopfzeile:
   werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,
   Speicherung, Datenserver, InfluxDB) und wie sich die Anwendung selbst
-  verhält.
+  verhält. Unter den aktiven MQTT- und InfluxDB-Push-Zielen folgt eine
+  Statuszeile der Verbindung: beim Aufbau gelb, im Betrieb grün und bei einem
+  Fehler rot mit der letzten Fehlermeldung und einem Knopf zum Log. Die Seite
+  aktualisiert beide Zustände alle drei Sekunden, ohne neu geladen zu werden.
 
 Der Abschnitt **Speicherung** ist der einzige ohne Speichern-Button: er ändert
 hier nichts, sondern erklärt, warum die Datenbank von Home Assistant schnell
@@ -736,8 +739,9 @@ InfluxDB 1.8 versteht dieselbe API: Organisation leer lassen, als Token
 Direkt unter dem Kasten steht, was das Ziel gerade tut: Ziel und Anzahl
 gesendeter Messungen, solange es läuft — und andernfalls die letzte
 Fehlermeldung im Wortlaut, mit einem Knopf, der das Log öffnet. Push ist das
-einzige Ziel, das aktiv hinausschreibt und damit als einziges scheitern kann,
-ohne dass man es merkt; das Log zu suchen soll dann keine eigene Übung sein.
+Ziel, das aktiv hinausschreibt und damit scheitern kann, ohne dass ein Abruf
+den Fehler sichtbar macht; das Log zu suchen soll dann keine eigene Übung sein.
+MQTT zeigt seinen Verbindungszustand auf dieselbe Weise.
 
 Jede Gruppe wird ein eigenes Measurement, jede Instanz ein eigener Punkt:
 
@@ -1194,7 +1198,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-281 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
+287 Testfunktionen in 37 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

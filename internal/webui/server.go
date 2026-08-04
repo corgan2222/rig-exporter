@@ -723,6 +723,7 @@ type exportStatus struct {
 	Name      string `json:"name"`
 	Label     string `json:"label"`
 	Healthy   bool   `json:"healthy"`
+	Failed    bool   `json:"failed"`
 	Detail    string `json:"detail"`
 	Delivered uint64 `json:"delivered"`
 }
@@ -771,6 +772,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 			Name:      e.Name,
 			Label:     e.Label,
 			Healthy:   e.Healthy,
+			Failed:    e.Failed,
 			Detail:    e.Detail,
 			Delivered: e.Delivered,
 		})

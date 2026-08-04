@@ -18,10 +18,13 @@ type Status struct {
 	Name string
 	// Label is the human-readable name.
 	Label string
-	// Healthy is false when the target is configured but not working.
+	// Healthy is true only while the target is working. False can also mean a
+	// transitional state; Failed says whether an actual error occurred.
 	Healthy bool
-	// Detail explains the state: an endpoint URL when healthy, the error
-	// otherwise.
+	// Failed distinguishes an actual error from a transitional state such as
+	// an MQTT client making its first connection attempt.
+	Failed bool
+	// Detail explains the state: an endpoint URL, a transition, or the error.
 	Detail string
 	// Delivered counts successful exports since Start.
 	Delivered uint64

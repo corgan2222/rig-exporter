@@ -116,6 +116,7 @@ func (c *Client) Status() export.Status {
 		Name:      "influx",
 		Label:     i18n.T(lang, "export.influx"),
 		Healthy:   lastErr == "",
+		Failed:    lastErr != "",
 		Delivered: c.counter.Count(),
 		Detail:    fmt.Sprintf("%s → %s", c.cfg.InfluxURL, c.cfg.InfluxBucket),
 	}

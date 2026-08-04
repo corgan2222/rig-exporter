@@ -175,7 +175,8 @@ function renderExports(exports) {
     return;
   }
   host.innerHTML = exports.map((e) =>
-    '<span class="badge"><span class="dot ' + (e.healthy ? "ok" : "bad") + '"></span>' +
+    '<span class="badge"><span class="dot ' +
+    (e.healthy ? "ok" : (e.failed ? "bad" : "warn")) + '"></span>' +
     "<strong>" + escapeHTML(e.label) + "</strong> " + escapeHTML(e.detail) + "</span>"
   ).join("");
 }

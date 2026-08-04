@@ -4,10 +4,12 @@ package webui
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/corgan2222/rig-exporter/internal/config"
 )
@@ -24,6 +26,23 @@ func apiStatus(t *testing.T, url string) map[string]any {
 		t.Fatalf("decode status: %v", err)
 	}
 	return out
+}
+
+func exportAPIStatus(t *testing.T, url, name string) map[string]any {
+	t.Helper()
+
+	exports, ok := apiStatus(t, url)["exports"].([]any)
+	if !ok {
+		t.Fatal("status API has no export target list")
+	}
+	for _, raw := range exports {
+		status, ok := raw.(map[string]any)
+		if ok && status["name"] == name {
+			return status
+		}
+	}
+	t.Fatalf("status API has no %s export target", name)
+	return nil
 }
 
 // The chips are filled from the API rather than the template, so a setting
@@ -258,6 +277,96 @@ func TestOnlyAKnownNoticeCanBeDismissed(t *testing.T) {
 	}
 }
 
+// MQTT reconnects in the background, so the settings page must keep polling
+// its live target status. Otherwise a failed connection remains invisible
+// until somebody happens to open the log.
+func TestTheMQTTStatusFollowsConnectionFailures(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) {
+		c.MQTTEnabled = true
+		c.MQTTHost = "unreachable.example"
+	})
+
+	_, body := get(t, ts.URL+"/export")
+
+	if !strings.Contains(body, `id="mqtt-status"`) {
+		t.Fatal("no status line for the enabled MQTT target")
+	}
+	start := strings.Index(body, `id="mqtt-status"`)
+	status := body[start:]
+	status = status[:strings.Index(status, "</div>")]
+	if !strings.Contains(status, "dot warn") {
+		t.Error("an MQTT connection still in progress is not marked as transitional")
+	}
+	if strings.Contains(status, `class="note err"`) {
+		t.Error("an MQTT connection still in progress is presented as an error")
+	}
+	if !strings.Contains(status, "unreachable.example:1883") {
+		t.Error("the MQTT status does not name the broker")
+	}
+	if !strings.Contains(body, `refreshExportStatus("mqtt", targets)`) {
+		t.Error("the poller does not pick MQTT out of the export targets")
+	}
+	if !strings.Contains(body, "setInterval(refreshExportStatuses") {
+		t.Error("the MQTT status is fetched once but never again")
+	}
+	if !strings.Contains(body, "exportEscape(EL.lastError)") {
+		t.Error("the MQTT error branch does not render the connection failure")
+	}
+}
+
+func TestTheMQTTStatusShowsTheConnectionFailure(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close reserved port: %v", err)
+	}
+
+	server, ts := newServer(t, func(c *config.Config) {
+		c.MQTTEnabled = true
+		c.MQTTHost = "127.0.0.1"
+		c.MQTTPort = port
+	})
+	server.app.Start()
+	t.Cleanup(server.app.Stop)
+
+	deadline := time.Now().Add(2 * time.Second)
+	failed := false
+	for time.Now().Before(deadline) && !failed {
+		for _, status := range server.app.Status().Exports {
+			failed = failed || status.Name == "mqtt" && status.Failed
+		}
+		if !failed {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if !failed {
+		t.Fatal("MQTT connection failure never reached the app status")
+	}
+	if got := exportAPIStatus(t, ts.URL, "mqtt")["failed"]; got != true {
+		t.Errorf("MQTT API failed = %v, want true", got)
+	}
+
+	_, body := get(t, ts.URL+"/export")
+	start := strings.Index(body, `id="mqtt-status"`)
+	if start < 0 {
+		t.Fatal("no MQTT status line")
+	}
+	status := body[start:]
+	status = status[:strings.Index(status, "</div>")]
+	if !strings.Contains(status, "dot bad") {
+		t.Error("the failed MQTT target is not marked as failed")
+	}
+	if !strings.Contains(status, `class="note err"`) {
+		t.Error("the MQTT connection error is not shown")
+	}
+	if !strings.Contains(status, `value="log"`) {
+		t.Error("the MQTT failure offers no way to open the log")
+	}
+}
+
 // A switched-off target says nothing: the box above already says it is off.
 // The container is still there, empty and hidden, because the poller needs a
 // place to write into when the target is switched on without a reload.
@@ -293,10 +402,10 @@ func TestTheInfluxStatusFollowsAlongWithoutAReload(t *testing.T) {
 	if !strings.Contains(body, `fetch("/api/status"`) {
 		t.Error("the export page never asks for the current state")
 	}
-	if !strings.Contains(body, "setInterval(refreshInfluxStatus") {
+	if !strings.Contains(body, "setInterval(refreshExportStatuses") {
 		t.Error("the status is fetched once but never again")
 	}
-	if !strings.Contains(body, `e.name === "influx"`) {
+	if !strings.Contains(body, `refreshExportStatus("influx", targets)`) {
 		t.Error("the poller does not pick the push target out of the targets")
 	}
 }

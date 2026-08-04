@@ -64,6 +64,24 @@
     </div>
   </form>
 
+  <!-- Outside the settings form because the log button is a form of its own. -->
+  <div class="targetstatus" id="mqtt-status" {{ if not (.ExportStatus "mqtt") }}hidden{{ end }}>
+    {{ with .ExportStatus "mqtt" }}
+    <span class="badge">
+      <span class="dot {{ if .Healthy }}ok{{ else if .Failed }}bad{{ else }}warn{{ end }}"></span>
+      <strong>{{ .Label }}</strong>
+    </span>
+    {{ if .Failed }}
+    <span class="note err">{{ $.T "export.lastError" }}: {{ .Detail }}</span>
+    <form method="post" action="/open">
+      <button class="ghost small" type="submit" name="what" value="log">{{ $.T "export.openLog" }}</button>
+    </form>
+    {{ else }}
+    <span class="note">{{ .Detail }} &middot; {{ .Delivered }} {{ $.T "export.delivered" }}</span>
+    {{ end }}
+    {{ end }}
+  </div>
+
   <form method="post" action="/save/ha" data-block="ha">
     <div class="card" id="ha">
       <h2>{{ .T "settings.ha.title" }}</h2>
@@ -218,16 +236,16 @@
   <div class="targetstatus" id="influx-status" {{ if not (.ExportStatus "influx") }}hidden{{ end }}>
     {{ with .ExportStatus "influx" }}
     <span class="badge">
-      <span class="dot {{ if .Healthy }}ok{{ else }}bad{{ end }}"></span>
+      <span class="dot {{ if .Healthy }}ok{{ else if .Failed }}bad{{ else }}warn{{ end }}"></span>
       <strong>{{ .Label }}</strong>
     </span>
-    {{ if .Healthy }}
-    <span class="note">{{ .Detail }} &middot; {{ .Delivered }} {{ $.T "export.delivered" }}</span>
-    {{ else }}
+    {{ if .Failed }}
     <span class="note err">{{ $.T "export.lastError" }}: {{ .Detail }}</span>
     <form method="post" action="/open">
       <button class="ghost small" type="submit" name="what" value="log">{{ $.T "export.openLog" }}</button>
     </form>
+    {{ else }}
+    <span class="note">{{ .Detail }} &middot; {{ .Delivered }} {{ $.T "export.delivered" }}</span>
     {{ end }}
     {{ end }}
   </div>
@@ -274,7 +292,7 @@
   </form>
 
 <script>
-// The InfluxDB push status follows along instead of being a snapshot.
+// Network target statuses follow along instead of being snapshots.
 //
 // Saving redirects back to this page, but the first write only happens at the
 // next publish interval — so at the moment the page is rebuilt there is no
@@ -283,28 +301,21 @@
 //
 // Three seconds: this is a settings page, not a dashboard. Fast enough that
 // saving and seeing the result feel connected, slow enough to be invisible.
-const IL = {
+const EL = {
   lastError: {{ .T "export.lastError" }},
   openLog: {{ .T "export.openLog" }},
   delivered: {{ .T "export.delivered" }},
 };
 
-function influxEscape(s) {
+function exportEscape(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-async function refreshInfluxStatus() {
-  const host = document.getElementById("influx-status");
+function refreshExportStatus(name, targets) {
+  const host = document.getElementById(name + "-status");
   if (!host) return;
-
-  let target = null;
-  try {
-    const s = await (await fetch("/api/status", { cache: "no-store" })).json();
-    target = (s.exports || []).find((e) => e.name === "influx") || null;
-  } catch {
-    return; // the exporter is gone; leave the last known state alone
-  }
+  const target = targets.find((e) => e.name === name) || null;
 
   // Switched off between two polls: say nothing rather than a stale line.
   host.hidden = !target;
@@ -313,20 +324,35 @@ async function refreshInfluxStatus() {
     return;
   }
 
+  const state = target.healthy ? "ok" : (target.failed ? "bad" : "warn");
   const head =
-    '<span class="badge"><span class="dot ' + (target.healthy ? "ok" : "bad") + '"></span>' +
-    "<strong>" + influxEscape(target.label) + "</strong></span>";
-  host.innerHTML = target.healthy
-    ? head + '<span class="note">' + influxEscape(target.detail) +
-      " &middot; " + target.delivered + " " + influxEscape(IL.delivered) + "</span>"
-    : head + '<span class="note err">' + influxEscape(IL.lastError) + ": " +
-      influxEscape(target.detail) + "</span>" +
+    '<span class="badge"><span class="dot ' + state + '"></span>' +
+    "<strong>" + exportEscape(target.label) + "</strong></span>";
+  host.innerHTML = target.failed
+    ? head + '<span class="note err">' + exportEscape(EL.lastError) + ": " +
+      exportEscape(target.detail) + "</span>" +
       '<form method="post" action="/open">' +
       '<button class="ghost small" type="submit" name="what" value="log">' +
-      influxEscape(IL.openLog) + "</button></form>";
+      exportEscape(EL.openLog) + "</button></form>"
+    : head + '<span class="note">' + exportEscape(target.detail) +
+      " &middot; " + target.delivered + " " + exportEscape(EL.delivered) + "</span>";
 }
 
-setInterval(refreshInfluxStatus, 3000);
+async function refreshExportStatuses() {
+  let targets = [];
+  try {
+    const s = await (await fetch("/api/status", { cache: "no-store" })).json();
+    targets = s.exports || [];
+  } catch {
+    return; // the exporter is gone; leave the last known state alone
+  }
+
+  refreshExportStatus("mqtt", targets);
+  refreshExportStatus("influx", targets);
+}
+
+refreshExportStatuses();
+setInterval(refreshExportStatuses, 3000);
 </script>
 {{ end }}
 
