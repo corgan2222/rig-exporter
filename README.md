@@ -118,11 +118,11 @@ Neben den Werten je Volume gibt es fünf Summen über alle gemeldeten Laufwerke:
 
 | Feld | Bedeutung |
 |---|---|
-| `hdd_overall_capacity` | Kapazität aller Laufwerke zusammen, in GB |
-| `hdd_overall_used` | davon belegt, in GB |
-| `hdd_overall_free` | davon frei, in GB |
-| `hdd_overall_usage` | belegter Anteil in % |
-| `hdd_overall_free_percent` | freier Anteil in % |
+| `disk_overall_capacity` | Kapazität aller Laufwerke zusammen, in GB |
+| `disk_overall_used` | davon belegt, in GB |
+| `disk_overall_free` | davon frei, in GB |
+| `disk_overall_usage` | belegter Anteil in % |
+| `disk_overall_free_percent` | freier Anteil in % |
 
 „Wie voll ist dieser Rechner" ist die Frage, die vor jeder Frage nach einem
 einzelnen Laufwerk kommt, und sie aus vier Entities in einem Template
@@ -131,8 +131,20 @@ gehören deshalb zum **Standardsatz**.
 
 Summiert wird genau das, was auch gemeldet wird: ein über **Nur diese
 Laufwerke** ausgeschlossenes Volume zählt nicht mit, und eines, das sich nicht
-lesen ließ, ebenso wenig. Gerechnet wird in Bytes und erst am Ende gerundet —
-die Summe ist damit genauer als die Summe der gerundeten Einzelwerte.
+lesen ließ, ebenso wenig. Die Summe ist damit immer die Summe dessen, was in
+der Liste steht. Gerechnet wird in Bytes und erst am Ende gerundet — sie ist
+also genauer als die Summe der gerundeten Einzelwerte.
+
+**Was gar nicht erst als Laufwerk zählt:** Netzlaufwerke, optische Laufwerke,
+Wechselmedien — und alles, was an einem USB-Anschluss hängt. Der Laufwerkstyp
+allein reicht dafür nicht: ein USB-Stick meldet sich als Wechselmedium und
+fällt schon dort heraus, eine externe USB-SSD meldet sich dagegen fast immer
+als fest eingebaut und ist ohne Nachfrage beim Speicher-Stack nicht von einer
+internen Platte zu unterscheiden. Gefragt wird deshalb nach dem Bus. Eine
+Sicherungsplatte, die heute zufällig ansteckt, würde die Gesamtzahlen sonst
+springen lassen, ohne dass sich am Rechner etwas geändert hat. Antwortet ein
+Laufwerk nicht auf die Frage, bleibt es drin — nicht wissen ist kein Grund,
+etwas wegzulassen.
 
 ### Der aktive Netzwerkadapter
 

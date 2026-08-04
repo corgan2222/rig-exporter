@@ -28,11 +28,11 @@ func TestTheOverallFiguresSumTheVolumes(t *testing.T) {
 		def  metrics.Definition
 		want float64
 	}{
-		{metrics.HDDOverallCapacity, 1500},
-		{metrics.HDDOverallUsed, 1000},
-		{metrics.HDDOverallFree, 500},
-		{metrics.HDDOverallUsage, 100.0 / 1.5}, // 1000 of 1500
-		{metrics.HDDOverallFreePercent, 100.0 / 3},
+		{metrics.DiskOverallCapacity, 1500},
+		{metrics.DiskOverallUsed, 1000},
+		{metrics.DiskOverallFree, 500},
+		{metrics.DiskOverallUsage, 100.0 / 1.5}, // 1000 of 1500
+		{metrics.DiskOverallFreePercent, 100.0 / 3},
 	} {
 		if got := numberOf(t, set, tc.def); math.Abs(got-tc.want) > 0.05 {
 			t.Errorf("%s = %v, want %v", tc.def.ID, got, tc.want)
@@ -46,7 +46,7 @@ func TestTheOverallPercentagesAddUp(t *testing.T) {
 		var set metrics.Set
 		addOverall(&set, 1024*gb, free*gb)
 
-		sum := numberOf(t, set, metrics.HDDOverallUsage) + numberOf(t, set, metrics.HDDOverallFreePercent)
+		sum := numberOf(t, set, metrics.DiskOverallUsage) + numberOf(t, set, metrics.DiskOverallFreePercent)
 		if math.Abs(sum-100) > 0.05 {
 			t.Errorf("free %d GB: usage and free%% add up to %v, want 100", free, sum)
 		}
