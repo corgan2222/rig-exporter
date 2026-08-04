@@ -31,14 +31,35 @@ func TestAnEmptyTableProducesNoReading(t *testing.T) {
 // MQTT carries is the number Prometheus carries.
 func TestTableValuesAreRoundedLikeEveryOtherReading(t *testing.T) {
 	rows := sampleTable().Rows
-	if rows[0].Value != 41.2 {
-		t.Errorf("value = %v, want it rounded to the definition's one decimal", rows[0].Value)
+	if rows[0].Value != 41.23 {
+		t.Errorf("value = %v, want it rounded to the definition's two decimals", rows[0].Value)
 	}
 
+}
+
+// A ranked list keeps its decimals even with the setting off, and that is
+// deliberate. Switching decimals off buys fewer database rows because values
+// change less often — a table's attributes are rewritten on every sample
+// regardless, so it buys nothing there. What it would cost is the list itself:
+// on a quiet machine the lower ranks all round onto "1 %", and five identical
+// columns are a chart with nothing to show.
+func TestARankedListKeepsItsDecimalsWhateverTheSetting(t *testing.T) {
 	t.Cleanup(func() { SetDecimals(true) })
 	SetDecimals(false)
-	if v := Table(TopCPU, "", []Row{{Label: "a.exe", Value: 41.6}}).Rows[0].Value; v != 42 {
-		t.Errorf("value = %v, want the whole number while decimals are off", v)
+
+	// TopMemory, because its single decimal shows both halves at once: the
+	// rounding still happens, the decimal still survives.
+	rows := Table(TopMemory, "", []Row{
+		{Label: "a.exe", Value: 1.34},
+		{Label: "b.exe", Value: 1.28},
+	}).Rows
+	if rows[0].Value != 1.3 || rows[1].Value != 1.3 {
+		t.Errorf("rows = %+v, want the decimals kept", rows)
+	}
+
+	// Everything else still follows the setting.
+	if v := Gauge(CPULoad, "", 41.6).Number; v != 42 {
+		t.Errorf("an ordinary gauge = %v, want the whole number", v)
 	}
 }
 
@@ -91,7 +112,7 @@ func TestTheTableAlsoCarriesEachRankFlat(t *testing.T) {
 		key  string
 		want any
 	}{
-		{"rank1", 41.2},
+		{"rank1", 41.23},
 		{"rank1_name", "firefox.exe"},
 		{"rank2", 12.0},
 		{"rank2_name", "cs2.exe"},
@@ -118,7 +139,7 @@ func TestPrometheusRendersOneSeriesPerRow(t *testing.T) {
 	out := string(set.Prometheus("corganpc2"))
 
 	for _, want := range []string{
-		`rig_top_cpu_percent{host="corganpc2",app="firefox.exe",rank="1"} 41.2`,
+		`rig_top_cpu_percent{host="corganpc2",app="firefox.exe",rank="1"} 41.23`,
 		`rig_top_cpu_percent{host="corganpc2",app="cs2.exe",rank="2"} 12`,
 	} {
 		if !strings.Contains(out, want) {
@@ -139,7 +160,7 @@ func TestInfluxKeepsTheProgramNameOutOfTheTags(t *testing.T) {
 	set.Add(sampleTable())
 	out := string(set.Influx("rig", "corganpc2", time.Unix(0, 0)))
 
-	if !strings.Contains(out, `top_cpu_1=41.2`) || !strings.Contains(out, `top_cpu_1_app="firefox.exe"`) {
+	if !strings.Contains(out, `top_cpu_1=41.23`) || !strings.Contains(out, `top_cpu_1_app="firefox.exe"`) {
 		t.Errorf("fields missing from the line:\n%s", out)
 	}
 
@@ -167,7 +188,7 @@ func TestInfluxEscapesAProgramNameThatFightsBack(t *testing.T) {
 
 // One line, because a panel row is one line.
 func TestATableReadsAsOneLine(t *testing.T) {
-	if got := sampleTable().TableText(); got != "firefox.exe 41.2 % · cs2.exe 12.0 %" {
+	if got := sampleTable().TableText(); got != "firefox.exe 41.23 % · cs2.exe 12.00 %" {
 		t.Errorf("TableText = %q", got)
 	}
 }

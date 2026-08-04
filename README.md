@@ -873,17 +873,41 @@ Entities stehen deshalb in der `include`-Liste des erzeugten
 `recorder:`-Blocks — würde man sie ausschließen, gäbe es gar nichts zu
 zeichnen.
 
+#### Nachkommastellen: hier immer, und bei der CPU zwei
+
+Die beiden Ranglisten hängen **nicht** am Schalter *Berechne Nachkommastellen*.
+Der Schalter existiert, damit sich Werte seltener ändern — was sich nicht
+ändert, kostet in der Datenbank von Home Assistant keine Zeile. Eine Tabelle
+gewinnt dort nichts: ihre Attribute werden bei jeder Messung ohnehin neu
+geschrieben. Kosten würde die Rundung dagegen genau das, wofür die Liste da ist.
+
+Der CPU-Anteil hat deshalb **zwei** Nachkommastellen, der Speicher eine. Ein
+Anteil an der ganzen Maschine liegt bei den meisten Hintergrundprogrammen unter
+einem Prozent — mit einer Stelle landen die hinteren vier Plätze alle auf „1.0"
+und das Diagramm sind vier gleich hohe Säulen. Gemessen auf einem ruhigen
+Rechner:
+
+```
+eine Stelle:   3.0 · 2.0 · 1.0 · 1.0 · 1.0
+zwei Stellen:  3.47 · 2.59 · 1.54 · 1.54 · 0.88
+```
+
+Ein Speicheranteil wird nie so klein, dort wäre die zweite Stelle nur Rauschen.
+
 #### Die aktuelle Liste, ohne Zusatzkarte
 
-Eine Markdown-Karte reicht und braucht kein HACS:
+Eine Markdown-Karte reicht und braucht kein HACS. Die Nummerierung ist das, was
+sie mit der Legende des Diagramms verbindet:
 
 ```yaml
 type: markdown
+entity_id:
+  - sensor.re_corgan_pc3_top_cpu
 content: |
-  {% set apps = state_attr('sensor.re_corgan_pc3_top_cpu', 'apps') %}
-  {% for app in apps %}
-  - **{{ app.name }}** — {{ app.value }} %
-  {% endfor %}
+  {% set apps = state_attr('sensor.re_corgan_pc3_top_cpu','apps') %}
+  {% if apps %}{% for app in apps %}**{{ loop.index }}.** {{ app.name }} — **{{ app.value }} %**
+
+  {% endfor %}{% else %}_noch keine Messung_{% endif %}
 ```
 
 #### Säulendiagramm über die Zeit
@@ -913,9 +937,34 @@ series:
 > für Attribute gedacht, die selbst schon eine Zeitreihe enthalten, etwa eine
 > Wettervorhersage.
 
-Die Legende sagt „Platz 1", nicht „firefox.exe" — das Programm hinter einem
-Platz wechselt ja. Wer den Namen braucht, findet ihn im Attribut
-`rank1_name` und kann ihn über eine zweite Karte oder ein Template dazustellen.
+**Die Legende sagt „Platz 1", nicht „firefox.exe", und das lässt sich nicht
+sauber ändern.** Ein Serienname ist in der Karte statisch, und über die
+Zeitachse *ist* Platz 1 auch nicht ein Programm — genau das ist der Grund, warum
+die Liste als Ränge veröffentlicht wird. Wer den Namen zum aktuellen Zeitpunkt
+will, stellt die Markdown-Karte von oben darunter; die Nummerierung stellt die
+Verbindung her.
+
+Wer ihn unbedingt *in* der Legende haben will, kann sie über `apex_config`
+umbiegen — mit dem ausdrücklichen Vorbehalt, dass das in die Interna des
+Frontends greift und mit jedem Home-Assistant-Update brechen kann:
+
+```yaml
+apex_config:
+  legend:
+    formatter: >-
+      EVAL:function (seriesName, opts) {
+        try {
+          var attrs = document.querySelector('home-assistant')
+            .hass.states['sensor.re_corgan_pc3_top_cpu'].attributes;
+          var name = attrs['rank' + (opts.seriesIndex + 1) + '_name'];
+          return name ? name : seriesName;
+        } catch (e) { return seriesName; }
+      }
+```
+
+Das `try`/`catch` ist nicht optional: ohne es nimmt ein Fehler im Formatter die
+ganze Karte mit. Und der angezeigte Name ist immer der **aktuelle**, auch über
+historischen Säulen, an denen ein anderes Programm stand.
 
 In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
 eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
@@ -1080,7 +1129,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-265 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
+266 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

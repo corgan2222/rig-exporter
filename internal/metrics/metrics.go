@@ -203,8 +203,16 @@ func Decimals() bool { return decimals.Load() }
 
 // EffectivePrecision is the decimal count a reading is actually rendered with:
 // the definition's own, or none while decimals are switched off.
+//
+// A ranked list is exempt, and that is not an oversight. Switching decimals off
+// exists to make values change less often, because a value that does not change
+// costs no row in the Home Assistant database. A table earns nothing there: its
+// attributes are rewritten on every sample whatever the numbers say. What
+// rounding does cost is the whole point of the list — on a quiet machine the
+// lower ranks all collapse onto "1 %", and five identical columns are a chart
+// with nothing to show.
 func (d Definition) EffectivePrecision() int {
-	if !decimals.Load() {
+	if !decimals.Load() && d.Kind != KindTable {
 		return 0
 	}
 	return d.Precision
