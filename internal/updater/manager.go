@@ -1,0 +1,436 @@
+// Package updater checks signed GitHub releases and prepares a verified
+// executable for the Windows restart helper.
+package updater
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+	"unicode/utf8"
+
+	"github.com/Masterminds/semver/v3"
+)
+
+const (
+	defaultCheckInterval  = 12 * time.Hour
+	defaultCheckTimeout   = 30 * time.Second
+	defaultInstallTimeout = 5 * time.Minute
+	maxReleaseSize        = 50 << 20
+	maxReleaseSummary     = 255
+)
+
+var (
+	ErrBusy     = errors.New("an update is already in progress")
+	ErrNoUpdate = errors.New("no newer update is available")
+)
+
+// State is the complete user-visible update state. Home Assistant consumes the
+// version and release fields; LastError remains local because MQTT update
+// entities have no standard error field.
+type State struct {
+	InstalledVersion string
+	LatestVersion    string
+	Title            string
+	ReleaseSummary   string
+	ReleaseURL       string
+	LastError        string
+	InProgress       bool
+	UpdatePercentage *float64
+}
+
+// Controller is the small interface the MQTT adapter needs.
+type Controller interface {
+	State() State
+	Subscribe(func(State)) func()
+	RequestInstall() error
+}
+
+// Release is provider-independent release metadata kept behind the updater
+// seam. Provider-specific objects stay private to their adapter.
+type Release struct {
+	Version string
+	Title   string
+	Notes   string
+	URL     string
+	Size    int
+	native  any
+}
+
+// PreparedUpdate is handed to the Windows apply adapter only after the release
+// has been downloaded and cryptographically verified.
+type PreparedUpdate struct {
+	StagedPath     string
+	ExecutablePath string
+	ConfigPath     string
+	Version        string
+	SHA256         string
+}
+
+type releaseSource interface {
+	Latest(context.Context) (Release, bool, error)
+	Stage(context.Context, Release, string) error
+}
+
+type applyPreparer interface {
+	Prepare(PreparedUpdate) error
+}
+
+// Options defines the facts that differ between the running application and
+// tests. Empty durations use conservative production defaults.
+type Options struct {
+	CurrentVersion string
+	ExecutablePath string
+	ConfigPath     string
+	TempRoot       string
+	CheckInterval  time.Duration
+	CheckTimeout   time.Duration
+	InstallTimeout time.Duration
+	RequestRestart func()
+	Logger         *slog.Logger
+}
+
+// Manager owns release checks and exactly one possible installation.
+type Manager struct {
+	source releaseSource
+	apply  applyPreparer
+	opts   Options
+	log    *slog.Logger
+
+	mu        sync.RWMutex
+	state     State
+	available *Release
+	listeners map[uint64]func(State)
+	nextID    uint64
+	started   bool
+	stopped   bool
+
+	checkMu sync.Mutex
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+}
+
+func newManager(source releaseSource, apply applyPreparer, opts Options) *Manager {
+	if opts.CheckInterval <= 0 {
+		opts.CheckInterval = defaultCheckInterval
+	}
+	if opts.CheckTimeout <= 0 {
+		opts.CheckTimeout = defaultCheckTimeout
+	}
+	if opts.InstallTimeout <= 0 {
+		opts.InstallTimeout = defaultInstallTimeout
+	}
+	if opts.Logger == nil {
+		opts.Logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Manager{
+		source: source,
+		apply:  apply,
+		opts:   opts,
+		log:    opts.Logger,
+		state: State{
+			InstalledVersion: opts.CurrentVersion,
+			LatestVersion:    opts.CurrentVersion,
+			Title:            "rig-exporter",
+		},
+		listeners: map[uint64]func(State){},
+		ctx:       ctx,
+		cancel:    cancel,
+	}
+}
+
+// State returns a snapshot that callers may keep.
+func (m *Manager) State() State {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return cloneState(m.state)
+}
+
+func cloneState(state State) State {
+	if state.UpdatePercentage != nil {
+		percentage := *state.UpdatePercentage
+		state.UpdatePercentage = &percentage
+	}
+	return state
+}
+
+// Subscribe observes state changes and immediately receives the current state.
+// The returned function must be called when the subscriber is discarded.
+func (m *Manager) Subscribe(fn func(State)) func() {
+	if fn == nil {
+		return func() {}
+	}
+
+	m.mu.Lock()
+	id := m.nextID
+	m.nextID++
+	m.listeners[id] = fn
+	state := cloneState(m.state)
+	m.mu.Unlock()
+
+	fn(state)
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			m.mu.Lock()
+			delete(m.listeners, id)
+			m.mu.Unlock()
+		})
+	}
+}
+
+func (m *Manager) notify() {
+	m.mu.RLock()
+	state := cloneState(m.state)
+	listeners := make([]func(State), 0, len(m.listeners))
+	for _, fn := range m.listeners {
+		listeners = append(listeners, fn)
+	}
+	m.mu.RUnlock()
+
+	for _, fn := range listeners {
+		fn(state)
+	}
+}
+
+// Check refreshes the newest installable release. Checks are serialized so a
+// manual check and the background ticker cannot race provider state.
+func (m *Manager) Check(ctx context.Context) error {
+	m.checkMu.Lock()
+	defer m.checkMu.Unlock()
+
+	release, found, err := m.source.Latest(ctx)
+	if err != nil {
+		return m.checkFailed(fmt.Errorf("check for updates: %w", err))
+	}
+	if !found {
+		m.setNoUpdate()
+		return nil
+	}
+
+	current, err := semver.NewVersion(m.opts.CurrentVersion)
+	if err != nil {
+		return m.checkFailed(fmt.Errorf("parse installed version %q: %w", m.opts.CurrentVersion, err))
+	}
+	latest, err := semver.NewVersion(release.Version)
+	if err != nil {
+		return m.checkFailed(fmt.Errorf("parse release version %q: %w", release.Version, err))
+	}
+	if !latest.GreaterThan(current) {
+		m.setNoUpdate()
+		return nil
+	}
+	if release.Size <= 0 || release.Size > maxReleaseSize {
+		return m.checkFailed(fmt.Errorf("release asset size %d is outside the allowed range", release.Size))
+	}
+
+	title := strings.TrimSpace(release.Title)
+	if title == "" {
+		title = "rig-exporter " + release.Version
+	}
+	m.mu.Lock()
+	m.available = &release
+	m.state.LatestVersion = release.Version
+	m.state.Title = title
+	m.state.ReleaseSummary = summarize(release.Notes)
+	m.state.ReleaseURL = release.URL
+	m.state.LastError = ""
+	m.mu.Unlock()
+	m.notify()
+	m.log.Info("update available", "installed", m.opts.CurrentVersion, "latest", release.Version)
+	return nil
+}
+
+func (m *Manager) checkFailed(err error) error {
+	m.mu.Lock()
+	m.state.LastError = err.Error()
+	m.mu.Unlock()
+	m.notify()
+	m.log.Warn("update check failed", "error", err)
+	return err
+}
+
+func (m *Manager) setNoUpdate() {
+	m.mu.Lock()
+	m.available = nil
+	m.state.LatestVersion = m.opts.CurrentVersion
+	m.state.Title = "rig-exporter"
+	m.state.ReleaseSummary = ""
+	m.state.ReleaseURL = ""
+	m.state.LastError = ""
+	m.mu.Unlock()
+	m.notify()
+}
+
+func summarize(notes string) string {
+	text := strings.Join(strings.Fields(notes), " ")
+	if utf8.RuneCountInString(text) <= maxReleaseSummary {
+		return text
+	}
+	runes := []rune(text)
+	return strings.TrimSpace(string(runes[:maxReleaseSummary-1])) + "…"
+}
+
+// RequestInstall starts installing the release selected by the last successful
+// check. It returns immediately so an MQTT callback never blocks shutdown.
+func (m *Manager) RequestInstall() error {
+	m.mu.Lock()
+	if m.stopped {
+		m.mu.Unlock()
+		return errors.New("updater is stopped")
+	}
+	if m.state.InProgress {
+		m.mu.Unlock()
+		return ErrBusy
+	}
+	if m.available == nil {
+		m.mu.Unlock()
+		return ErrNoUpdate
+	}
+	release := *m.available
+	m.state.InProgress = true
+	m.state.UpdatePercentage = nil
+	m.state.LastError = ""
+	// Add while holding the same lock Stop uses to close the lifecycle. That
+	// makes a concurrent install request either fully owned by the manager or
+	// rejected as stopped; Wait must never race a fresh Add.
+	m.wg.Add(1)
+	m.mu.Unlock()
+	m.notify()
+
+	go func() {
+		defer m.wg.Done()
+		m.install(release)
+	}()
+	return nil
+}
+
+func (m *Manager) install(release Release) {
+	// Preparing the Windows transaction starts a helper that waits for this
+	// process to exit. Refuse the operation before downloading or launching it
+	// when the owning application cannot request that shutdown.
+	if m.opts.RequestRestart == nil {
+		m.installFailed(errors.New("prepare update restart: shutdown callback is unavailable"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(m.ctx, m.opts.InstallTimeout)
+	defer cancel()
+
+	tempDir, err := os.MkdirTemp(m.opts.TempRoot, "rig-exporter-update-")
+	if err != nil {
+		m.installFailed(fmt.Errorf("create update staging directory: %w", err))
+		return
+	}
+	defer os.RemoveAll(tempDir)
+
+	stagedPath := filepath.Join(tempDir, "rig-exporter.exe")
+	if err := m.source.Stage(ctx, release, stagedPath); err != nil {
+		m.installFailed(fmt.Errorf("download and verify update %s: %w", release.Version, err))
+		return
+	}
+	digest, err := fileSHA256(stagedPath)
+	if err != nil {
+		m.installFailed(fmt.Errorf("hash verified update %s: %w", release.Version, err))
+		return
+	}
+	if err := m.apply.Prepare(PreparedUpdate{
+		StagedPath:     stagedPath,
+		ExecutablePath: m.opts.ExecutablePath,
+		ConfigPath:     m.opts.ConfigPath,
+		Version:        release.Version,
+		SHA256:         digest,
+	}); err != nil {
+		m.installFailed(fmt.Errorf("prepare update restart: %w", err))
+		return
+	}
+	m.log.Info("update prepared; restarting", "version", release.Version)
+	m.opts.RequestRestart()
+}
+
+func fileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func (m *Manager) installFailed(err error) {
+	m.mu.Lock()
+	m.state.InProgress = false
+	m.state.UpdatePercentage = nil
+	m.state.LastError = err.Error()
+	m.mu.Unlock()
+	m.notify()
+	m.log.Error("update failed", "error", err)
+}
+
+// Start performs one non-blocking check and then checks periodically.
+func (m *Manager) Start() {
+	m.mu.Lock()
+	if m.started || m.stopped {
+		m.mu.Unlock()
+		return
+	}
+	m.started = true
+	// See RequestInstall: pairing Add with the lifecycle lock prevents Stop
+	// from reaching Wait while this goroutine is only half-started.
+	m.wg.Add(1)
+	m.mu.Unlock()
+
+	go func() {
+		defer m.wg.Done()
+		m.runChecks()
+	}()
+}
+
+func (m *Manager) runChecks() {
+	m.checkWithTimeout()
+	ticker := time.NewTicker(m.opts.CheckInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-ticker.C:
+			m.checkWithTimeout()
+		}
+	}
+}
+
+func (m *Manager) checkWithTimeout() {
+	ctx, cancel := context.WithTimeout(m.ctx, m.opts.CheckTimeout)
+	defer cancel()
+	_ = m.Check(ctx)
+}
+
+// Stop cancels network and staging work and waits for updater goroutines.
+func (m *Manager) Stop() {
+	m.mu.Lock()
+	if m.stopped {
+		m.mu.Unlock()
+		return
+	}
+	m.stopped = true
+	m.mu.Unlock()
+	m.cancel()
+	m.wg.Wait()
+}
+
+var _ Controller = (*Manager)(nil)

@@ -14,6 +14,7 @@ package hamqtt
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/export"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/updater"
 )
 
 const (
@@ -51,13 +53,19 @@ type Publisher struct {
 	// server may not have picked its port yet when the publisher is built, and
 	// after a fallback that port is not the configured one.
 	webURL func() string
+	// updates is the updater Module behind its small Controller interface. MQTT
+	// is only an adapter at this seam: it exposes state and forwards the exact
+	// install command, without learning how releases are selected or applied.
+	updates updater.Controller
 
 	published export.Counter
 
 	mu           sync.RWMutex
+	updateSync   sync.Mutex
 	client       mqtt.Client
 	connected    bool
 	lastError    string
+	updateError  string
 	stop         chan struct{}
 	stopOnce     sync.Once
 	connectRetry time.Duration
@@ -69,6 +77,17 @@ type Publisher struct {
 	// announcement goes out with the configured address and the real one only
 	// becomes known a moment later.
 	announcedURL string
+	// updateAnnounced is separate from announced because software is always
+	// present and not driven by a collected reading.
+	updateAnnounced         bool
+	updateSubscribed        bool
+	commonAvailable         bool
+	updateAvailabilityKnown bool
+	updateAvailable         bool
+	updateState             updater.State
+	updateGeneration        uint64
+	updatePublished         uint64
+	stopUpdates             func()
 	// pendingRetire holds entities to retire that could not be retired yet
 	// because the broker was unreachable at the time. Somebody who narrows the
 	// sensor set while the broker is down still means it.
@@ -87,9 +106,9 @@ type EntityRef struct {
 //
 // webURL may be nil, in which case the device page links to the configured
 // address. Everything that has one should pass it: see configURL.
-func New(cfg config.Config, log *slog.Logger, webURL func() string) *Publisher {
+func New(cfg config.Config, log *slog.Logger, webURL func() string, updates updater.Controller) *Publisher {
 	return &Publisher{
-		cfg: cfg, log: log, webURL: webURL,
+		cfg: cfg, log: log, webURL: webURL, updates: updates,
 		announced: map[string]EntityRef{}, stop: make(chan struct{}),
 		connectRetry: initialConnectRetry,
 	}
@@ -122,12 +141,25 @@ func (p *Publisher) forgetAnnouncementsIfURLChanged(webURL string) {
 			"from", p.announcedURL, "to", webURL, "entities", len(p.announced))
 	}
 	p.announced = map[string]EntityRef{}
+	p.updateAnnounced = false
 	p.announcedURL = webURL
 }
 
 // Start connects to the broker. It returns as soon as the attempt is under
 // way, so a broker that is down at boot does not stop the tray from appearing.
 func (p *Publisher) Start() error {
+	if p.updates != nil {
+		p.mu.Lock()
+		needSubscription := p.stopUpdates == nil
+		p.mu.Unlock()
+		if needSubscription {
+			stop := p.updates.Subscribe(p.onUpdateStateChanged)
+			p.mu.Lock()
+			p.stopUpdates = stop
+			p.mu.Unlock()
+		}
+	}
+
 	opts := mqtt.NewClientOptions().
 		AddBroker(p.cfg.BrokerURL()).
 		SetClientID(p.cfg.ClientID).
@@ -213,18 +245,28 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	}
 	p.connected = true
 	p.lastError = ""
+	p.updateError = ""
 	// Forget what was announced, so discovery is republished. A Home Assistant
 	// that was reinstalled or had its retained messages purged then picks the
 	// device up again without restarting rig-exporter.
 	p.announced = map[string]EntityRef{}
+	p.updateAnnounced = false
+	p.updateSubscribed = false
+	p.commonAvailable = false
+	p.updateAvailabilityKnown = false
+	p.updateAvailable = false
+	p.updatePublished = 0
 	p.mu.Unlock()
 
 	p.log.Info("broker connected", "broker", p.cfg.BrokerURL())
 
-	// Availability first: Home Assistant marks entities unavailable until it
-	// sees this, and discovery arriving into an unavailable device is fine.
-	if err := publish(client, p.cfg.AvailabilityTopic(), []byte(availableOnline), 1, true); err != nil {
-		p.recordError(fmt.Errorf("publish availability: %w", err))
+	// Without an update adapter the process-wide availability remains the only
+	// one. With an adapter, syncUpdateChannel deliberately publishes the update
+	// guard offline before this common topic goes online.
+	if p.updates == nil {
+		if err := publish(client, p.cfg.AvailabilityTopic(), []byte(availableOnline), 1, true); err != nil {
+			p.recordError(fmt.Errorf("publish availability: %w", err))
+		}
 	}
 	// Before anything is announced: a retirement decided while the broker was
 	// away must not undo an announcement made a moment later.
@@ -232,11 +274,23 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	if p.cfg.LegacyCleanupPending {
 		p.clearLegacyDiscovery(client)
 	}
+	if p.updates != nil {
+		if err := p.syncUpdateChannel(client); err != nil {
+			p.recordUpdateError(err)
+		} else {
+			p.clearUpdateError()
+		}
+	}
 }
 
 func (p *Publisher) onConnectionLost(_ mqtt.Client, err error) {
 	p.mu.Lock()
 	p.connected = false
+	p.updateSubscribed = false
+	p.updateAnnounced = false
+	p.commonAvailable = false
+	p.updateAvailabilityKnown = false
+	p.updateAvailable = false
 	p.lastError = err.Error()
 	p.mu.Unlock()
 	p.log.Warn("broker connection lost", "error", err)
@@ -251,6 +305,15 @@ func (p *Publisher) Export(snap collector.Snapshot) error {
 
 	if client == nil || !connected {
 		return nil
+	}
+	if p.updates != nil {
+		if err := p.syncUpdateChannel(client); err != nil {
+			// Telemetry remains useful, but the update entity must stay hidden
+			// until its command subscription and retained state are confirmed.
+			p.recordUpdateError(err)
+		} else {
+			p.clearUpdateError()
+		}
 	}
 
 	if err := p.announceNew(client, snap); err != nil {
@@ -268,8 +331,9 @@ func (p *Publisher) Export(snap collector.Snapshot) error {
 	}
 
 	// A transient publish error must disappear again after the broker accepts a
-	// complete export. Preserve a connection-loss error that may have arrived
-	// concurrently after Publish returned.
+	// complete telemetry export. Preserve a connection-loss error that may have
+	// arrived concurrently after Publish returned. Update-channel errors live
+	// separately and can only be cleared by a complete update-channel sync.
 	p.mu.Lock()
 	if p.connected {
 		p.lastError = ""
@@ -332,6 +396,244 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 		p.log.Debug("entity announced", "topic", topic)
 	}
 	return nil
+}
+
+func (p *Publisher) announceUpdate(client mqtt.Client, webURL string) error {
+	if p.updates == nil {
+		return nil
+	}
+
+	p.mu.RLock()
+	announced, subscribed := p.updateAnnounced, p.updateSubscribed
+	p.mu.RUnlock()
+	if !subscribed {
+		return fmt.Errorf("software update command subscription is not ready")
+	}
+	if announced {
+		return nil
+	}
+
+	topic, payload, err := updateDiscoveryMessage(p.cfg, webURL)
+	if err != nil {
+		return err
+	}
+	if err := publish(client, topic, payload, 1, true); err != nil {
+		return fmt.Errorf("publish software update discovery: %w", err)
+	}
+
+	p.mu.Lock()
+	p.updateAnnounced = true
+	p.mu.Unlock()
+	p.log.Debug("software update announced", "topic", topic)
+	return nil
+}
+
+// syncUpdateChannel is the single serialized path for subscription,
+// discovery, and retained state. A generation loop prevents an older state
+// read during reconnect from overwriting a newer updater callback.
+func (p *Publisher) syncUpdateChannel(client mqtt.Client) error {
+	if p.updates == nil {
+		return nil
+	}
+
+	p.updateSync.Lock()
+	defer p.updateSync.Unlock()
+
+	p.mu.RLock()
+	current, connected, subscribed := p.client == client, p.connected, p.updateSubscribed
+	p.mu.RUnlock()
+	if !current || !connected {
+		return nil
+	}
+	if err := p.ensureCommonAvailabilityForUpdates(client); err != nil {
+		return err
+	}
+
+	if !subscribed {
+		if err := p.publishUpdateAvailability(client, false); err != nil {
+			return err
+		}
+		if err := subscribe(client, p.cfg.UpdateCommandTopic(), 1, p.onUpdateCommand); err != nil {
+			return fmt.Errorf("subscribe to software update command: %w", err)
+		}
+		p.mu.Lock()
+		if p.client != client || !p.connected {
+			p.mu.Unlock()
+			return fmt.Errorf("broker disconnected while subscribing to software updates")
+		}
+		p.updateSubscribed = true
+		p.mu.Unlock()
+	}
+
+	webURL := p.currentWebURL()
+	p.forgetAnnouncementsIfURLChanged(webURL)
+
+	p.mu.Lock()
+	if p.updateGeneration == 0 {
+		p.updateState = cloneUpdateState(p.updates.State())
+		p.updateGeneration = 1
+	}
+	p.mu.Unlock()
+
+	for {
+		p.mu.RLock()
+		ready := p.client == client && p.connected && p.updateSubscribed
+		generation, published := p.updateGeneration, p.updatePublished
+		announced := p.updateAnnounced
+		state := cloneUpdateState(p.updateState)
+		p.mu.RUnlock()
+		if !ready {
+			return nil
+		}
+		if published < generation {
+			if err := p.publishUpdateAvailability(client, false); err != nil {
+				return err
+			}
+			if err := p.publishUpdateState(client, state); err != nil {
+				return err
+			}
+			p.mu.Lock()
+			if generation > p.updatePublished {
+				p.updatePublished = generation
+			}
+			p.mu.Unlock()
+			continue
+		}
+		if !announced {
+			if err := p.publishUpdateAvailability(client, false); err != nil {
+				return err
+			}
+			if err := p.announceUpdate(client, webURL); err != nil {
+				return err
+			}
+			continue
+		}
+		return p.publishUpdateAvailability(client, true)
+	}
+}
+
+// ensureCommonAvailabilityForUpdates establishes the two-topic availability
+// contract in a safe order. A retained update-offline guard exists before the
+// process-wide last-will topic is allowed online, so an older retained update
+// state can never become actionable during reconnect setup.
+func (p *Publisher) ensureCommonAvailabilityForUpdates(client mqtt.Client) error {
+	p.mu.RLock()
+	current := p.client == client && p.connected
+	commonAvailable := p.commonAvailable
+	p.mu.RUnlock()
+	if !current {
+		return errors.New("broker disconnected before publishing common availability")
+	}
+	if commonAvailable {
+		return nil
+	}
+	if err := p.publishUpdateAvailability(client, false); err != nil {
+		return err
+	}
+	if err := publish(client, p.cfg.AvailabilityTopic(), []byte(availableOnline), 1, true); err != nil {
+		return fmt.Errorf("publish common availability: %w", err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.client != client || !p.connected {
+		return errors.New("broker disconnected while publishing common availability")
+	}
+	p.commonAvailable = true
+	return nil
+}
+
+func (p *Publisher) publishUpdateAvailability(client mqtt.Client, available bool) error {
+	p.mu.RLock()
+	current := p.client == client && p.connected
+	known := p.updateAvailabilityKnown && p.updateAvailable == available
+	p.mu.RUnlock()
+	if !current {
+		return errors.New("broker disconnected before publishing software update availability")
+	}
+	if known {
+		return nil
+	}
+	payload := availableOffline
+	if available {
+		payload = availableOnline
+	}
+	if err := publish(client, p.cfg.UpdateAvailabilityTopic(), []byte(payload), 1, true); err != nil {
+		return fmt.Errorf("publish software update availability %s: %w", payload, err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.client != client || !p.connected {
+		return errors.New("broker disconnected while publishing software update availability")
+	}
+	p.updateAvailabilityKnown = true
+	p.updateAvailable = available
+	return nil
+}
+
+type updateStatePayload struct {
+	InstalledVersion string   `json:"installed_version,omitempty"`
+	LatestVersion    string   `json:"latest_version,omitempty"`
+	Title            string   `json:"title,omitempty"`
+	ReleaseSummary   string   `json:"release_summary,omitempty"`
+	ReleaseURL       string   `json:"release_url,omitempty"`
+	InProgress       bool     `json:"in_progress"`
+	UpdatePercentage *float64 `json:"update_percentage"`
+}
+
+func (p *Publisher) publishUpdateState(client mqtt.Client, state updater.State) error {
+	payload, err := json.Marshal(updateStatePayload{
+		InstalledVersion: state.InstalledVersion,
+		LatestVersion:    state.LatestVersion,
+		Title:            state.Title,
+		ReleaseSummary:   state.ReleaseSummary,
+		ReleaseURL:       state.ReleaseURL,
+		InProgress:       state.InProgress,
+		UpdatePercentage: state.UpdatePercentage,
+	})
+	if err != nil {
+		return fmt.Errorf("encode software update state: %w", err)
+	}
+	if err := publish(client, p.cfg.UpdateStateTopic(), payload, 1, true); err != nil {
+		return fmt.Errorf("publish software update state: %w", err)
+	}
+	return nil
+}
+
+func (p *Publisher) onUpdateStateChanged(state updater.State) {
+	if state.LastError != "" {
+		p.log.Error("software update", "error", state.LastError)
+	}
+
+	p.mu.Lock()
+	p.updateState = cloneUpdateState(state)
+	p.updateGeneration++
+	client, connected := p.client, p.connected
+	p.mu.Unlock()
+	if client == nil || !connected {
+		return
+	}
+	if err := p.syncUpdateChannel(client); err != nil {
+		p.recordUpdateError(err)
+	} else {
+		p.clearUpdateError()
+	}
+}
+
+func cloneUpdateState(state updater.State) updater.State {
+	if state.UpdatePercentage != nil {
+		percentage := *state.UpdatePercentage
+		state.UpdatePercentage = &percentage
+	}
+	return state
+}
+
+func (p *Publisher) onUpdateCommand(_ mqtt.Client, message mqtt.Message) {
+	if p.updates == nil || message.Retained() || message.Topic() != p.cfg.UpdateCommandTopic() || string(message.Payload()) != installPayload {
+		return
+	}
+	if err := p.updates.RequestInstall(); err != nil {
+		p.log.Warn("software update request rejected", "error", err)
+	}
 }
 
 // announceable reports whether a reading may be announced right now.
@@ -422,13 +724,17 @@ func (p *Publisher) flushPendingRetire(client mqtt.Client) {
 // empty retained payloads. Used when the node id or topic prefix changes, so
 // the old entities do not linger as unavailable leftovers.
 func (p *Publisher) ClearDiscovery() {
-	p.mu.RLock()
+	p.updateSync.Lock()
+	defer p.updateSync.Unlock()
+	p.mu.Lock()
 	client, connected := p.client, p.connected
 	refs := make([]EntityRef, 0, len(p.announced))
 	for _, ref := range p.announced {
 		refs = append(refs, ref)
 	}
-	p.mu.RUnlock()
+	clearUpdate := p.updates != nil
+	p.updateAnnounced = false
+	p.mu.Unlock()
 
 	if client == nil || !connected {
 		return
@@ -439,7 +745,15 @@ func (p *Publisher) ClearDiscovery() {
 			p.log.Warn("clear discovery failed", "topic", topic, "error", err)
 		}
 	}
-	p.log.Info("discovery cleared", "node_id", p.cfg.NodeID, "entities", len(refs))
+	entityCount := len(refs)
+	if clearUpdate {
+		topic := p.cfg.DiscoveryTopic("update", updateKey)
+		if err := publish(client, topic, nil, 1, true); err != nil {
+			p.log.Warn("clear software update discovery failed", "topic", topic, "error", err)
+		}
+		entityCount++
+	}
+	p.log.Info("discovery cleared", "node_id", p.cfg.NodeID, "entities", entityCount)
 }
 
 // legacyKeys are the entities the previous application name published. They
@@ -466,17 +780,40 @@ func (p *Publisher) clearLegacyDiscovery(client mqtt.Client) {
 // Stop announces offline and closes the connection.
 func (p *Publisher) Stop() {
 	p.stopOnce.Do(func() { close(p.stop) })
+	p.updateSync.Lock()
+	defer p.updateSync.Unlock()
 
 	p.mu.Lock()
 	client := p.client
+	stopUpdates := p.stopUpdates
+	updateSubscribed := p.updateSubscribed
+	p.stopUpdates = nil
 	p.client = nil
 	p.connected = false
+	p.updateSubscribed = false
+	p.updateAnnounced = false
+	p.commonAvailable = false
+	p.updateAvailabilityKnown = false
+	p.updateAvailable = false
 	p.mu.Unlock()
 
+	if stopUpdates != nil {
+		stopUpdates()
+	}
 	if client == nil {
 		return
 	}
 	if client.IsConnected() {
+		if p.updates != nil && updateSubscribed {
+			if err := unsubscribe(client, p.cfg.UpdateCommandTopic()); err != nil {
+				p.log.Warn("unsubscribe from software update command failed", "error", err)
+			}
+		}
+		if p.updates != nil {
+			if err := publish(client, p.cfg.UpdateAvailabilityTopic(), []byte(availableOffline), 1, true); err != nil {
+				p.log.Warn("publish software update offline failed", "error", err)
+			}
+		}
 		if err := publish(client, p.cfg.AvailabilityTopic(), []byte(availableOffline), 1, true); err != nil {
 			p.log.Warn("publish offline failed", "error", err)
 		}
@@ -488,8 +825,11 @@ func (p *Publisher) Stop() {
 // Status reports the current connection state.
 func (p *Publisher) Status() export.Status {
 	p.mu.RLock()
-	connected, lastError := p.connected, p.lastError
+	connected, lastError, updateError := p.connected, p.lastError, p.updateError
 	p.mu.RUnlock()
+	if updateError != "" {
+		lastError = updateError
+	}
 
 	lang := p.cfg.Lang()
 	failed := lastError != ""
@@ -523,12 +863,41 @@ func (p *Publisher) recordError(err error) {
 	p.log.Error("mqtt", "error", err)
 }
 
+func (p *Publisher) recordUpdateError(err error) {
+	p.mu.Lock()
+	p.updateError = err.Error()
+	p.mu.Unlock()
+	p.log.Error("mqtt software update", "error", err)
+}
+
+func (p *Publisher) clearUpdateError() {
+	p.mu.Lock()
+	p.updateError = ""
+	p.mu.Unlock()
+}
+
 // publish waits for the broker to acknowledge, so callers see failures
 // instead of silently dropping messages into paho's queue.
 func publish(client mqtt.Client, topic string, payload []byte, qos byte, retain bool) error {
 	token := client.Publish(topic, qos, retain, payload)
 	if !token.WaitTimeout(publishTimeout) {
 		return fmt.Errorf("timeout publishing to %s", topic)
+	}
+	return token.Error()
+}
+
+func subscribe(client mqtt.Client, topic string, qos byte, handler mqtt.MessageHandler) error {
+	token := client.Subscribe(topic, qos, handler)
+	if !token.WaitTimeout(publishTimeout) {
+		return fmt.Errorf("timeout subscribing to %s", topic)
+	}
+	return token.Error()
+}
+
+func unsubscribe(client mqtt.Client, topic string) error {
+	token := client.Unsubscribe(topic)
+	if !token.WaitTimeout(publishTimeout) {
+		return fmt.Errorf("timeout unsubscribing from %s", topic)
 	}
 	return token.Error()
 }

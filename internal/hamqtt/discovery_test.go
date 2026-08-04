@@ -2,6 +2,7 @@ package hamqtt
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -165,6 +166,61 @@ func TestDiscoveryNamesEntitiesAfterTheHost(t *testing.T) {
 	}
 	if len(payload.Device.Identifiers) != 1 || payload.Device.Identifiers[0] != "rig_corganpc2" {
 		t.Errorf("device identifiers = %v", payload.Device.Identifiers)
+	}
+}
+
+// Software updates belong to the same device as its telemetry, but use Home
+// Assistant's native update domain so the normal update card can install one.
+func TestSoftwareUpdateDiscoveryOffersAShortLivedInstallCommand(t *testing.T) {
+	cfg := testConfig()
+	topic, raw, err := updateDiscoveryMessage(cfg, "http://127.0.0.1:48352")
+	if err != nil {
+		t.Fatalf("updateDiscoveryMessage: %v", err)
+	}
+	if want := "homeassistant/update/rig_corganpc2/software/config"; topic != want {
+		t.Errorf("topic = %q, want %q", topic, want)
+	}
+
+	var payload updateDiscoveryPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.DefaultEntityID != "update.re_corganpc2_software" {
+		t.Errorf("default_entity_id = %q", payload.DefaultEntityID)
+	}
+	if payload.ObjectID != cfg.ObjectID("software") || payload.UniqueID != cfg.UniqueID("software") {
+		t.Errorf("identifiers = %q / %q", payload.ObjectID, payload.UniqueID)
+	}
+	if payload.StateTopic != cfg.UpdateStateTopic() || payload.CommandTopic != cfg.UpdateCommandTopic() {
+		t.Errorf("topics = %q / %q", payload.StateTopic, payload.CommandTopic)
+	}
+	if payload.AvailabilityMode != "all" {
+		t.Errorf("availability_mode = %q, want all", payload.AvailabilityMode)
+	}
+	wantAvailability := []availabilityTopic{
+		{Topic: cfg.AvailabilityTopic(), PayloadAvailable: availableOnline, PayloadNotAvailable: availableOffline},
+		{Topic: cfg.UpdateAvailabilityTopic(), PayloadAvailable: availableOnline, PayloadNotAvailable: availableOffline},
+	}
+	if !reflect.DeepEqual(payload.Availability, wantAvailability) {
+		t.Errorf("availability = %#v, want %#v", payload.Availability, wantAvailability)
+	}
+	if strings.Contains(string(raw), "availability_topic") {
+		t.Errorf("update discovery mixes availability list with availability_topic: %s", raw)
+	}
+	if payload.PayloadInstall != "install" || payload.QoS != 1 || payload.Retain {
+		t.Errorf("command = payload %q, qos %d, retain %v", payload.PayloadInstall, payload.QoS, payload.Retain)
+	}
+	if payload.MessageExpiryInterval.Seconds != 30 {
+		t.Errorf("command expiry = %d seconds, want 30", payload.MessageExpiryInterval.Seconds)
+	}
+	if payload.EntityCategory != "config" {
+		t.Errorf("entity_category = %q, want config", payload.EntityCategory)
+	}
+	if strings.Contains(string(raw), "device_class") {
+		t.Errorf("application software was advertised as device firmware: %s", raw)
+	}
+	if payload.Device.ConfigURL != "http://127.0.0.1:48352" {
+		t.Errorf("configuration_url = %q", payload.Device.ConfigURL)
 	}
 }
 

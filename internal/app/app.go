@@ -22,7 +22,14 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/rtss"
 	"github.com/corgan2222/rig-exporter/internal/sysinfo"
+	"github.com/corgan2222/rig-exporter/internal/updater"
 )
+
+type updateController interface {
+	updater.Controller
+	Start()
+	Stop()
+}
 
 // Status is a consistent view of everything the UI shows.
 type Status struct {
@@ -51,6 +58,7 @@ type App struct {
 	cfgPath string
 	system  *sysinfo.Provider
 	reader  rtss.Reader
+	updates updateController
 
 	mu        sync.RWMutex
 	cfg       config.Config
@@ -99,12 +107,13 @@ func (a *App) currentWebURL() string {
 }
 
 // New builds the runtime. cfgPath is where ApplyConfig persists changes.
-func New(cfg config.Config, cfgPath string, log *slog.Logger) *App {
+func New(cfg config.Config, cfgPath string, log *slog.Logger, updates updateController) *App {
 	a := &App{
 		log:     log,
 		cfgPath: cfgPath,
 		system:  sysinfo.New(),
 		cfg:     cfg,
+		updates: updates,
 		stop:    make(chan struct{}),
 		restart: make(chan struct{}, 1),
 		done:    make(chan struct{}),
@@ -154,6 +163,9 @@ func (a *App) Start() {
 	a.runners = live
 	a.mu.Unlock()
 
+	if a.updates != nil {
+		a.updates.Start()
+	}
 	go a.loop()
 }
 
@@ -177,6 +189,9 @@ func (a *App) Stop() {
 		return // already stopping
 	default:
 		close(a.stop)
+	}
+	if a.updates != nil {
+		a.updates.Stop()
 	}
 	<-a.done
 
@@ -603,7 +618,7 @@ func (a *App) buildRunners(cfg config.Config, log *slog.Logger) []*runner {
 	var runners []*runner
 
 	if cfg.MQTTEnabled {
-		runners = append(runners, newRunner(hamqtt.New(cfg, log, a.currentWebURL), log))
+		runners = append(runners, newRunner(hamqtt.New(cfg, log, a.currentWebURL, a.updates), log))
 	}
 	if cfg.DataServerEnabled {
 		runners = append(runners, newRunner(dataserver.New(cfg, log), log))

@@ -11,6 +11,8 @@ import (
 const (
 	availableOnline  = "online"
 	availableOffline = "offline"
+	updateKey        = "software"
+	installPayload   = "install"
 
 	projectURL = "https://github.com/corgan2222/rig-exporter"
 )
@@ -30,6 +32,37 @@ type originInfo struct {
 	Name       string `json:"name"`
 	SWVersion  string `json:"sw_version"`
 	SupportURL string `json:"support_url"`
+}
+
+type messageExpiryInterval struct {
+	Seconds int `json:"seconds"`
+}
+
+type availabilityTopic struct {
+	Topic               string `json:"topic"`
+	PayloadAvailable    string `json:"payload_available"`
+	PayloadNotAvailable string `json:"payload_not_available"`
+}
+
+// updateDiscoveryPayload is deliberately separate from discoveryPayload:
+// Home Assistant's update domain has a command interface and no measurement
+// attributes such as units, state classes or device classes.
+type updateDiscoveryPayload struct {
+	Name                  string                `json:"name"`
+	DefaultEntityID       string                `json:"default_entity_id"`
+	ObjectID              string                `json:"object_id"`
+	UniqueID              string                `json:"unique_id"`
+	StateTopic            string                `json:"state_topic"`
+	CommandTopic          string                `json:"command_topic"`
+	PayloadInstall        string                `json:"payload_install"`
+	Availability          []availabilityTopic   `json:"availability"`
+	AvailabilityMode      string                `json:"availability_mode"`
+	QoS                   byte                  `json:"qos"`
+	Retain                bool                  `json:"retain"`
+	MessageExpiryInterval messageExpiryInterval `json:"message_expiry_interval"`
+	EntityCategory        string                `json:"entity_category"`
+	Device                deviceInfo            `json:"device"`
+	Origin                originInfo            `json:"origin"`
 }
 
 // discoveryPayload is the JSON published to the discovery topic. Fields are
@@ -87,6 +120,25 @@ func configURL(cfg config.Config, webURL string) string {
 	return cfg.WebURL()
 }
 
+func deviceFor(cfg config.Config, webURL string) deviceInfo {
+	return deviceInfo{
+		Identifiers:  []string{cfg.DeviceIdentifier()},
+		Name:         cfg.DeviceName,
+		Manufacturer: config.AppName,
+		Model:        "PC telemetry",
+		SWVersion:    config.Version,
+		ConfigURL:    configURL(cfg, webURL),
+	}
+}
+
+func originFor() originInfo {
+	return originInfo{
+		Name:       config.AppName,
+		SWVersion:  config.Version,
+		SupportURL: projectURL,
+	}
+}
+
 func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discoveryPayload {
 	key := r.Key()
 
@@ -112,19 +164,8 @@ func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discovery
 		StateClass:          r.Def.StateClass,
 		EntityCategory:      r.Def.EntityCategory,
 		Icon:                r.Def.Icon,
-		Device: deviceInfo{
-			Identifiers:  []string{cfg.DeviceIdentifier()},
-			Name:         cfg.DeviceName,
-			Manufacturer: config.AppName,
-			Model:        "PC telemetry",
-			SWVersion:    config.Version,
-			ConfigURL:    configURL(cfg, webURL),
-		},
-		Origin: originInfo{
-			Name:       config.AppName,
-			SWVersion:  config.Version,
-			SupportURL: projectURL,
-		},
+		Device:              deviceFor(cfg, webURL),
+		Origin:              originFor(),
 	}
 
 	switch r.Def.Kind {
@@ -154,6 +195,37 @@ func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discovery
 		payload.SuggestedPrecision = &precision
 	}
 	return payload
+}
+
+func updateDiscoveryFor(cfg config.Config, webURL string) updateDiscoveryPayload {
+	return updateDiscoveryPayload{
+		Name:            "Software",
+		DefaultEntityID: "update." + cfg.ObjectID(updateKey),
+		ObjectID:        cfg.ObjectID(updateKey),
+		UniqueID:        cfg.UniqueID(updateKey),
+		StateTopic:      cfg.UpdateStateTopic(),
+		CommandTopic:    cfg.UpdateCommandTopic(),
+		PayloadInstall:  installPayload,
+		Availability: []availabilityTopic{
+			{Topic: cfg.AvailabilityTopic(), PayloadAvailable: availableOnline, PayloadNotAvailable: availableOffline},
+			{Topic: cfg.UpdateAvailabilityTopic(), PayloadAvailable: availableOnline, PayloadNotAvailable: availableOffline},
+		},
+		AvailabilityMode:      "all",
+		QoS:                   1,
+		Retain:                false,
+		MessageExpiryInterval: messageExpiryInterval{Seconds: 30},
+		EntityCategory:        "config",
+		Device:                deviceFor(cfg, webURL),
+		Origin:                originFor(),
+	}
+}
+
+func updateDiscoveryMessage(cfg config.Config, webURL string) (string, []byte, error) {
+	payload, err := json.Marshal(updateDiscoveryFor(cfg, webURL))
+	if err != nil {
+		return "", nil, fmt.Errorf("encode software update discovery: %w", err)
+	}
+	return cfg.DiscoveryTopic("update", updateKey), payload, nil
 }
 
 // discoveryMessage returns the topic and payload announcing one reading.

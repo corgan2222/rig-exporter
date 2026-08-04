@@ -22,7 +22,7 @@ func TestTheIdlePaceAppliesWhileNothingIsRendering(t *testing.T) {
 	cfg.IdlePublishIntervalMs = 10000
 	cfg.Normalize()
 
-	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard())
+	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard(), nil)
 
 	if got := application.pollsPerPublish(true); got != 4 {
 		t.Errorf("rendering: got %d reads per export, want 4 (2000/500)", got)
@@ -41,7 +41,7 @@ func TestThePaceNeverCollapsesToEveryRead(t *testing.T) {
 	cfg.IdlePublishIntervalMs = 1000
 	cfg.Normalize()
 
-	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard())
+	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard(), nil)
 
 	for _, rendering := range []bool{true, false} {
 		if got := application.pollsPerPublish(rendering); got != 1 {
@@ -88,7 +88,7 @@ func TestDecimalsFollowTheConfiguration(t *testing.T) {
 
 	cfg := config.Defaults()
 	cfg.Decimals = false
-	New(cfg, t.TempDir()+`\config.json`, applog.Discard())
+	New(cfg, t.TempDir()+`\config.json`, applog.Discard(), nil)
 
 	if metrics.Decimals() {
 		t.Fatal("decimals are still on although the configuration switched them off")
