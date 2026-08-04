@@ -172,7 +172,7 @@ func (s *Server) guard(enabled bool, next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !s.authorized(r) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="fps2mqtt"`)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+config.AppName+`"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
