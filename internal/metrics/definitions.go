@@ -319,6 +319,12 @@ var (
 		Prom: "rig_gpu_vendor_info", PromLabel: "vendor", Help: "Graphics card manufacturer",
 		EntityCategory: "diagnostic", Icon: "mdi:factory",
 	}
+	GPUDriverVersion = Definition{
+		ID: "gpu_driver_version", Name: i18n.Text{DE: "Treiberversion", EN: "Driver version"},
+		Kind: KindText, InstanceLabel: "gpu", Group: GroupGPU,
+		Prom: "rig_gpu_driver_info", PromLabel: "version", Help: "Installed graphics driver version",
+		EntityCategory: "diagnostic", Icon: "mdi:file-cog",
+	}
 	GPULoad = Definition{
 		ID: "gpu_load", Name: i18n.Text{DE: "Auslastung", EN: "Load"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
@@ -365,6 +371,20 @@ var (
 		Unit: "MB", Kind: KindGauge,
 		Group: GroupGPU, InstanceLabel: "gpu",
 		Prom: "rig_gpu_vram_total_megabytes", Help: "Total graphics memory",
+		EntityCategory: "diagnostic", Icon: "mdi:memory",
+	}
+	GPUDedicatedMemoryTotal = Definition{
+		ID: "gpu_dedicated_memory_total", Name: i18n.Text{DE: "Dedizierter GPU-Speicher", EN: "Dedicated GPU memory"},
+		Unit: "MB", Kind: KindGauge,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_dedicated_memory_megabytes", Help: "Dedicated video memory reported by Windows",
+		EntityCategory: "diagnostic", Icon: "mdi:memory",
+	}
+	GPUSharedMemoryTotal = Definition{
+		ID: "gpu_shared_memory_total", Name: i18n.Text{DE: "Gemeinsamer GPU-Speicher", EN: "Shared GPU memory"},
+		Unit: "MB", Kind: KindGauge,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_shared_memory_megabytes", Help: "Maximum shared system memory available to the graphics adapter",
 		EntityCategory: "diagnostic", Icon: "mdi:memory",
 	}
 	GPUVRAMPercent = Definition{
@@ -767,8 +787,8 @@ var All = []Definition{
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,
 	RAMClock, RAMClockMax, RAMType, RAMModules, RAMSlots, RAMModule,
 
-	GPUName, GPUVendor, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
-	GPUVRAMUsed, GPUVRAMTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
+	GPUName, GPUVendor, GPUDriverVersion, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
+	GPUVRAMUsed, GPUVRAMTotal, GPUDedicatedMemoryTotal, GPUSharedMemoryTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
 	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
 
 	CPUModel, CPUVendor, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,

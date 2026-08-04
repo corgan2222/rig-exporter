@@ -15,8 +15,8 @@ import (
 // Source collects the GPU group.
 //
 // It re-picks its backing sources on every collection rather than latching one
-// at startup, so starting Afterburner mid-session upgrades the readings from
-// the NVML subset to the full set without a restart.
+// at startup, so starting Afterburner mid-session upgrades the Windows adapter
+// inventory to live telemetry without a restart.
 type Source struct {
 	afterburner afterburner.Reader
 	// lastSource records which backends produced the most recent readings,
@@ -32,14 +32,19 @@ func (s *Source) Group() metrics.Group { return metrics.GroupGPU }
 
 // Collect appends the GPU readings.
 //
-// Afterburner is preferred because it covers NVIDIA, AMD and Intel and reports
-// fan speed, voltage and the hotspot temperature that NVML does not. NVML then
-// fills whatever gaps are left — chiefly the total amount of graphics memory,
-// which Afterburner does not publish. The error is a diagnostic: no graphics
-// source at all is a normal state, not a failure of the exporter.
+// DXGI establishes a stable Windows adapter inventory first. Afterburner then
+// contributes live readings for NVIDIA, AMD and Intel, and NVML fills NVIDIA
+// gaps such as power and memory use. The error is a diagnostic: no graphics
+// adapter at all is a normal state, not a failure of the exporter.
 func (s *Source) Collect(set *metrics.Set) error {
 	var sources []string
 	cards := map[string]string{} // instance -> card name
+
+	if adapters, err := dxgiAdapters(); err == nil {
+		if mergeFromDXGI(set, adapters, cards) {
+			sources = append(sources, "Windows DXGI")
+		}
+	}
 
 	if snap, err := s.afterburner.Read(); err == nil && snap.CardCount() > 0 {
 		if collectFromAfterburner(set, snap, cards) > 0 {
@@ -55,12 +60,15 @@ func (s *Source) Collect(set *metrics.Set) error {
 
 	if len(sources) == 0 {
 		s.lastSource = ""
-		return fmt.Errorf("no graphics telemetry source: neither MSI Afterburner nor NVML is available")
+		return fmt.Errorf("no graphics adapter found: Windows DXGI, MSI Afterburner, and NVML are unavailable")
 	}
 
 	// Derived once per card from the name, after both collectors have had their
 	// say, so the answer does not depend on which of them named the card.
 	for instance, name := range cards {
+		if _, exists := set.Find(metrics.GPUVendor.ID, instance); exists {
+			continue
+		}
 		if vendor := vendorOf(name); vendor != "" {
 			set.Add(metrics.Text(metrics.GPUVendor, instance, vendor))
 		}
@@ -127,6 +135,14 @@ var afterburnerSensors = []afterburnerSensor{
 // records their names in cards, and reports how many sensors were found.
 func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards map[string]string) int {
 	found := 0
+	named := make([]namedCard, snap.CardCount())
+	for index := range named {
+		named[index].Index = index
+		if index < len(snap.GPUs) {
+			named[index].Name = snap.GPUs[index].Device
+		}
+	}
+	instances := assignNamedInstances(named, cards)
 
 	// This source draws on two programs and hands off between them, so it says
 	// which is speaking rather than leaving the interface to guess.
@@ -135,15 +151,19 @@ func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards m
 	defer func() { set.Origin = previous }()
 
 	for index := 0; index < snap.CardCount(); index++ {
-		instance := strconv.Itoa(index)
+		instance := instances[index]
 
 		name := ""
 		if index < len(snap.GPUs) {
 			name = snap.GPUs[index].Device
 		}
 		if name != "" {
-			set.Add(metrics.Text(metrics.GPUName, instance, name))
-			cards[instance] = name
+			if _, exists := set.Find(metrics.GPUName.ID, instance); !exists {
+				set.Add(metrics.Text(metrics.GPUName, instance, name))
+			}
+			if _, exists := cards[instance]; !exists {
+				cards[instance] = name
+			}
 		}
 
 		for _, sensor := range afterburnerSensors {
@@ -156,6 +176,69 @@ func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards m
 		}
 	}
 	return found
+}
+
+// mergeFromDXGI adds the adapter facts Windows exposes without a vendor tool.
+// It deliberately contributes only inventory: DXGI does not report the live
+// temperature, clocks or utilisation that Afterburner and NVML provide.
+func mergeFromDXGI(set *metrics.Set, adapters []dxgiAdapter, cards map[string]string) bool {
+	added := false
+
+	previous := set.Origin
+	set.Origin = "Windows DXGI"
+	defer func() { set.Origin = previous }()
+
+	named := make([]namedCard, len(adapters))
+	for i, adapter := range adapters {
+		named[i] = namedCard{Index: adapter.Index, Name: adapter.Name}
+	}
+	instances := assignNamedInstances(named, cards)
+
+	for i, adapter := range adapters {
+		instance := instances[i]
+		cards[instance] = adapter.Name
+
+		addText := func(def metrics.Definition, value string) {
+			if value == "" {
+				return
+			}
+			if _, exists := set.Find(def.ID, instance); exists {
+				return
+			}
+			set.Add(metrics.Text(def, instance, value))
+			added = true
+		}
+		addMemory := func(def metrics.Definition, bytes uint64) {
+			if bytes == 0 {
+				return
+			}
+			if _, exists := set.Find(def.ID, instance); exists {
+				return
+			}
+			set.Add(metrics.Gauge(def, instance, float64(bytes)/(1024*1024)))
+			added = true
+		}
+
+		addText(metrics.GPUName, adapter.Name)
+		addText(metrics.GPUVendor, vendorFromPCI(adapter.VendorID))
+		addText(metrics.GPUDriverVersion, adapter.DriverVersion)
+		addMemory(metrics.GPUDedicatedMemoryTotal, adapter.DedicatedVideoMemory)
+		addMemory(metrics.GPUSharedMemoryTotal, adapter.SharedSystemMemory)
+	}
+	return added
+}
+
+func vendorFromPCI(id uint32) string {
+	switch id {
+	case 0x1002, 0x1022:
+		return "AMD"
+	case 0x10de:
+		return "NVIDIA"
+	case 0x8086:
+		return "Intel"
+	default:
+		return ""
+	}
 }
 
 // mergeFromNVML adds the readings NVML has that are still missing.
@@ -245,18 +328,46 @@ func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) b
 // entry than expected is a great deal easier to understand than two entries
 // quietly describing the same silicon.
 func assignInstances(nvml []nvmlCard, cards map[string]string) []string {
+	named := make([]namedCard, len(nvml))
+	for i, card := range nvml {
+		named[i] = namedCard{Index: card.Index, Name: card.Name}
+	}
+	return assignNamedInstances(named, cards)
+}
+
+type namedCard struct {
+	Index int
+	Name  string
+}
+
+// assignNamedInstances joins an independently enumerated card list onto the
+// stable instances already known. Names win over positions because Windows,
+// Afterburner and NVML can enumerate a hybrid laptop in different orders.
+func assignNamedInstances(incoming []namedCard, cards map[string]string) []string {
 	known := make([]string, 0, len(cards))
 	for instance := range cards {
 		known = append(known, instance)
 	}
 	sort.Slice(known, func(i, j int) bool { return metrics.LessInstance(known[i], known[j]) })
 
-	out := make([]string, len(nvml))
-	claimed := make(map[string]bool, len(nvml))
+	out := make([]string, len(incoming))
+	claimed := make(map[string]bool, len(incoming))
 
 	normalise := func(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
-	for i, card := range nvml {
+	for i, card := range incoming {
+		// A name-less Afterburner snapshot still has trustworthy sensor indices.
+		// Reusing an already inventoried card at that position is less surprising
+		// than inventing a duplicate card merely because the optional name array
+		// was not present in this shared-memory version.
+		if strings.TrimSpace(card.Name) == "" {
+			candidate := strconv.Itoa(card.Index)
+			if _, exists := cards[candidate]; exists && !claimed[candidate] {
+				out[i] = candidate
+				claimed[candidate] = true
+			}
+			continue
+		}
 		for _, instance := range known {
 			if claimed[instance] || normalise(cards[instance]) != normalise(card.Name) {
 				continue
@@ -267,7 +378,7 @@ func assignInstances(nvml []nvmlCard, cards map[string]string) []string {
 		}
 	}
 
-	for i, card := range nvml {
+	for i, card := range incoming {
 		if out[i] != "" {
 			continue
 		}

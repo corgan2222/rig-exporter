@@ -4,9 +4,13 @@ package gpu
 
 import (
 	"testing"
+	"unsafe"
 
+	"github.com/corgan2222/rig-exporter/internal/hardware/afterburner"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
+
+const mebibyte = 1024 * 1024
 
 func card(index int, name string) nvmlCard {
 	return nvmlCard{Index: index, Name: name}
@@ -119,4 +123,254 @@ func TestMergeWritesEachCardToItsOwnInstance(t *testing.T) {
 			t.Errorf("card %s VRAM = %v, want %v", instance, reading.Number, want)
 		}
 	}
+}
+
+func TestDXGIFillsIntegratedGPUInventoryWithoutThirdPartyTools(t *testing.T) {
+	set := &metrics.Set{}
+	cards := map[string]string{}
+	adapters := []dxgiAdapter{{
+		Index:                0,
+		Name:                 "Intel(R) Iris(R) Xe Graphics",
+		VendorID:             0x8086,
+		DriverVersion:        "31.0.101.5590",
+		DedicatedVideoMemory: 128 * mebibyte,
+		SharedSystemMemory:   8 * 1024 * mebibyte,
+	}}
+
+	if !mergeFromDXGI(set, adapters, cards) {
+		t.Fatal("mergeFromDXGI reported no readings")
+	}
+
+	assertTextReading(t, set, metrics.GPUName, "0", "Intel(R) Iris(R) Xe Graphics")
+	assertTextReading(t, set, metrics.GPUVendor, "0", "Intel")
+	assertTextReading(t, set, metrics.GPUDriverVersion, "0", "31.0.101.5590")
+	assertNumberReading(t, set, metrics.GPUDedicatedMemoryTotal, "0", 128)
+	assertNumberReading(t, set, metrics.GPUSharedMemoryTotal, "0", 8192)
+}
+
+func TestDXGIPreservesExistingTelemetryAndFillsItsGaps(t *testing.T) {
+	set := &metrics.Set{}
+	set.Add(
+		metrics.Text(metrics.GPUName, "0", "NVIDIA GeForce RTX 4090"),
+		metrics.Gauge(metrics.GPUVRAMTotal, "0", 24576),
+	)
+	cards := map[string]string{"0": "NVIDIA GeForce RTX 4090"}
+
+	mergeFromDXGI(set, []dxgiAdapter{{
+		Index:                0,
+		Name:                 "NVIDIA GeForce RTX 4090",
+		VendorID:             0x10de,
+		DedicatedVideoMemory: 16384 * mebibyte,
+		SharedSystemMemory:   32768 * mebibyte,
+	}}, cards)
+
+	assertNumberReading(t, set, metrics.GPUVRAMTotal, "0", 24576)
+	assertNumberReading(t, set, metrics.GPUDedicatedMemoryTotal, "0", 16384)
+	assertNumberReading(t, set, metrics.GPUSharedMemoryTotal, "0", 32768)
+	if got := countReadings(set, metrics.GPUName.ID, "0"); got != 1 {
+		t.Errorf("GPU name appears %d times, want 1", got)
+	}
+}
+
+func TestDXGIDedicatedMemoryAndNVMLVRAMStayDistinct(t *testing.T) {
+	set := &metrics.Set{}
+	cards := map[string]string{}
+	mergeFromDXGI(set, []dxgiAdapter{{
+		Index:                0,
+		Name:                 "NVIDIA GeForce RTX 4090",
+		VendorID:             0x10de,
+		DedicatedVideoMemory: 24000 * mebibyte,
+	}}, cards)
+
+	mergeFromNVML(set, []nvmlCard{{
+		Index: 0, Name: "NVIDIA GeForce RTX 4090",
+		VRAMTotalMB: 24576, hasVRAM: true,
+	}}, cards)
+
+	assertNumberReading(t, set, metrics.GPUVRAMTotal, "0", 24576)
+	assertNumberReading(t, set, metrics.GPUDedicatedMemoryTotal, "0", 24000)
+	if got := countReadings(set, metrics.GPUVRAMTotal.ID, "0"); got != 1 {
+		t.Errorf("GPU VRAM total appears %d times, want 1", got)
+	}
+	if got := countReadings(set, metrics.GPUDedicatedMemoryTotal.ID, "0"); got != 1 {
+		t.Errorf("GPU dedicated memory appears %d times, want 1", got)
+	}
+}
+
+func TestDXGIMatchesExistingCardsBeforeAssigningNewInstances(t *testing.T) {
+	set := &metrics.Set{}
+	cards := map[string]string{"0": "NVIDIA GeForce RTX 4070 Laptop GPU"}
+	adapters := []dxgiAdapter{
+		{Index: 0, Name: "Intel(R) Iris(R) Xe Graphics", VendorID: 0x8086},
+		{Index: 1, Name: "NVIDIA GeForce RTX 4070 Laptop GPU", VendorID: 0x10de},
+	}
+
+	mergeFromDXGI(set, adapters, cards)
+
+	if got := cards["0"]; got != "NVIDIA GeForce RTX 4070 Laptop GPU" {
+		t.Errorf("card 0 = %q, want the existing NVIDIA card", got)
+	}
+	if got := cards["1"]; got != "Intel(R) Iris(R) Xe Graphics" {
+		t.Errorf("card 1 = %q, want the newly discovered Intel card", got)
+	}
+}
+
+func TestAfterburnerUsesDXGIInstancesInsteadOfItsOwnEnumerationOrder(t *testing.T) {
+	set := &metrics.Set{}
+	cards := map[string]string{
+		"0": "Intel(R) Iris(R) Xe Graphics",
+		"1": "NVIDIA GeForce RTX 4070 Laptop GPU",
+	}
+	snap := afterburner.Snapshot{
+		GPUs: []afterburner.GPU{
+			{Index: 0, Device: "NVIDIA GeForce RTX 4070 Laptop GPU"},
+			{Index: 1, Device: "Intel(R) Iris(R) Xe Graphics"},
+		},
+		Entries: []afterburner.Entry{
+			{Source: "GPU1 usage", Units: "%", Value: 75, GPU: 0},
+			{Source: "GPU2 usage", Units: "%", Value: 25, GPU: 1},
+		},
+	}
+
+	collectFromAfterburner(set, snap, cards)
+
+	assertNumberReading(t, set, metrics.GPULoad, "0", 25)
+	assertNumberReading(t, set, metrics.GPULoad, "1", 75)
+}
+
+func TestPCIAdapterVendorNames(t *testing.T) {
+	for id, want := range map[uint32]string{
+		0x1002: "AMD",
+		0x10de: "NVIDIA",
+		0x8086: "Intel",
+	} {
+		if got := vendorFromPCI(id); got != want {
+			t.Errorf("vendorFromPCI(%#x) = %q, want %q", id, got, want)
+		}
+	}
+	if got := vendorFromPCI(0xffff); got != "" {
+		t.Errorf("vendorFromPCI(unknown) = %q, want empty", got)
+	}
+}
+
+func TestPCIHardwareIDParsing(t *testing.T) {
+	got, ok := parsePCIHardwareID(`PCI\VEN_10DE&DEV_1E87&SUBSYS_1E8710B0&REV_A1`)
+	if !ok {
+		t.Fatal("parsePCIHardwareID rejected a display adapter hardware ID")
+	}
+	want := pciAdapterID{VendorID: 0x10de, DeviceID: 0x1e87}
+	if got != want {
+		t.Errorf("parsePCIHardwareID = %+v, want %+v", got, want)
+	}
+
+	if _, ok := parsePCIHardwareID(`ROOT\VIRTUAL_DISPLAY`); ok {
+		t.Error("parsePCIHardwareID accepted a non-PCI device")
+	}
+}
+
+func TestPlugAndPlayInventoryRemovesSessionDuplicates(t *testing.T) {
+	adapter := dxgiAdapter{
+		Name: "NVIDIA GeForce RTX 2080", VendorID: 0x10de,
+		DeviceID: 0x1e87, SubSystemID: 0x1e8710b0,
+	}
+	adapters := []dxgiAdapter{adapter, adapter}
+	devices := map[pciAdapterID]plugAndPlayAdapter{{
+		VendorID: 0x10de, DeviceID: 0x1e87,
+	}: {Count: 1, DriverVersion: "32.0.15.1234"}}
+
+	got := limitAdaptersToPlugAndPlay(adapters, devices)
+	if len(got) != 1 {
+		t.Fatalf("kept %d adapters, want the one physical device", len(got))
+	}
+	if got[0].Index != 0 {
+		t.Errorf("retained adapter index = %d, want compact index 0", got[0].Index)
+	}
+	if got[0].DriverVersion != "32.0.15.1234" {
+		t.Errorf("retained adapter driver = %q, want Plug and Play version", got[0].DriverVersion)
+	}
+}
+
+func TestPlugAndPlayInventoryPreservesTwoIdenticalPhysicalCards(t *testing.T) {
+	adapter := dxgiAdapter{
+		Name: "NVIDIA GeForce RTX 4090", VendorID: 0x10de,
+		DeviceID: 0x2684, SubSystemID: 0x00000000,
+	}
+	adapters := []dxgiAdapter{adapter, adapter, adapter}
+	devices := map[pciAdapterID]plugAndPlayAdapter{{
+		VendorID: 0x10de, DeviceID: 0x2684,
+	}: {Count: 2}}
+
+	got := limitAdaptersToPlugAndPlay(adapters, devices)
+	if len(got) != 2 {
+		t.Fatalf("kept %d adapters, want both physical cards", len(got))
+	}
+	if got[0].Index != 0 || got[1].Index != 1 {
+		t.Errorf("retained adapter indices = [%d %d], want [0 1]", got[0].Index, got[1].Index)
+	}
+}
+
+func TestPlugAndPlayMatchingDoesNotDependOnOptionalSubsystemID(t *testing.T) {
+	adapters := []dxgiAdapter{{
+		Name: "Intel(R) Iris(R) Xe Graphics", VendorID: 0x8086,
+		DeviceID: 0x46a8, SubSystemID: 0x12345678,
+	}}
+	devices := map[pciAdapterID]plugAndPlayAdapter{{
+		VendorID: 0x8086, DeviceID: 0x46a8,
+	}: {Count: 1}}
+
+	got := limitAdaptersToPlugAndPlay(adapters, devices)
+	if len(got) != 1 {
+		t.Fatalf("kept %d adapters, want the Intel device despite the optional subsystem ID", len(got))
+	}
+}
+
+func TestDXGIInventorySurvivesUnavailablePlugAndPlayInventory(t *testing.T) {
+	adapters := []dxgiAdapter{{Index: 4, Name: "Intel Iris Xe", VendorID: 0x8086}}
+
+	got := limitAdaptersToPlugAndPlay(adapters, nil)
+	if len(got) != 1 || got[0].Name != "Intel Iris Xe" {
+		t.Fatalf("fallback adapters = %+v, want the DXGI inventory", got)
+	}
+	if got[0].Index != 0 {
+		t.Errorf("fallback adapter index = %d, want compact index 0", got[0].Index)
+	}
+}
+
+func TestDXGIAdapterDescriptionMatchesWindowsABI(t *testing.T) {
+	const wantSize = 312
+	if got := unsafe.Sizeof(dxgiAdapterDesc1{}); got != wantSize {
+		t.Fatalf("DXGI_ADAPTER_DESC1 size = %d, want %d bytes", got, wantSize)
+	}
+}
+
+func assertTextReading(t *testing.T, set *metrics.Set, def metrics.Definition, instance, want string) {
+	t.Helper()
+	reading, ok := set.Find(def.ID, instance)
+	if !ok {
+		t.Fatalf("no %s reading for card %s", def.ID, instance)
+	}
+	if reading.Text != want {
+		t.Errorf("%s card %s = %q, want %q", def.ID, instance, reading.Text, want)
+	}
+}
+
+func assertNumberReading(t *testing.T, set *metrics.Set, def metrics.Definition, instance string, want float64) {
+	t.Helper()
+	reading, ok := set.Find(def.ID, instance)
+	if !ok {
+		t.Fatalf("no %s reading for card %s", def.ID, instance)
+	}
+	if reading.Number != want {
+		t.Errorf("%s card %s = %v, want %v", def.ID, instance, reading.Number, want)
+	}
+}
+
+func countReadings(set *metrics.Set, id, instance string) int {
+	count := 0
+	for _, reading := range set.Readings {
+		if reading.Def.ID == id && reading.Instance == instance {
+			count++
+		}
+	}
+	return count
 }
