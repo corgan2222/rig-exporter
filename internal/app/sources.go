@@ -93,7 +93,13 @@ func (s *sensors) stop() {
 // Probe builds a collector with the configured sources for one-off use, such
 // as the -probe command line flag. The returned functions start and stop the
 // sources that run on their own schedule.
+//
+// The metrics options are applied here as well, not only in New. They are
+// package state in metrics, so a probe that skipped them reported the extended
+// set with decimals whatever the configuration said — and a diagnostic that
+// shows something other than what is published is worse than no diagnostic.
 func Probe(cfg config.Config, log *slog.Logger) (c *collector.Collector, start, stop func()) {
+	applyMetricsOptions(cfg)
 	collectorInstance, sensors := buildCollector(cfg, rtss.Reader{}, sysinfo.New(), log)
 	return collectorInstance, sensors.start, sensors.stop
 }
@@ -112,9 +118,7 @@ func sensorsChanged(a, b config.Config) bool {
 		a.PingCount != b.PingCount ||
 		a.PingIntervalMs != b.PingIntervalMs ||
 		a.IdleTimeoutMs != b.IdleTimeoutMs ||
-		// Debug decides whether the collector measures this process itself, so
-		// it changes which readings exist and not just what lands in the log.
-		a.Debug != b.Debug {
+		a.SelfUsageEnabled != b.SelfUsageEnabled {
 		return true
 	}
 	return !sameStrings(a.DiskInclude, b.DiskInclude)

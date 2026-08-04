@@ -27,13 +27,13 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 57 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 59 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
 * **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
   Problems, im Alltag selten.
 
-Auf dem Entwicklungsrechner sind das 132 Werte gegenüber 89. Welcher Messwert in
+Auf dem Entwicklungsrechner sind das 134 Werte gegenüber 91. Welcher Messwert in
 welchem Satz steckt, listet die Einstellungsseite ausklappbar auf — erzeugt aus
 dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
 nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
@@ -66,9 +66,10 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
-| **Netzwerk** | Adapter, Link-Speed, Durchsatz, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
+| **Netzwerk** | Adapter, Link-Speed, Download- und Upload-Rate, empfangene und gesendete Gesamtmenge, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
+| **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
 
-Auf dem Entwicklungsrechner ergibt das rund 132 Werte: zwei Grafikkarten, vier
+Auf dem Entwicklungsrechner ergibt das rund 134 Werte: zwei Grafikkarten, vier
 NVMe, ein aktiver Adapter. „Rund", weil die Zahl der Hardware folgt — einem
 Laufwerk ohne auslesbaren Hersteller fehlt dieser eine Wert, und niemand
 erfindet ihn.
@@ -162,6 +163,33 @@ Ping und Paketverlust laufen in einem eigenen Takt, unabhängig vom
 Sendeintervall: eine Runde gegen einen nicht erreichbaren Host dauert Sekunden
 und darf die Messschleife nicht blockieren. Ziel ist standardmäßig das
 Default-Gateway.
+
+**Rate und Menge sind zwei verschiedene Werte.** Pro Adapter gibt es beides:
+
+| Feld | Anzeige | Bedeutung |
+|---|---|---|
+| `net_rx` | Download | aktuelle Rate in Mbit/s |
+| `net_tx` | Upload | aktuelle Rate in Mbit/s |
+| `net_rx_total` | Empfangen gesamt | Datenmenge in GB, seit der Adapter oben ist |
+| `net_tx_total` | Gesendet gesamt | Datenmenge in GB, seit der Adapter oben ist |
+
+Die beiden Raten hießen bis 1.5.2 „Empfangen" und „Gesendet" — was sich auf
+einer Geräteseite wie eine Summe liest, obwohl Mbit/s eine Geschwindigkeit ist.
+Nur der Anzeigename hat sich geändert; `net_rx` und `net_tx` heißen weiter so,
+weil Dashboards darauf zeigen.
+
+Die Summen sind die Zähler, die Windows je Interface führt, nicht eine
+zurückgerechnete Rate. Das ist der Unterschied zwischen „gemessen" und
+„geschätzt": eine Riemann-Summe über eine 2-Sekunden-Reihe verliert jeden
+Verkehr, der zwischen zwei Messungen lag. Sie tragen `state_class:
+total_increasing` — damit weiß Home Assistant, dass ein Rückfall auf 0 ein
+Zählerneustart ist und kein negativer Verkehr. Windows setzt diese Zähler
+nämlich zurück, wenn ein Adapter neu konfiguriert wird.
+
+GB heißt hier 2³⁰ Byte, wie überall sonst im Katalog und wie im Windows
+Explorer. Deshalb tragen die beiden bewusst **keine** `device_class`: Home
+Assistant würde `data_size` als 10⁹ lesen und beim Umrechnen von der falschen
+Grundlage ausgehen.
 
 ---
 
@@ -284,7 +312,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ### Wo Home Assistant die Werte einsortiert
 
-49 Messwerte stehen im Hauptbereich, 34 unter **Diagnose**, 7 werden gar nicht
+51 Messwerte stehen im Hauptbereich, 34 unter **Diagnose**, 7 werden gar nicht
 als Entität veröffentlicht. Die Regel dahinter:
 
 * **Diagnose** — Tatsachen *über* die Maschine statt Messungen *an* ihr: Modell,
@@ -468,6 +496,29 @@ Unten auf jeder Seite öffnen drei Schaltflächen die Konfiguration, das Log und
 den Ordner darum. Der Umweg über den Server ist nötig, weil ein Browser einem
 `file://`-Link von einer `http`-Seite aus nicht folgt.
 
+### Oberfläche im Netzwerk
+
+Voreingestellt lauscht die Oberfläche nur auf `127.0.0.1` — erreichbar also von
+diesem Rechner und von sonst niemandem. **Diese Seite im Netzwerk erreichbar
+machen** unter *Anwendung* bindet stattdessen an `0.0.0.0`, womit sie unter der
+LAN-Adresse dieses PCs offensteht. Wirkt nach einem Neustart, wie die
+Portänderung darüber.
+
+> **Was das bedeutet:** auf dieser Seite stehen alle Einstellungen, das
+> MQTT-Passwort und das InfluxDB-Token eingeschlossen, und es gibt **keine
+> Anmeldung**. Wer die Adresse kennt, kann alles lesen und ändern. Nur in einem
+> Netz einschalten, dem man vertraut — und niemals ins Internet weiterleiten.
+
+Zwei Dinge folgen automatisch mit: der oberste Tray-Eintrag und der
+„Visit"-Link auf der Home-Assistant-Geräteseite zeigen dann auf die LAN-Adresse
+statt auf `127.0.0.1`. Der Link funktioniert damit auch vom Handy aus. Die
+Adresse wird über die Default-Route ermittelt und nicht aus dem Rechnernamen
+gebaut, weil eine Adresse auch dort funktioniert, wo die Namensauflösung im
+lokalen Netz es nicht tut.
+
+Der Datenserver darunter ist davon unabhängig: der lauscht seit jeher auf
+`0.0.0.0`, kennt aber ein Token.
+
 ## Auslesen und Senden
 
 Ein Takt fürs Auslesen, zwei fürs Senden:
@@ -566,11 +617,12 @@ geschrieben, sobald sie feststeht. Das ist nötig, weil Discovery retained ist:
 eine einmal mit dem falschen Port veröffentlichte Nachricht bliebe sonst falsch,
 bis sie jemand überschreibt.
 
-Die Adresse ist `http://127.0.0.1:<port>`, denn die Oberfläche lauscht
-ausschließlich auf Loopback. Der Link funktioniert also, wenn Home Assistant im
-Browser **auf diesem PC** geöffnet ist — vom Handy aus nicht. Das ist Absicht:
-in den Einstellungen steht das MQTT-Passwort, und die ins Netz zu hängen wäre
-eine andere Entscheidung als „zeig mir einen Link".
+Welche Adresse dort steht, hängt davon ab, worauf der Server lauscht. In der
+Voreinstellung ist das nur Loopback, also `http://127.0.0.1:<port>` — der Link
+funktioniert dann, wenn Home Assistant im Browser **auf diesem PC** geöffnet
+ist, vom Handy aus nicht. Ist **Diese Seite im Netzwerk erreichbar machen**
+gesetzt, steht dort die LAN-Adresse dieses Rechners und der Link funktioniert
+von überall. Siehe [Oberfläche im Netzwerk](#oberfläche-im-netzwerk).
 
 ### 2. HTTP-Datenserver (Pull)
 
@@ -726,7 +778,7 @@ und ihr Pfad steht am Ende der Ausgabe.
 
 ### Was der Exporter selbst kostet
 
-Mit **Debug-Logging** kommen zwei weitere Werte dazu, und nur dann:
+Eine eigene Sensorgruppe, unter der Latenzmessung, standardmäßig **aus**:
 
 | Feld | Bedeutung |
 |---|---|
@@ -739,14 +791,14 @@ denselben Nenner wie der Task-Manager: 100 % hieße jeder Kern ausgelastet, nich
 einer. Die erste Messung nach dem Start meldet 0 %, weil eine Differenz zwei
 Messungen braucht.
 
-Standardmäßig aus, weil zwei Werte, die fast immer flach sind, zwei Entities
-sind, nach denen niemand gefragt hat — und ein Prozentwert, der den ganzen Tag
-0,0 zeigt, sieht nach einem kaputten Sensor aus statt nach einem sparsamen
-Programm. Wer Debug einschaltet, hat gefragt.
+Aus, solange niemand fragt — zwei Werte, die fast immer flach sind, sind zwei
+Entities, nach denen niemand gefragt hat, und ein Prozentwert, der den ganzen
+Tag 0,0 zeigt, sieht nach einem kaputten Sensor aus statt nach einem sparsamen
+Programm.
 
-Die beiden Werte erscheinen sofort nach dem Speichern, ohne Neustart; nur der
-Loglevel selbst braucht einen. Wird Debug wieder ausgeschaltet, verschwinden die
-beiden Entities auch in Home Assistant, dafür muss HA in dem Moment laufen.
+Die Werte erscheinen sofort nach dem Speichern, ohne Neustart. Beim Ausschalten
+verschwinden die beiden Entities auch in Home Assistant, dafür muss HA in dem
+Moment laufen.
 
 ## Wie die Werte zustande kommen
 
@@ -900,7 +952,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-242 Testfunktionen in 33 Dateien. Abgedeckt sind: die drei Parser, die
+247 Testfunktionen in 34 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

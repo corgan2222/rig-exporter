@@ -65,6 +65,8 @@ var standardSet = map[string]bool{
 	"net_link":                  true,
 	"net_rx":                    true,
 	"net_tx":                    true,
+	"net_rx_total":              true,
+	"net_tx_total":              true,
 	"net_type":                  true,
 	"net_wifi_signal":           true,
 	"os_version":                true,
@@ -76,10 +78,10 @@ var standardSet = map[string]bool{
 	"ram_used_mb":               true,
 	"uptime":                    true,
 	"version":                   true,
-	// The two self-usage figures are in the standard set because the setting
-	// that decides whether they exist at all is debug logging, not this one.
-	// Being filtered out here by a switch that has nothing to do with them
-	// would leave somebody who turned debugging on with nothing to look at.
+	// The two self-usage figures are in the standard set because their own
+	// sensor group already decides whether they exist at all. Being filtered
+	// out here as well would leave somebody who ticked that box with nothing
+	// to look at, for a reason they never touched.
 	"exporter_cpu":    true,
 	"exporter_memory": true,
 }

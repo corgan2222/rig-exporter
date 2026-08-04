@@ -239,6 +239,14 @@ var catalogue = map[string]Text{
 	"settings.sensors.pingHint":     {DE: "Hostname oder IPv4, z. B. <code>1.1.1.1</code>.", EN: "Host name or IPv4 address, e.g. <code>1.1.1.1</code>."},
 	"settings.sensors.pingCount":    {DE: "Echos pro Runde", EN: "Echoes per round"},
 	"settings.sensors.pingInterval": {DE: "Messintervall (ms)", EN: "Probe interval (ms)"},
+	"settings.sensors.selfUsage": {
+		DE: "Eigene Ressourcennutzung — CPU und Speicher von rig-exporter",
+		EN: "Own resource usage — CPU and memory of rig-exporter",
+	},
+	"settings.sensors.selfUsageHint": {
+		DE: "Zwei Werte darüber, was das Messen selbst kostet. Meist flach, deshalb standardmäßig aus.",
+		EN: "Two values saying what the measuring itself costs. Mostly flat, and off by default for that reason.",
+	},
 	"settings.sensors.pingIntervalHint": {
 		DE: "Die Messung läuft unabhängig vom Sendeintervall in einem eigenen Takt.",
 		EN: "The probe runs on its own schedule, independent of the publish interval.",
@@ -280,8 +288,17 @@ var catalogue = map[string]Text{
 	"settings.app.languageHint": {DE: "Gilt für Oberfläche, Tray und die Entity-Namen in Home Assistant.", EN: "Applies to this interface, the tray and the entity names in Home Assistant."},
 	"settings.app.webPort":      {DE: "Port dieser Seite", EN: "Port of this page"},
 	"settings.app.webPortHint":  {DE: "Änderung wirkt erst nach einem Neustart.", EN: "Takes effect after a restart."},
-	"settings.app.autostart":    {DE: "Mit Windows starten", EN: "Start with Windows"},
-	"settings.app.debug":        {DE: "Debug-Logging und eigene Ressourcennutzung (Loglevel erst nach Neustart)", EN: "Debug logging and own resource usage (log level after a restart)"},
+	"settings.app.webBindAll":   {DE: "Diese Seite im Netzwerk erreichbar machen", EN: "Make this page reachable on the network"},
+	"settings.app.webBindAllHint": {
+		DE: "Statt nur <code>127.0.0.1</code> lauscht der Server dann auf allen Adressen. " +
+			"Auf dieser Seite stehen alle Einstellungen samt Broker-Passwort, und es gibt keine Anmeldung — " +
+			"nur im eigenen, vertrauenswürdigen Netz einschalten. Wirkt erst nach einem Neustart.",
+		EN: "The server then listens on every address instead of only <code>127.0.0.1</code>. " +
+			"This page holds every setting including the broker password, and there is no login — " +
+			"switch it on only on a network you trust. Takes effect after a restart.",
+	},
+	"settings.app.autostart": {DE: "Mit Windows starten", EN: "Start with Windows"},
+	"settings.app.debug":     {DE: "Debug-Logging (wirkt nach Neustart)", EN: "Debug logging (takes effect after a restart)"},
 
 	// Export target status.
 	"export.mqtt":         {DE: "MQTT", EN: "MQTT"},

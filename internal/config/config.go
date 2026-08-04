@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.5.1"
+	Version = "1.5.2"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -131,6 +131,14 @@ type Config struct {
 	PingCount      int    `json:"ping_count"`
 	PingIntervalMs int    `json:"ping_interval_ms"`
 
+	// SelfUsageEnabled reports what this program costs the machine it measures.
+	//
+	// A group of its own rather than a side effect of debug logging: "how much
+	// does watching cost me" is a question somebody asks without wanting their
+	// log filled with every reading. Off by default, because two values that are
+	// almost always flat are two entities nobody asked for.
+	SelfUsageEnabled bool `json:"self_usage_enabled"`
+
 	// LegacyCleanupPending is set once when a configuration is migrated from
 	// the previous application name, and cleared after the old retained
 	// discovery topics have been emptied.
@@ -166,10 +174,17 @@ type Config struct {
 	// this installation anyway, not about one browser.
 	RecorderNoticeRead bool `json:"recorder_notice_read"`
 
-	Language  string `json:"language"`
-	WebPort   int    `json:"web_port"`
-	Autostart bool   `json:"autostart"`
-	Debug     bool   `json:"debug"`
+	Language string `json:"language"`
+	WebPort  int    `json:"web_port"`
+	// WebBindAll opens the settings interface to the local network instead of
+	// loopback only.
+	//
+	// Off by default and deliberately its own decision: the page carries the
+	// broker password and every other setting, and nothing on it asks who is
+	// calling. Somebody switching this on is saying they trust their network.
+	WebBindAll bool `json:"web_bind_all"`
+	Autostart  bool `json:"autostart"`
+	Debug      bool `json:"debug"`
 }
 
 // The two sensor sets. Which measurement is in which is decided in
@@ -667,12 +682,21 @@ func (c Config) DeviceIdentifier() string {
 	return fmt.Sprintf("%s_%s", IDPrefix, c.NodeID)
 }
 
-// WebAddress is the listen address of the settings UI, bound to loopback only.
+// WebAddress is the listen address of the settings UI: loopback only, unless
+// WebBindAll opens it to the network.
 func (c Config) WebAddress() string {
+	if c.WebBindAll {
+		return fmt.Sprintf("0.0.0.0:%d", c.WebPort)
+	}
 	return fmt.Sprintf("127.0.0.1:%d", c.WebPort)
 }
 
 // WebURL is the address to open in a browser.
+//
+// Always loopback, even when the server listens on every interface: 0.0.0.0 is
+// something to bind to, not something to type. The address another machine
+// would use is built in the web package, which is the only place that knows
+// which port the server actually got.
 func (c Config) WebURL() string {
-	return "http://" + c.WebAddress()
+	return fmt.Sprintf("http://127.0.0.1:%d", c.WebPort)
 }

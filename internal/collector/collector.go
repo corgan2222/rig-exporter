@@ -135,8 +135,8 @@ type Collector struct {
 	// a series can say what wrote it.
 	version string
 
-	// selfUsage adds what this process costs the machine. Off unless debug
-	// logging is on: it is a measurement of the tool, not of the PC.
+	// selfUsage adds what this process costs the machine. Its own sensor group,
+	// off by default: it is a measurement of the tool, not of the PC.
 	selfUsage bool
 }
 
@@ -144,7 +144,7 @@ type Collector struct {
 func (c *Collector) ReportVersion(version string) { c.version = version }
 
 // ReportSelfUsage makes the collector publish this process's own CPU share and
-// working set, which debug logging asks for.
+// working set.
 func (c *Collector) ReportSelfUsage(on bool) { c.selfUsage = on }
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
@@ -300,9 +300,11 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 	}
 
 	// Also the program talking about itself, so also credited to it rather than
-	// to Windows. A failure is left out rather than reported as zero: "the
-	// exporter is using no CPU" and "the counter could not be read" are
-	// different answers, and only one of them is reassuring.
+	// to Windows. Not an optional Source, because those are keyed by group and
+	// this belongs to the core group, which is always there. A failure is left
+	// out rather than reported as zero: "the exporter is using no CPU" and "the
+	// counter could not be read" are different answers, and only one of them is
+	// reassuring.
 	if c.selfUsage {
 		if usage, err := c.system.SelfUsage(); err == nil {
 			cpu := metrics.Gauge(metrics.ExporterCPU, "", usage.CPUPercent)

@@ -129,9 +129,9 @@ var (
 	// me frames" is a number, not a reassurance — and because a working set that
 	// only ever climbs is the shape of a leak.
 	//
-	// Collected only with debug logging switched on. Two entities that are
-	// almost always flat are two entities nobody asked for; somebody who has
-	// turned debugging on has asked.
+	// Collected only when their own sensor group is switched on. Two entities
+	// that are almost always flat are two entities nobody asked for; somebody
+	// who ticked the box has asked.
 	ExporterCPU = Definition{
 		ID: "exporter_cpu", Name: i18n.Text{DE: "Exporter CPU", EN: "Exporter CPU"},
 		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupCore,
@@ -636,19 +636,52 @@ var (
 		Prom: "rig_net_link_megabits_per_second", Help: "Negotiated link speed",
 		EntityCategory: "diagnostic", Icon: "mdi:speedometer",
 	}
+	// NetRx and NetTx are rates, not amounts. They were called "Empfangen" and
+	// "Gesendet", which reads like a total on a device page — and a total in
+	// Mbit/s is a contradiction nobody notices until they build a graph on it.
+	// The identifiers stay: they are what dashboards key on, and they were never
+	// the misleading part.
 	NetRx = Definition{
-		ID: "net_rx", Name: i18n.Text{DE: "Empfangen", EN: "Received"},
+		ID: "net_rx", Name: i18n.Text{DE: "Download", EN: "Download"},
 		Unit: "Mbit/s", Kind: KindGauge, Precision: 2,
 		Group: GroupNet, InstanceLabel: "nic",
 		Prom: "rig_net_receive_megabits_per_second", Help: "Inbound throughput since the previous collection",
 		StateClass: "measurement", Icon: "mdi:download-network",
 	}
 	NetTx = Definition{
-		ID: "net_tx", Name: i18n.Text{DE: "Gesendet", EN: "Sent"},
+		ID: "net_tx", Name: i18n.Text{DE: "Upload", EN: "Upload"},
 		Unit: "Mbit/s", Kind: KindGauge, Precision: 2,
 		Group: GroupNet, InstanceLabel: "nic",
 		Prom: "rig_net_transmit_megabits_per_second", Help: "Outbound throughput since the previous collection",
 		StateClass: "measurement", Icon: "mdi:upload-network",
+	}
+	// The totals the rates above are not. Windows counts octets per interface
+	// since the adapter last came up, so this is the counter itself rather than
+	// a rate integrated back into an amount — no sampling gap can lose traffic
+	// the way a Riemann sum over a two-second series would.
+	//
+	// total_increasing rather than total, because that is the state class that
+	// tells Home Assistant a drop is a counter reset and not negative traffic.
+	// Windows does reset these when an adapter is reconfigured, and without it
+	// the long-term sum would take the reset as a loss.
+	//
+	// No device class on purpose. data_size would fit, but it also lets Home
+	// Assistant convert between units — and it reads GB as 10^9 while this
+	// catalogue, like Windows itself, means 2^30 everywhere. A conversion from
+	// the wrong starting point is worse than no conversion.
+	NetRxTotal = Definition{
+		ID: "net_rx_total", Name: i18n.Text{DE: "Empfangen gesamt", EN: "Received total"},
+		Unit: "GB", Kind: KindGauge, Precision: 2,
+		Group: GroupNet, InstanceLabel: "nic",
+		Prom: "rig_net_receive_gigabytes_total", Help: "Inbound traffic since the adapter came up",
+		StateClass: "total_increasing", Icon: "mdi:download-network-outline",
+	}
+	NetTxTotal = Definition{
+		ID: "net_tx_total", Name: i18n.Text{DE: "Gesendet gesamt", EN: "Sent total"},
+		Unit: "GB", Kind: KindGauge, Precision: 2,
+		Group: GroupNet, InstanceLabel: "nic",
+		Prom: "rig_net_transmit_gigabytes_total", Help: "Outbound traffic since the adapter came up",
+		StateClass: "total_increasing", Icon: "mdi:upload-network-outline",
 	}
 	NetErrors = Definition{
 		ID: "net_errors", Name: i18n.Text{DE: "Fehler", EN: "Errors"},
@@ -713,7 +746,8 @@ var All = []Definition{
 	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,
 	DiskOverallCapacity, DiskOverallUsed, DiskOverallFree, DiskOverallUsage, DiskOverallFreePercent,
 
-	NetType, NetIP, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,
+	NetType, NetIP, NetLinkSpeed, NetRx, NetTx, NetRxTotal, NetTxTotal,
+	NetErrors, NetDiscards, NetWifiSignal,
 	PingTarget, PingRTT, PingLoss,
 }
 
