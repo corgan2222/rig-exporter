@@ -912,23 +912,70 @@ content: |
 
 #### Säulendiagramm über die Zeit
 
-Dafür braucht es **ApexCharts Card** aus HACS. Entscheidend ist `attribute:`
-mit einem der flachen Ränge — die Karte liest den Wert aus **jedem**
-historischen Zustand.
+Dafür braucht es **ApexCharts Card** aus HACS. Die vollständige Karte, für den
+Speicher genauso mit `sensor.re_corgan_pc3_top_memory`:
 
 ```yaml
 type: custom:apexcharts-card
+header:
+  show: true
+  title: CPU-Anteil der fünf größten Programme
 graph_span: 6h
 stacked: true
-apex_config:
-  chart: {type: column}
+all_series_config:
+  type: column
+  extend_to: false
+  group_by:
+    func: avg
+    duration: 5min
 series:
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank1, name: "Platz 1", type: column}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank2, name: "Platz 2", type: column}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank3, name: "Platz 3", type: column}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank4, name: "Platz 4", type: column}
-  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank5, name: "Platz 5", type: column}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank1, name: Platz 1}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank2, name: Platz 2}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank3, name: Platz 3}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank4, name: Platz 4}
+  - {entity: sensor.re_corgan_pc3_top_cpu, attribute: rank5, name: Platz 5}
+apex_config:
+  legend:
+    formatter: >-
+      EVAL:function (s) { try { var i = String(s).split(' ').pop();
+      var a = document.querySelector('home-assistant').hass
+        .states['sensor.re_corgan_pc3_top_cpu'].attributes;
+      var n = a['rank' + i + '_name']; return n ? n : s; }
+      catch (e) { return s; } }
+  tooltip:
+    y:
+      title:
+        formatter: >-
+          EVAL:function (s) { try { var i = String(s).split(' ').pop();
+          var a = document.querySelector('home-assistant').hass
+            .states['sensor.re_corgan_pc3_top_cpu'].attributes;
+          var n = a['rank' + i + '_name']; return n ? n : s; }
+          catch (e) { return s; } }
 ```
+
+Vier Stellen daran sind nicht optional:
+
+**`attribute:` mit einem flachen Rang.** Das ist der ganze Mechanismus — die
+Karte liest `attributes['rank1']` aus **jedem** Eintrag der History. Eine Liste
+von Objekten kann sie nicht zeichnen.
+
+**`group_by`.** Bei 10 s Messintervall liegen in 6 Stunden 2160 Punkte je Serie,
+mal fünf Serien über 10 000 Säulen. Ohne Bündelung malt die Karte Striche.
+`avg` und nicht `max`, weil sich gestapelte Maxima addieren, die nie gleichzeitig
+auftraten — der Stapel stünde dann über 100 %.
+
+**Legende *und* Tooltip.** Die beiden laufen durch verschiedene Formatter, und
+die Karte setzt selbst nur `tooltip.y.formatter` für den *Wert*. Der Titel davor
+bleibt sonst „Platz 1". Dass der eigene `title.formatter` den Wert-Formatter
+nicht verdrängt — Einheit und Rundung bleiben —, liegt daran, dass `apex_config`
+per Deep Merge übernommen wird.
+
+**Das `try`/`catch`.** Ohne es nimmt ein Fehler im Formatter die ganze Karte mit;
+mit ihm steht im schlimmsten Fall wieder „Platz 1" da.
+
+Der Platz wird aus dem Seriennamen gelesen (`"Platz 3"` → `3`), weil der
+Tooltip-Formatter nur den Namen bekommt und keinen Index. Wer die Serien
+umbenennt, muss die Funktion mit umbauen.
 
 > **Nicht `data_generator` benutzen.** Das liegt nahe, weil `apps` so schön
 > passt — die Option „completely bypasses the history retrieval" und sieht nur
@@ -937,58 +984,29 @@ series:
 > für Attribute gedacht, die selbst schon eine Zeitreihe enthalten, etwa eine
 > Wettervorhersage.
 
-**Die Legende sagt „Platz 1", nicht „firefox.exe", und das lässt sich nicht
-sauber ändern.** Ein Serienname ist in der Karte statisch, und über die
-Zeitachse *ist* Platz 1 auch nicht ein Programm — genau das ist der Grund, warum
-die Liste als Ränge veröffentlicht wird. Wer den Namen zum aktuellen Zeitpunkt
-will, stellt die Markdown-Karte von oben darunter; die Nummerierung stellt die
-Verbindung her.
+Zwei Dinge, die man beim Lesen wissen muss: die beiden Formatter greifen über
+`document.querySelector('home-assistant')` in die Interna des Frontends und
+können mit einem Home-Assistant-Update brechen. Und der angezeigte Name ist
+immer der **aktuelle** — über einer Säule von vor vier Stunden steht, wer
+*jetzt* auf Platz 2 ist, nicht wer es damals war. Wer das nicht will, lässt die
+`apex_config` weg und stellt die Markdown-Karte von oben darunter.
 
-Wer ihn unbedingt *in* der Karte haben will, kann Legende **und** Tooltip über
-`apex_config` umbiegen — mit dem ausdrücklichen Vorbehalt, dass das in die
-Interna des Frontends greift und mit jedem Home-Assistant-Update brechen kann:
+Prüfen lässt sich das Ganze in der Browser-Konsole, ohne auf einen Tooltip zu
+zielen — synthetische Mouse-Events lösen bei ApexCharts ohnehin keinen aus:
 
-```yaml
-apex_config:
-  legend:
-    formatter: >-
-      EVAL:function (s) {
-        try {
-          var i = String(s).split(' ').pop();
-          var a = document.querySelector('home-assistant')
-            .hass.states['sensor.re_corgan_pc3_top_cpu'].attributes;
-          var n = a['rank' + i + '_name'];
-          return n ? n : s;
-        } catch (e) { return s; }
-      }
-  tooltip:
-    y:
-      title:
-        formatter: >-
-          EVAL:function (s) { … dieselbe Funktion … }
+```js
+// durch die Shadow-Roots nach <apexcharts-card> laufen, dann:
+const chart = card[Object.keys(card).find(k => k.toLowerCase().includes('apexchart'))];
+chart.w.config.tooltip.y.title.formatter('Platz 1');   // -> "firefox.exe"
+typeof chart.w.config.tooltip.y.formatter === 'function'; // -> true, Einheit intakt
 ```
-
-Beides ist nötig: die Legende und der Tooltip laufen durch **verschiedene**
-Formatter, und die Karte selbst setzt nur `tooltip.y.formatter` für den *Wert*.
-Der Titel davor bleibt sonst „Platz 1". Weil `apex_config` per Deep Merge
-übernommen wird, überschreibt der eigene `title.formatter` den Wert-Formatter
-der Karte nicht — Einheit und Rundung bleiben.
-
-Der Platz wird aus dem Seriennamen gelesen (`"Platz 3"` → `3`), weil der
-Tooltip-Formatter nur den Namen bekommt und keinen Index. Wer die Serien
-umbenennt, muss die Funktion mit umbauen.
-
-Das `try`/`catch` ist nicht optional: ohne es nimmt ein Fehler im Formatter die
-ganze Karte mit, mit ihm steht im schlimmsten Fall wieder „Platz 1" da. Und der
-angezeigte Name ist immer der **aktuelle**, auch über historischen Säulen, an
-denen ein anderes Programm stand.
 
 In den anderen Exportformaten stellt sich die Frage nicht: Prometheus bekommt
 eine Serie je Zeile mit `app`- und `rank`-Label, InfluxDB ein Feld je Platz.
 
 ```
-rig_top_cpu_percent{host="corganpc3",app="firefox.exe",rank="1"} 41.2
-rig_top_cpu_percent{host="corganpc3",app="cs2.exe",rank="2"} 12
+rig_top_cpu_percent{host="corgan_pc3",app="firefox.exe",rank="1"} 5.37
+rig_top_cpu_percent{host="corgan_pc3",app="WmiPrvSE.exe",rank="2"} 1.78
 ```
 
 Wer die Werte langfristig als Diagramm braucht und HACS meiden will, ist mit
