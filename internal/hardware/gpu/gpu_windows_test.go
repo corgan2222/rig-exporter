@@ -5,7 +5,7 @@ package gpu
 import (
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 func card(index int, name string) nvmlCard {

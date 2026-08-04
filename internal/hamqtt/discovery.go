@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 const (
 	availableOnline  = "online"
 	availableOffline = "offline"
 
-	projectURL = "https://github.com/corgan/rig-exporter"
+	projectURL = "https://github.com/corgan2222/rig-exporter"
 )
 
 // deviceInfo groups every entity under one device in Home Assistant.

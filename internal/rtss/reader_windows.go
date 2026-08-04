@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/corgan/rig-exporter/internal/winapi"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // Reader reads the RTSS shared memory. It holds no state: the mapping is

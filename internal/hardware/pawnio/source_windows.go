@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"golang.org/x/sys/windows/registry"
 )
 

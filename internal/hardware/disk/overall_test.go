@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 func numberOf(t *testing.T, set metrics.Set, def metrics.Definition) float64 {

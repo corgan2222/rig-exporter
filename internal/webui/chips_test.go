@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/config"
 )
 
 func apiStatus(t *testing.T, url string) map[string]any {

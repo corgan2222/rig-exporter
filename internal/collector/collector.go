@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/metrics"
-	"github.com/corgan/rig-exporter/internal/rtss"
-	"github.com/corgan/rig-exporter/internal/sysinfo"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/rtss"
+	"github.com/corgan2222/rig-exporter/internal/sysinfo"
 )
 
 // NoGame is reported for the game reading while nothing is being rendered.

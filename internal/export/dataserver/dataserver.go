@@ -18,11 +18,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/export"
-	"github.com/corgan/rig-exporter/internal/i18n"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/export"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 // Endpoint paths. They are stable, because they end up pasted into Home

@@ -71,7 +71,7 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
 
 Write-Host "==> building $Output" -ForegroundColor Cyan
 $ldflags = "-H windowsgui -s -w"
-if ($build) { $ldflags += " -X github.com/corgan/rig-exporter/internal/config.Build=$build" }
+if ($build) { $ldflags += " -X github.com/corgan2222/rig-exporter/internal/config.Build=$build" }
 go build -trimpath -ldflags $ldflags -o $Output .
 
 $size = [math]::Round((Get-Item $Output).Length / 1MB, 1)

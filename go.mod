@@ -1,4 +1,4 @@
-module github.com/corgan/rig-exporter
+module github.com/corgan2222/rig-exporter
 
 go 1.26.5
 

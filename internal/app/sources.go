@@ -6,17 +6,17 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/hardware/cpu"
-	"github.com/corgan/rig-exporter/internal/hardware/disk"
-	"github.com/corgan/rig-exporter/internal/hardware/gpu"
-	hwnet "github.com/corgan/rig-exporter/internal/hardware/net"
-	"github.com/corgan/rig-exporter/internal/hardware/pawnio"
-	"github.com/corgan/rig-exporter/internal/hardware/procs"
-	"github.com/corgan/rig-exporter/internal/hardware/ram"
-	"github.com/corgan/rig-exporter/internal/rtss"
-	"github.com/corgan/rig-exporter/internal/sysinfo"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/hardware/cpu"
+	"github.com/corgan2222/rig-exporter/internal/hardware/disk"
+	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
+	hwnet "github.com/corgan2222/rig-exporter/internal/hardware/net"
+	"github.com/corgan2222/rig-exporter/internal/hardware/pawnio"
+	"github.com/corgan2222/rig-exporter/internal/hardware/procs"
+	"github.com/corgan2222/rig-exporter/internal/hardware/ram"
+	"github.com/corgan2222/rig-exporter/internal/rtss"
+	"github.com/corgan2222/rig-exporter/internal/sysinfo"
 )
 
 // sensors holds the optional sources and anything they own that needs to be

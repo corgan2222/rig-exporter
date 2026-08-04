@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/collector"
-	"github.com/corgan/rig-exporter/internal/config"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/collector"
+	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 // snapshotWith builds a reading set by hand, so a test does not depend on what

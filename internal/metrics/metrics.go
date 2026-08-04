@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/corgan/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
 )
 
 // Kind decides how a reading is rendered in formats that distinguish types.

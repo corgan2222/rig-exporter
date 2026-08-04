@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/corgan/rig-exporter/internal/i18n"
-	"github.com/corgan/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
+	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 // A release number does not move between commits, so it cannot answer "is this
