@@ -358,7 +358,7 @@ aus und baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
 
 ```
-rig-exporter 1.4.0+<commits>.<hash>
+rig-exporter 1.5.1+<commits>.<hash>
 ```
 
 Also Commit-Anzahl und Kurz-Hash, bei uncommitteten Änderungen zusätzlich
@@ -668,7 +668,7 @@ pausieren, Einstellungen öffnen, Log öffnen, Autostart mit Windows, Beenden.
 Fehlt RTSS, kommt ein Eintrag zum Download dazu.
 
 Ganz oben stehen Name, Version und die Adresse, unter der die Oberfläche
-erreichbar ist — `rig-exporter 1.4.3+73.abc1234 — 127.0.0.1:8787`. Ein Klick
+erreichbar ist — `rig-exporter 1.5.1+<commits>.<hash> — 127.0.0.1:8787`. Ein Klick
 darauf öffnet sie. Die Adresse steht dort, weil sie nicht immer die
 eingestellte ist: ist der Port belegt, weicht der Server auf einen zufälligen
 aus, und dann ist das der einzige Ort, an dem die richtige Nummer steht.
