@@ -522,39 +522,39 @@ var (
 	// four per-volume entities means doing arithmetic in a template.
 	//
 	// No instance: there is one of each, whatever the machine has plugged in.
-	HDDOverallCapacity = Definition{
-		ID: "hdd_overall_capacity", Name: i18n.Text{DE: "Gesamtkapazität", EN: "Total capacity"},
+	DiskOverallCapacity = Definition{
+		ID: "disk_overall_capacity", Name: i18n.Text{DE: "Gesamtkapazität", EN: "Total capacity"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
-		Prom:  "rig_hdd_overall_total_gigabytes", Help: "Capacity of every reported volume together",
+		Prom:  "rig_disk_overall_total_gigabytes", Help: "Capacity of every reported volume together",
 		EntityCategory: "diagnostic", Icon: "mdi:harddisk",
 	}
-	HDDOverallUsed = Definition{
-		ID: "hdd_overall_used", Name: i18n.Text{DE: "Gesamt belegt", EN: "Total used"},
+	DiskOverallUsed = Definition{
+		ID: "disk_overall_used", Name: i18n.Text{DE: "Gesamt belegt", EN: "Total used"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
-		Prom:  "rig_hdd_overall_used_gigabytes", Help: "Space in use across every reported volume",
+		Prom:  "rig_disk_overall_used_gigabytes", Help: "Space in use across every reported volume",
 		StateClass: "measurement", Icon: "mdi:harddisk",
 	}
-	HDDOverallFree = Definition{
-		ID: "hdd_overall_free", Name: i18n.Text{DE: "Gesamt frei", EN: "Total free"},
+	DiskOverallFree = Definition{
+		ID: "disk_overall_free", Name: i18n.Text{DE: "Gesamt frei", EN: "Total free"},
 		Unit: "GB", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
-		Prom:  "rig_hdd_overall_free_gigabytes", Help: "Space available across every reported volume",
+		Prom:  "rig_disk_overall_free_gigabytes", Help: "Space available across every reported volume",
 		StateClass: "measurement", Icon: "mdi:harddisk",
 	}
-	HDDOverallUsage = Definition{
-		ID: "hdd_overall_usage", Name: i18n.Text{DE: "Gesamtbelegung", EN: "Total usage"},
+	DiskOverallUsage = Definition{
+		ID: "disk_overall_usage", Name: i18n.Text{DE: "Gesamtbelegung", EN: "Total usage"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
-		Prom:  "rig_hdd_overall_used_percent", Help: "Share in use across every reported volume",
+		Prom:  "rig_disk_overall_used_percent", Help: "Share in use across every reported volume",
 		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
-	HDDOverallFreePercent = Definition{
-		ID: "hdd_overall_free_percent", Name: i18n.Text{DE: "Gesamt frei %", EN: "Total free %"},
+	DiskOverallFreePercent = Definition{
+		ID: "disk_overall_free_percent", Name: i18n.Text{DE: "Gesamt frei %", EN: "Total free %"},
 		Unit: "%", Kind: KindGauge, Precision: 1,
 		Group: GroupDisk,
-		Prom:  "rig_hdd_overall_free_percent", Help: "Share available across every reported volume",
+		Prom:  "rig_disk_overall_free_percent", Help: "Share available across every reported volume",
 		StateClass: "measurement", Icon: "mdi:chart-donut",
 	}
 	DiskRead = Definition{
@@ -688,7 +688,7 @@ var All = []Definition{
 
 	DiskLabel, DiskFilesystem, DiskVendor, DiskMedia, DiskTotal, DiskUsed, DiskFree, DiskUsedPercent,
 	DiskFreePercent, DiskRead, DiskWrite, DiskBusy, DiskTemperature,
-	HDDOverallCapacity, HDDOverallUsed, HDDOverallFree, HDDOverallUsage, HDDOverallFreePercent,
+	DiskOverallCapacity, DiskOverallUsed, DiskOverallFree, DiskOverallUsage, DiskOverallFreePercent,
 
 	NetType, NetIP, NetLinkSpeed, NetRx, NetTx, NetErrors, NetDiscards, NetWifiSignal,
 	PingTarget, PingRTT, PingLoss,

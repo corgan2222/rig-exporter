@@ -107,11 +107,11 @@ func addOverall(set *metrics.Set, total, free uint64) {
 
 	used := total - free
 	set.Add(
-		metrics.Gauge(metrics.HDDOverallCapacity, "", float64(total)/gb),
-		metrics.Gauge(metrics.HDDOverallUsed, "", float64(used)/gb),
-		metrics.Gauge(metrics.HDDOverallFree, "", float64(free)/gb),
-		metrics.Gauge(metrics.HDDOverallUsage, "", float64(used)/float64(total)*100),
-		metrics.Gauge(metrics.HDDOverallFreePercent, "", float64(free)/float64(total)*100),
+		metrics.Gauge(metrics.DiskOverallCapacity, "", float64(total)/gb),
+		metrics.Gauge(metrics.DiskOverallUsed, "", float64(used)/gb),
+		metrics.Gauge(metrics.DiskOverallFree, "", float64(free)/gb),
+		metrics.Gauge(metrics.DiskOverallUsage, "", float64(used)/float64(total)*100),
+		metrics.Gauge(metrics.DiskOverallFreePercent, "", float64(free)/float64(total)*100),
 	)
 }
 
@@ -197,7 +197,8 @@ func delta(current, previous int64) int64 {
 }
 
 // fixedDrives lists the letters of the volumes that live in the machine,
-// skipping network shares, optical drives and removable media.
+// skipping network shares, optical drives, removable media and anything hanging
+// off a USB port.
 func fixedDrives() ([]string, error) {
 	mask, err := windows.GetLogicalDrives()
 	if err != nil {
@@ -215,14 +216,41 @@ func fixedDrives() ([]string, error) {
 		if err != nil {
 			continue
 		}
-		if windows.GetDriveType(root) == windows.DRIVE_FIXED {
-			letters = append(letters, letter)
+		if windows.GetDriveType(root) != windows.DRIVE_FIXED {
+			continue
 		}
+		if attachedByUSB(letter) {
+			continue
+		}
+		letters = append(letters, letter)
 	}
 	if len(letters) == 0 {
 		return nil, fmt.Errorf("no fixed drives found")
 	}
 	return letters, nil
+}
+
+// attachedByUSB reports whether a volume hangs off a USB port.
+//
+// GetDriveType is not enough. A USB memory stick answers DRIVE_REMOVABLE and is
+// filtered above, but an external USB SSD or hard disk almost always answers
+// DRIVE_FIXED — indistinguishable from an internal drive without asking the
+// storage stack which bus it is on. Such a drive is somebody's backup disk that
+// happens to be plugged in today; counting it towards "how full is this
+// machine" would make the total jump around for reasons that have nothing to do
+// with the machine.
+//
+// A drive that cannot be asked is kept. Not being able to tell is not a reason
+// to drop a drive somebody is watching.
+func attachedByUSB(letter string) bool {
+	handle, err := openVolume(letter)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(handle)
+
+	bus, ok := busType(handle)
+	return ok && bus == busTypeUSB
 }
 
 func spaceOf(letter string) (total, free uint64, err error) {
