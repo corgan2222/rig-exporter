@@ -6,3 +6,9 @@ probe.txt
 # Editor settings are personal. They also made every build report itself as
 # .dirty, because the build identifier asks git whether the tree is clean.
 .vscode/
+
+# Working notes, kept on disk but out of the repository. The README is the
+# documentation that ships; these two are the project's memory for whoever
+# continues it, and they are nobody else's business.
+HANDOVER.md
+maybe_later.md
