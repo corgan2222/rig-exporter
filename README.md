@@ -457,10 +457,18 @@ Drei Seiten, erreichbar über die Kopfzeile:
   Kacheln für Werte, die der gewählte Satz gar nicht misst, werden ausgeblendet
   statt leer angezeigt.
 
+  Fehlt auf einem Rechner die GPU beziehungsweise werden dort bewusst keine
+  Spieldaten genutzt, lässt sich der RTSS-Hinweis mit **„Keine GPU vorhanden —
+  Spieldaten ausblenden“** dauerhaft wegräumen. Die Einstellung wird als
+  `no_gpu` in `config.json` gespeichert und blendet zusätzlich die Kacheln FPS,
+  Frametime und Spiel sowie den RTSS-Statuschip aus. Unter *Export & Anzeige →
+  Anwendung* lässt sie sich wieder abschalten. Messung und Exporte ändern sich
+  dadurch nicht.
+
   Beim ersten Besuch steht darunter ein Hinweis auf die wachsende
   Home-Assistant-Datenbank samt Verweis auf den fertigen `recorder:`-Abschnitt.
-  „Gelesen, nicht wieder anzeigen" räumt ihn dauerhaft weg — im Browser
-  gemerkt, wie die Sortierung der Hardware-Panels.
+  „Gelesen, nicht wieder anzeigen" räumt ihn dauerhaft weg — in der
+  Konfiguration gemerkt, anders als die Sortierung der Hardware-Panels.
 * **Datengewinnung** — welcher Messwertsatz, welche Sensorgruppen gelesen
   werden und wie oft.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,
@@ -1167,7 +1175,7 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-266 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
+269 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit

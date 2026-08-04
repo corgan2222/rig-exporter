@@ -6,20 +6,23 @@
     {{ .T "rtss.bannerBody" }}
     <a href="{{ .RTSSDownloadURL }}" target="_blank" rel="noopener">{{ .T "rtss.download" }}</a>
     {{ .T "rtss.alsoInAfterburner" }}
+    <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
+      <button class="ghost" type="submit" name="what" value="no_gpu">{{ .T "rtss.dismissNoGPU" }}</button>
+    </form>
   </div>
 
   <div class="card">
     <h2>{{ .T "status.title" }}</h2>
     <div class="tiles">
-      <div class="tile"><div class="label">{{ .T "status.fps" }}</div><div class="value" id="v-fps">&ndash;</div></div>
-      <div class="tile"><div class="label">{{ .T "status.frametime" }}</div><div class="value" id="v-frametime">&ndash;</div></div>
-      <div class="tile"><div class="label">{{ .T "status.game" }}</div><div class="value small" id="v-game">&ndash;</div></div>
+      <div class="tile" id="tile-fps"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.fps" }}</div><div class="value" id="v-fps">&ndash;</div></div>
+      <div class="tile" id="tile-frametime"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.frametime" }}</div><div class="value" id="v-frametime">&ndash;</div></div>
+      <div class="tile" id="tile-game"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.game" }}</div><div class="value small" id="v-game">&ndash;</div></div>
       <div class="tile" id="tile-resolution"><div class="label">{{ .T "status.resolution" }}</div><div class="value small" id="v-resolution">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.cpu" }}</div><div class="value" id="v-cpu">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.ram" }}</div><div class="value" id="v-ram">&ndash;</div></div>
     </div>
     <div class="actions" style="margin-top:1.1rem">
-      <span class="badge"><span class="dot" id="d-rtss"></span><span id="t-rtss">RTSS</span></span>
+      <span class="badge" id="rtss-badge"{{ if .Config.NoGPU }} hidden{{ end }}><span class="dot" id="d-rtss"></span><span id="t-rtss">RTSS</span></span>
       <span class="badge"><span class="dot" id="d-pause"></span><span id="t-pause"></span></span>
       <form method="post" action="/pause" style="margin-left:auto">
         <button class="ghost" type="submit" id="pause-btn">{{ .T "status.pause" }}</button>
@@ -261,6 +264,9 @@ async function refresh() {
   $("v-fps").textContent = s.rtss_status === "ok" ? Math.round(s.fps) : "–";
   $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
+  for (const id of ["tile-fps", "tile-frametime", "tile-game", "rtss-badge"]) {
+    $(id).hidden = s.no_gpu;
+  }
   // The display mode belongs to the extended set, so with the standard set it
   // is simply not measured. An empty tile would look like a fault; no tile is
   // the honest picture.
@@ -282,7 +288,7 @@ async function refresh() {
   $("pause-btn").textContent = s.paused ? L.resume : L.pause;
 
   const banner = $("rtss-banner");
-  banner.hidden = rtssOK;
+  banner.hidden = rtssOK || s.no_gpu;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
 }
 

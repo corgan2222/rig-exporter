@@ -537,6 +537,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 
 	case "app":
 		cfg.Language = r.FormValue("language")
+		cfg.NoGPU = r.FormValue("no_gpu") != ""
 		cfg.WebPort = formInt(r, "web_port", cfg.WebPort)
 		cfg.WebBindAll = r.FormValue("web_bind_all") != ""
 		cfg.Autostart = r.FormValue("autostart") != ""
@@ -587,15 +588,20 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 // is a different origin, so anything kept in local storage was gone again on
 // the next start.
 func (s *Server) handleDismiss(w http.ResponseWriter, r *http.Request) {
-	if r.FormValue("what") != "recorder" {
+	notice := r.FormValue("what")
+	cfg := s.app.Config()
+	switch notice {
+	case "recorder":
+		cfg.RecorderNoticeRead = true
+	case "no_gpu":
+		cfg.NoGPU = true
+	default:
 		http.NotFound(w, r)
 		return
 	}
 
-	cfg := s.app.Config()
-	cfg.RecorderNoticeRead = true
 	if err := s.app.ApplyConfig(cfg); err != nil {
-		s.log.Error("could not remember that the notice was read", "error", err)
+		s.log.Error("could not remember dismissed notice", "notice", notice, "error", err)
 	}
 	http.Redirect(w, r, backTo(r), http.StatusSeeOther)
 }
@@ -654,6 +660,7 @@ type statusResponse struct {
 	RTSSStatus  string `json:"rtss_status"`
 	RTSSMessage string `json:"rtss_message"`
 	RTSSVersion string `json:"rtss_version"`
+	NoGPU       bool   `json:"no_gpu"`
 
 	// Groups carries the optional sensor groups, so the page can show GPU,
 	// disk and network readings without the server knowing what they are.
@@ -749,6 +756,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		RTSSStatus:  string(snap.RTSSStatus),
 		RTSSMessage: snap.RTSSMessage,
 		RTSSVersion: snap.RTSSVersion,
+		NoGPU:       st.Config.NoGPU,
 		Groups:      groupStatuses(st, lang),
 		Exports:     make([]exportStatus, 0, len(st.Exports)),
 		Paused:      st.Paused,

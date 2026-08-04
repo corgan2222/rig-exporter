@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.6.0"
+	Version = "1.6.1"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -182,6 +182,10 @@ type Config struct {
 	// on most restarts and the hint came back every time. It is a fact about
 	// this installation anyway, not about one browser.
 	RecorderNoticeRead bool `json:"recorder_notice_read"`
+	// NoGPU remembers that this installation does not need the game-only status
+	// supplied by RTSS. It changes presentation only: collection and every
+	// export contract stay untouched.
+	NoGPU bool `json:"no_gpu"`
 
 	Language string `json:"language"`
 	WebPort  int    `json:"web_port"`
