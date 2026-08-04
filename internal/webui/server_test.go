@@ -35,7 +35,7 @@ func newServer(t *testing.T, mutate func(*config.Config)) (*Server, *httptest.Se
 	}
 	cfg.Normalize()
 
-	application := app.New(cfg, t.TempDir()+`\config.json`, applog.Discard())
+	application := app.New(cfg, t.TempDir()+`\config.json`, applog.Discard(), nil)
 	server, err := New(application, applog.Discard())
 	if err != nil {
 		t.Fatalf("New: %v", err)

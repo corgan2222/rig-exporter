@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/corgan2222/rig-exporter/internal/app"
@@ -27,6 +28,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/rtss"
 	"github.com/corgan2222/rig-exporter/internal/tray"
+	"github.com/corgan2222/rig-exporter/internal/updater"
 	"github.com/corgan2222/rig-exporter/internal/webui"
 	"github.com/corgan2222/rig-exporter/internal/winapi"
 	"golang.org/x/sys/windows/registry"
@@ -40,7 +42,19 @@ func main() {
 	probe := flag.Bool("probe", false, "print one reading in every export format and exit")
 	background := flag.Bool("background", false, "start without opening the interface, as the autostart entry does")
 	configPath := flag.String("config", "", "path to config.json (default: %APPDATA%\\rig-exporter\\config.json)")
+	applyUpdate := flag.String(updater.ApplyHelperFlag, "", "internal update transaction")
+	readyMarker := flag.String(updater.ReadyMarkerFlag, "", "internal update readiness marker")
 	flag.Parse()
+
+	// The update helper is a temporary copy of the old executable. It must wait
+	// for and replace the normal process without ever entering the
+	// single-instance path itself.
+	if *applyUpdate != "" {
+		if err := updater.RunApplyHelper(*applyUpdate); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Anything that prints has to find somewhere to print first. This binary is
 	// linked as a GUI application so that starting it normally does not flash a
@@ -66,13 +80,34 @@ func main() {
 
 	// Holding the mutex for the process lifetime is what makes the check work,
 	// so the handle is intentionally never closed.
-	if _, first, err := winapi.AcquireSingleInstance(singleInstanceMutex); err == nil && !first {
+	_, first, err := winapi.AcquireSingleInstance(singleInstanceMutex)
+	if err != nil {
+		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
+			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
+		os.Exit(1)
+	}
+	if !first {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.alreadyRunning"),
 			winapi.MBOK|winapi.MBIconInformation|winapi.MBSetForeground)
 		return
 	}
 
-	if err := run(*configPath, *background); err != nil {
+	// Recovery runs while this process owns the ordinary instance mutex, which
+	// serializes competing manual starts. The intended replacement launch
+	// carries a ready marker and must be allowed to prove itself instead.
+	if *readyMarker == "" {
+		mustExit, err := updater.RecoverInterruptedApply()
+		if err != nil {
+			winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
+				winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
+			os.Exit(1)
+		}
+		if mustExit {
+			return
+		}
+	}
+
+	if err := run(*configPath, *background, *readyMarker); err != nil {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
 		os.Exit(1)
@@ -303,7 +338,7 @@ func loadConfigFor(configPath string) (config.Config, error) {
 	return cfg, nil
 }
 
-func run(configPath string, background bool) error {
+func run(configPath string, background bool, readyMarker string) error {
 	if configPath == "" {
 		path, err := config.Path()
 		if err != nil {
@@ -348,7 +383,31 @@ func run(configPath string, background bool) error {
 			"from", config.LegacyAppName, "path", configPath)
 	}
 
-	application := app.New(cfg, configPath, log)
+	restartRequested := make(chan struct{}, 1)
+	updateManager, updateErr := updater.New(updater.Options{
+		CurrentVersion: config.Version,
+		ConfigPath:     configPath,
+		Logger:         log,
+		RequestRestart: func() {
+			select {
+			case restartRequested <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if updateErr != nil {
+		// Telemetry is still useful if this particular build cannot update
+		// itself. Do not announce an installable entity without a working,
+		// signature-verifying implementation behind it.
+		log.Error("self-update unavailable", "error", updateErr)
+	}
+
+	var application *app.App
+	if updateManager != nil {
+		application = app.New(cfg, configPath, log, updateManager)
+	} else {
+		application = app.New(cfg, configPath, log, nil)
+	}
 
 	settings, err := webui.New(application, log)
 	if err != nil {
@@ -385,14 +444,52 @@ func run(configPath string, background bool) error {
 	}
 	offerPawnIO(log, cfg.Lang(), created)
 
-	trayUI := tray.New(application, log, tray.Options{
-		SettingsURL: settings.URL,
-		LogPath:     logPath,
-		OnQuit: func() {
+	var shutdown sync.Once
+	stop := func() {
+		shutdown.Do(func() {
 			log.Info("shutting down")
 			application.Stop()
 			settings.Stop()
+		})
+	}
+
+	var trayUI *tray.Tray
+	trayUI = tray.New(application, log, tray.Options{
+		SettingsURL: settings.URL,
+		LogPath:     logPath,
+		OnReady: func() {
+			if readyMarker != "" {
+				if err := updater.MarkReady(readyMarker, config.Version); err != nil {
+					log.Error("could not confirm updated startup", "error", err)
+				} else {
+					log.Info("updated version started successfully", "version", config.Version)
+				}
+			}
+			updater.CleanupApplyArtifacts()
+			go func() {
+				// A successful helper exits just after observing the ready marker.
+				// Retry once after that short overlap so its own temporary EXE can
+				// be removed during this startup instead of the next one. Failed
+				// helpers persist their result only while exiting, so consume that
+				// report before cleanup can retire the transaction artifacts.
+				time.Sleep(2 * time.Second)
+				applyErrors, err := updater.ReadApplyErrors()
+				for _, applyError := range applyErrors {
+					log.Error("update helper failed",
+						"transaction", applyError.Transaction,
+						"error", applyError.Message)
+				}
+				if err != nil {
+					log.Error("could not consume update helper errors", "error", err)
+				}
+				updater.CleanupApplyArtifacts()
+			}()
+			go func() {
+				<-restartRequested
+				trayUI.Quit()
+			}()
 		},
+		OnQuit: stop,
 	})
 	trayUI.Run() // blocks until the user picks Beenden
 

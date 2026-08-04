@@ -30,6 +30,9 @@ type Options struct {
 	// fall back to a different port than the configured one.
 	SettingsURL func() string
 	LogPath     string
+	// OnReady runs after the tray and all menu items are usable. The update
+	// helper uses this as the proof that a restarted version really started.
+	OnReady func()
 	// OnQuit runs after the tray is torn down, before the process exits.
 	OnQuit func()
 }
@@ -79,6 +82,12 @@ func (t *Tray) Run() {
 	systray.Run(t.onReady, t.onExit)
 }
 
+// Quit leaves the tray message loop. onExit still owns the shared graceful
+// shutdown path, regardless of whether a person or an update requested it.
+func (t *Tray) Quit() {
+	systray.Quit()
+}
+
 func (t *Tray) onReady() {
 	systray.SetIcon(assets.Icon)
 	systray.SetTitle(config.AppName)
@@ -119,6 +128,9 @@ func (t *Tray) onReady() {
 	t.app.OnUpdate(t.render)
 
 	go t.handleClicks()
+	if t.opts.OnReady != nil {
+		t.opts.OnReady()
+	}
 }
 
 // renderHeader keeps the top entry saying where the interface actually is.

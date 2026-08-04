@@ -13,18 +13,50 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      # Only to attach the binary to the release that triggered this.
-      contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      asset_name: ${{ steps.release.outputs.asset_name }}
+      release_commit: ${{ steps.release_commit.outputs.sha }}
 
     steps:
+      - name: Validate release tag
+        id: release
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          $pattern = '\Av?((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\z'
+          $match = [regex]::Match($env:RELEASE_TAG, $pattern)
+          if (-not $match.Success) {
+            throw "release tag must be v?X.Y.Z without leading zeroes, got '$env:RELEASE_TAG'"
+          }
+
+          $version = $match.Groups[1].Value
+          $assetName = "rig-exporter_${version}_windows_amd64.exe.zip"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "asset_name=$assetName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - uses: actions/checkout@v4
         with:
           # The tag rather than the default branch: a release must be built
           # from what it claims to be. Full history because the build
           # identifier counts commits.
-          ref: ${{ github.event.release.tag_name }}
+          ref: refs/tags/${{ github.event.release.tag_name }}
           fetch-depth: 0
+          persist-credentials: false
+
+      # Capture the immutable build input before any code from the release tag
+      # runs. The signing job binds its authorization to this exact commit.
+      - name: Pin release commit
+        id: release_commit
+        shell: pwsh
+        run: |
+          $commit = (& git rev-parse 'HEAD^{commit}').Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $commit -cnotmatch '\A[0-9a-f]{40}\z') {
+            throw "could not resolve a full release commit, got '$commit'"
+          }
+          "sha=$commit" | Out-File `
+            -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - uses: actions/setup-go@v5
         with:
@@ -43,25 +75,345 @@ jobs:
         # A tag that disagrees with the version compiled into the binary means
         # the version bump never landed. Better to fail here than to publish it.
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           $reported = (.\rig-exporter.exe -version)
           Write-Host "reported: $reported"
-          $expected = "${{ github.event.release.tag_name }}".TrimStart('v')
-          if ($reported -notmatch [regex]::Escape($expected)) {
-            throw "binary reports '$reported', which does not carry the tagged version $expected"
+          $prefix = "rig-exporter $env:RELEASE_VERSION"
+          if ($reported -ne $prefix -and -not $reported.StartsWith("$prefix+")) {
+            throw "binary reports '$reported', expected version $env:RELEASE_VERSION"
           }
 
-      - name: Checksum
+      - name: Package updater asset
+        shell: pwsh
+        env:
+          UPDATE_ASSET_NAME: ${{ steps.release.outputs.asset_name }}
+        run: |
+          $archivePath = Join-Path $PWD $env:UPDATE_ASSET_NAME
+          Compress-Archive -LiteralPath '.\rig-exporter.exe' `
+            -DestinationPath $archivePath -CompressionLevel Optimal
+
+          # The updater expects one executable at the archive root. Assert the
+          # archive contract here so a future packaging change cannot produce
+          # a release that Home Assistant offers but Windows cannot install.
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+          try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName })
+            if ($entries.Count -ne 1 -or $entries[0] -ne 'rig-exporter.exe') {
+              throw "unexpected updater archive entries: $($entries -join ', ')"
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Checksums
+        shell: pwsh
+        env:
+          UPDATE_ASSET_NAME: ${{ steps.release.outputs.asset_name }}
+        run: |
+          $exeHash = (Get-FileHash .\rig-exporter.exe -Algorithm SHA256).Hash
+          $zipHash = (
+            Get-FileHash (Join-Path $PWD $env:UPDATE_ASSET_NAME) -Algorithm SHA256
+          ).Hash
+
+          # Keep the traditional sidecar for manual downloads.
+          "$exeHash  rig-exporter.exe" |
+            Out-File -Encoding ascii rig-exporter.exe.sha256
+
+          # go-selfupdate follows sha256sum format: exactly two ASCII spaces
+          # between an uppercase digest and its filename.
+          @(
+            "$exeHash  rig-exporter.exe"
+            "$zipHash  $env:UPDATE_ASSET_NAME"
+          ) | Set-Content -Encoding ascii checksums.txt
+
+          Write-Host "rig-exporter.exe: $exeHash"
+          Write-Host "$env:UPDATE_ASSET_NAME`: $zipHash"
+
+      - name: Pass unsigned release files to the isolated signing job
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-release-assets
+          path: |
+            rig-exporter.exe
+            rig-exporter.exe.sha256
+            ${{ steps.release.outputs.asset_name }}
+            checksums.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  sign-and-publish:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      # This fresh job alone receives permission to attach release assets.
+      contents: write
+
+    steps:
+      - name: Download unsigned release files
+        uses: actions/download-artifact@v4
+        with:
+          name: unsigned-release-assets
+          path: release-assets
+
+      - name: Revalidate release metadata
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          UPDATE_ASSET_NAME: ${{ needs.build.outputs.asset_name }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.release_commit }}
+        run: |
+          $pattern = '\Av?((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\z'
+          $match = [regex]::Match($env:RELEASE_TAG, $pattern)
+          if (-not $match.Success -or $match.Groups[1].Value -cne $env:RELEASE_VERSION) {
+            throw 'release metadata changed between build and signing'
+          }
+          $expectedAsset = "rig-exporter_${env:RELEASE_VERSION}_windows_amd64.exe.zip"
+          if ($env:UPDATE_ASSET_NAME -cne $expectedAsset) {
+            throw "unexpected updater asset name '$env:UPDATE_ASSET_NAME'"
+          }
+          if ($env:RELEASE_COMMIT -cnotmatch '\A[0-9a-f]{40}\z') {
+            throw "invalid pinned release commit '$env:RELEASE_COMMIT'"
+          }
+
+      - name: Check out the pinned release certificate without running tag code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.release_commit }}
+          path: tag-source
+          sparse-checkout: internal/updater/update-signing-cert.pem
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Check out the trusted certificate from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted-source
+          sparse-checkout: internal/updater/update-signing-cert.pem
+          sparse-checkout-cone-mode: false
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Bind the release commit to the trusted default branch
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.release_commit }}
+        run: |
+          $pinnedCheckout = (
+            & git -C '.\tag-source' rev-parse 'HEAD^{commit}'
+          ).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $pinnedCheckout -cne $env:RELEASE_COMMIT) {
+            throw "pinned certificate checkout resolved to '$pinnedCheckout', expected $env:RELEASE_COMMIT"
+          }
+
+          $trustedCommit = (
+            & git -C '.\trusted-source' rev-parse 'HEAD^{commit}'
+          ).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $trustedCommit -cnotmatch '\A[0-9a-f]{40}\z') {
+            throw "could not resolve the trusted default-branch commit, got '$trustedCommit'"
+          }
+
+          $tagRef = "refs/tags/${env:RELEASE_TAG}^{commit}"
+          $currentTagCommit = (
+            & git -C '.\trusted-source' rev-parse $tagRef
+          ).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $currentTagCommit -cnotmatch '\A[0-9a-f]{40}\z') {
+            throw "could not resolve the current release tag '$env:RELEASE_TAG'"
+          }
+          if ($currentTagCommit -cne $env:RELEASE_COMMIT) {
+            throw "release tag moved from $env:RELEASE_COMMIT to $currentTagCommit"
+          }
+
+          & git -C '.\trusted-source' merge-base --is-ancestor `
+            $env:RELEASE_COMMIT $trustedCommit
+          if ($LASTEXITCODE -eq 1) {
+            throw "release commit $env:RELEASE_COMMIT is not on the trusted default branch at $trustedCommit"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw 'could not verify release commit ancestry'
+          }
+
+      - name: Validate unsigned artifacts
+        shell: pwsh
+        env:
+          UPDATE_ASSET_NAME: ${{ needs.build.outputs.asset_name }}
+        run: |
+          $assetRoot = (Resolve-Path '.\release-assets').Path
+          $expectedFiles = @(
+            'checksums.txt'
+            'rig-exporter.exe'
+            'rig-exporter.exe.sha256'
+            $env:UPDATE_ASSET_NAME
+          ) | Sort-Object
+          $actualFiles = @(
+            Get-ChildItem -LiteralPath $assetRoot -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath($assetRoot, $_.FullName).Replace('\', '/')
+              }
+          ) | Sort-Object
+          if (($expectedFiles -join "`n") -cne ($actualFiles -join "`n")) {
+            throw "unexpected unsigned artifact set: $($actualFiles -join ', ')"
+          }
+
+          $archivePath = Join-Path $assetRoot $env:UPDATE_ASSET_NAME
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+          try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName })
+            if ($entries.Count -ne 1 -or $entries[0] -ne 'rig-exporter.exe') {
+              throw "unexpected updater archive entries: $($entries -join ', ')"
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+          $exeHash = (
+            Get-FileHash (Join-Path $assetRoot 'rig-exporter.exe') -Algorithm SHA256
+          ).Hash
+          $zipHash = (Get-FileHash $archivePath -Algorithm SHA256).Hash
+          $expectedChecksums = @(
+            "$exeHash  rig-exporter.exe"
+            "$zipHash  $env:UPDATE_ASSET_NAME"
+          )
+          $actualChecksums = @(
+            Get-Content -LiteralPath (Join-Path $assetRoot 'checksums.txt')
+          )
+          if (($expectedChecksums -join "`n") -cne ($actualChecksums -join "`n")) {
+            throw 'checksums.txt is malformed or does not match the release files'
+          }
+
+          $manualChecksum = @(
+            Get-Content -LiteralPath (Join-Path $assetRoot 'rig-exporter.exe.sha256')
+          )
+          if ($manualChecksum.Count -ne 1 -or
+              $manualChecksum[0] -cne "$exeHash  rig-exporter.exe") {
+            throw 'rig-exporter.exe.sha256 does not match rig-exporter.exe'
+          }
+
+      - name: Verify the pinned release uses the trusted signing certificate
         shell: pwsh
         run: |
-          $hash = (Get-FileHash .\rig-exporter.exe -Algorithm SHA256).Hash
-          "$hash  rig-exporter.exe" | Out-File -Encoding ascii rig-exporter.exe.sha256
-          Write-Host $hash
+          $tagCertificate = [System.IO.File]::ReadAllBytes(
+            (Resolve-Path `
+              '.\tag-source\internal\updater\update-signing-cert.pem').Path
+          )
+          $trustedCertificate = [System.IO.File]::ReadAllBytes(
+            (Resolve-Path `
+              '.\trusted-source\internal\updater\update-signing-cert.pem').Path
+          )
+          if ([Convert]::ToBase64String($tagCertificate) -cne
+              [Convert]::ToBase64String($trustedCertificate)) {
+            throw 'the release tag does not use the trusted default-branch certificate'
+          }
 
-      - name: Attach to the release
+      - name: Sign and verify updater checksums
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UPDATE_SIGNING_KEY)) {
+            throw 'UPDATE_SIGNING_KEY is required for every official release'
+          }
+
+          $assetRoot = (Resolve-Path '.\release-assets').Path
+          $certificate = `
+            '.\trusted-source\internal\updater\update-signing-cert.pem'
+          $privateKey = Join-Path $env:RUNNER_TEMP 'rig-exporter-update-key.pem'
+          $publicKey = Join-Path $env:RUNNER_TEMP 'rig-exporter-update-public.pem'
+          $signature = Join-Path $assetRoot 'checksums.txt.sig'
+          $checksums = Join-Path $assetRoot 'checksums.txt'
+          $opensslCommand = Get-Command openssl -ErrorAction SilentlyContinue
+          if ($opensslCommand) {
+            $openssl = $opensslCommand.Source
+          } else {
+            $openssl = @(
+              "$env:ProgramFiles\Git\mingw64\bin\openssl.exe"
+              "$env:ProgramFiles\Git\usr\bin\openssl.exe"
+            ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          }
+          if (-not $openssl) {
+            throw 'OpenSSL is required to sign release checksums'
+          }
+
+          try {
+            [System.IO.File]::WriteAllText(
+              $privateKey,
+              $env:UPDATE_SIGNING_KEY,
+              [System.Text.Encoding]::ASCII
+            )
+
+            # `openssl ec` rejects non-ECDSA keys as well as malformed keys.
+            & $openssl ec -in $privateKey -check -noout
+            if ($LASTEXITCODE -ne 0) {
+              throw 'UPDATE_SIGNING_KEY is not a valid ECDSA private key'
+            }
+
+            & $openssl x509 -in $certificate -pubkey -noout -out $publicKey
+            if ($LASTEXITCODE -ne 0) {
+              throw 'the committed update signing certificate is invalid'
+            }
+
+            & $openssl dgst -sha256 -sign $privateKey `
+              -out $signature $checksums
+            if ($LASTEXITCODE -ne 0) {
+              throw 'failed to sign checksums.txt'
+            }
+
+            & $openssl dgst -sha256 -verify $publicKey `
+              -signature $signature $checksums
+            if ($LASTEXITCODE -ne 0) {
+              throw 'checksums.txt signature does not match the trusted certificate'
+            }
+          } finally {
+            Remove-Item -LiteralPath $privateKey -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $publicKey -Force -ErrorAction SilentlyContinue
+          }
+
+      # Resolve the mutable tag one final time after signing. This checkout is
+      # data-only: nothing from it is executed in the privileged job.
+      - name: Refresh the release tag before upload
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name }}
+          path: upload-tag-check
+          sparse-checkout: internal/updater/update-signing-cert.pem
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Verify the release tag immediately before upload
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.release_commit }}
+        run: |
+          $currentTagCommit = (
+            & git -C '.\upload-tag-check' rev-parse 'HEAD^{commit}'
+          ).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $currentTagCommit -cnotmatch '\A[0-9a-f]{40}\z') {
+            throw "could not resolve release tag '$env:RELEASE_TAG' before upload"
+          }
+          if ($currentTagCommit -cne $env:RELEASE_COMMIT) {
+            throw "release tag moved from $env:RELEASE_COMMIT to $currentTagCommit before upload"
+          }
+
+      - name: Attach signed files to the release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          UPDATE_ASSET_NAME: ${{ needs.build.outputs.asset_name }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" `
-            rig-exporter.exe rig-exporter.exe.sha256 --clobber
+          $assetRoot = (Resolve-Path '.\release-assets').Path
+          gh release upload $env:RELEASE_TAG `
+            (Join-Path $assetRoot 'rig-exporter.exe') `
+            (Join-Path $assetRoot 'rig-exporter.exe.sha256') `
+            (Join-Path $assetRoot $env:UPDATE_ASSET_NAME) `
+            (Join-Path $assetRoot 'checksums.txt') `
+            (Join-Path $assetRoot 'checksums.txt.sig') `
+            --clobber

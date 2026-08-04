@@ -268,6 +268,15 @@ func TestTopicsAndIdentifiers(t *testing.T) {
 	if got, want := cfg.AvailabilityTopic(), "rig-exporter/corganpc2/availability"; got != want {
 		t.Errorf("AvailabilityTopic = %q, want %q", got, want)
 	}
+	if got, want := cfg.UpdateStateTopic(), "rig-exporter/corganpc2/update/state"; got != want {
+		t.Errorf("UpdateStateTopic = %q, want %q", got, want)
+	}
+	if got, want := cfg.UpdateAvailabilityTopic(), "rig-exporter/corganpc2/update/availability"; got != want {
+		t.Errorf("UpdateAvailabilityTopic = %q, want %q", got, want)
+	}
+	if got, want := cfg.UpdateCommandTopic(), "rig-exporter/corganpc2/update/install"; got != want {
+		t.Errorf("UpdateCommandTopic = %q, want %q", got, want)
+	}
 	if got, want := cfg.DiscoveryTopic("sensor", "fps"), "homeassistant/sensor/rig_corganpc2/fps/config"; got != want {
 		t.Errorf("DiscoveryTopic = %q, want %q", got, want)
 	}

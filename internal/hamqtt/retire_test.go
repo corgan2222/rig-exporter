@@ -13,7 +13,7 @@ func testPublisher(t *testing.T) *Publisher {
 
 	cfg := config.Defaults()
 	cfg.NodeID = "corganpc2"
-	return New(cfg, applog.Discard(), nil)
+	return New(cfg, applog.Discard(), nil, nil)
 }
 
 // This is the one that matters. Exports run on their own goroutine, so a

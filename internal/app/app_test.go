@@ -67,7 +67,7 @@ func newTestApp(t *testing.T, poll, publish int) (*App, *countingTarget) {
 	cfg.IdlePublishIntervalMs = publish
 	cfg.Normalize()
 
-	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard())
+	application := New(cfg, t.TempDir()+`\config.json`, applog.Discard(), nil)
 
 	target := &countingTarget{}
 	application.runners = []*runner{newRunner(target, applog.Discard())}

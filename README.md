@@ -649,6 +649,29 @@ ist, vom Handy aus nicht. Ist **Diese Seite im Netzwerk erreichbar machen**
 gesetzt, steht dort die LAN-Adresse dieses Rechners und der Link funktioniert
 von überall. Siehe [Oberfläche im Netzwerk](#oberfläche-im-netzwerk).
 
+#### Updates über Home Assistant
+
+Liegt ein neuer offizieller GitHub-Release vor, kündigt MQTT zusätzlich eine
+native **Update-Entity** für rig-exporter an. Home Assistant zeigt darin die
+installierte und die verfügbare Version, einen kurzen Auszug aus dem Changelog
+und einen Link auf die vollständigen Release Notes. Der Auszug ist auf die von
+Home Assistant vorgesehenen 255 Zeichen begrenzt; der Link führt deshalb immer
+zum ungekürzten Changelog. Geprüft wird direkt beim Start und danach alle zwölf
+Stunden.
+
+Der Exporter installiert nichts unbeaufsichtigt. Erst ein Klick auf
+**Installieren** in Home Assistant löst den Download aus. Währenddessen zeigt
+die Update-Entity den laufenden Vorgang an. Danach beendet sich rig-exporter
+geordnet, tauscht die EXE aus und startet wieder im Hintergrund. Die neue
+Instanz meldet ihre tatsächlich laufende Version zurück an Home Assistant.
+
+Offizielle Update-Artefakte sind signiert. Vor dem Austausch prüft der Exporter
+die Signatur der veröffentlichten Prüfsummen und anschließend die SHA-256-
+Prüfsumme des Windows-Archivs. Schlägt eine dieser Prüfungen fehl, wird die
+vorhandene EXE nicht ersetzt. Auch der Release-Workflow bricht ab, wenn der
+Signierschlüssel fehlt oder seine Signatur nicht zum fest eingebauten
+öffentlichen Zertifikat passt.
+
 ### 2. HTTP-Datenserver (Pull)
 
 Ein zweiter Listener, standardmäßig `0.0.0.0:9838`, damit Home Assistant von

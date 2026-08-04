@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.6.3"
+	Version = "1.7.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -660,6 +660,25 @@ func (c Config) StateTopic() string {
 // AvailabilityTopic is retained and also used as the MQTT last will.
 func (c Config) AvailabilityTopic() string {
 	return fmt.Sprintf("%s/%s/availability", c.TopicPrefix, c.NodeID)
+}
+
+// UpdateStateTopic carries the retained state of the software update entity.
+func (c Config) UpdateStateTopic() string {
+	return fmt.Sprintf("%s/%s/update/state", c.TopicPrefix, c.NodeID)
+}
+
+// UpdateAvailabilityTopic is retained independently from the process-wide
+// last will. Home Assistant requires both topics to be online before it makes
+// the install command available.
+func (c Config) UpdateAvailabilityTopic() string {
+	return fmt.Sprintf("%s/%s/update/availability", c.TopicPrefix, c.NodeID)
+}
+
+// UpdateCommandTopic receives the short-lived install command from Home
+// Assistant. The command never carries a version or URL; the updater decides
+// which previously verified release is safe to install.
+func (c Config) UpdateCommandTopic() string {
+	return fmt.Sprintf("%s/%s/update/install", c.TopicPrefix, c.NodeID)
 }
 
 // DiscoveryTopic is where Home Assistant picks up one entity's configuration.
