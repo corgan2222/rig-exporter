@@ -80,6 +80,7 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux.HandleFunc("POST /pause", s.handlePause)
 	mux.HandleFunc("POST /language", s.handleLanguage)
 	mux.HandleFunc("POST /open", s.handleOpen)
+	mux.HandleFunc("POST /dismiss", s.handleDismiss)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
@@ -535,6 +536,26 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		s.log.Error("open failed", "what", r.FormValue("what"), "error", err)
+	}
+	http.Redirect(w, r, backTo(r), http.StatusSeeOther)
+}
+
+// handleDismiss puts a one-off hint away for good.
+//
+// Stored in the configuration rather than in the browser: the interface moves
+// to a random port whenever the configured one is taken, and a different port
+// is a different origin, so anything kept in local storage was gone again on
+// the next start.
+func (s *Server) handleDismiss(w http.ResponseWriter, r *http.Request) {
+	if r.FormValue("what") != "recorder" {
+		http.NotFound(w, r)
+		return
+	}
+
+	cfg := s.app.Config()
+	cfg.RecorderNoticeRead = true
+	if err := s.app.ApplyConfig(cfg); err != nil {
+		s.log.Error("could not remember that the notice was read", "error", err)
 	}
 	http.Redirect(w, r, backTo(r), http.StatusSeeOther)
 }

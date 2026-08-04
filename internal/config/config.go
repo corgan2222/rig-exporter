@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.4.2"
+	Version = "1.4.3"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -155,6 +155,16 @@ type Config struct {
 	// Assistant database.
 	Decimals      bool `json:"decimals"`
 	IdleTimeoutMs int  `json:"idle_timeout_ms"`
+
+	// RecorderNoticeRead remembers that the hint about the Home Assistant
+	// database has been read.
+	//
+	// It lives here rather than in the browser, where it started. The web
+	// server falls back to a random port when the configured one is taken, and
+	// a different port is a different origin — so local storage was thrown away
+	// on most restarts and the hint came back every time. It is a fact about
+	// this installation anyway, not about one browser.
+	RecorderNoticeRead bool `json:"recorder_notice_read"`
 
 	Language  string `json:"language"`
 	WebPort   int    `json:"web_port"`
