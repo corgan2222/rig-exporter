@@ -329,10 +329,6 @@ func TestNamesTranslateAndIdentifiersDoNot(t *testing.T) {
 		if got := tc.reading.DisplayName(i18n.EN); got != tc.en {
 			t.Errorf("English name = %q, want %q", got, tc.en)
 		}
-		// Whatever the language, the identifier is the same string.
-		if tc.reading.Key() != tc.reading.Key() {
-			t.Error("unreachable, but states the invariant")
-		}
 	}
 
 	// The prefix translates too — a German page reading "Drive C: Frei" would
@@ -625,9 +621,17 @@ func TestPrometheusSkipsEmptyInfoMetrics(t *testing.T) {
 	}
 }
 
+// Map iteration order is deliberately random in Go, so a renderer that walks a
+// map without sorting produces a different document every time — which turns
+// every scrape into a diff and hides real changes.
 func TestPrometheusOutputIsStable(t *testing.T) {
 	set := sampleSet()
-	if string(set.Prometheus("pc")) != string(set.Prometheus("pc")) {
+
+	// Two separate calls, kept in variables: comparing the calls inline reads
+	// as comparing something with itself, and a reader cannot tell that the
+	// point is exactly that the two must agree.
+	first, second := string(set.Prometheus("pc")), string(set.Prometheus("pc"))
+	if first != second {
 		t.Error("two renderings of the same set differ")
 	}
 }

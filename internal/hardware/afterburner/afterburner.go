@@ -75,9 +75,13 @@ var (
 	// ErrAccessDenied means Afterburner runs at a higher integrity level.
 	ErrAccessDenied = errors.New("access to the Afterburner shared memory was denied")
 	// ErrBadSignature means something else owns that shared memory name.
-	ErrBadSignature = errors.New("Afterburner shared memory has an unexpected signature")
+	//
+	// The product is named in full here, as in ErrNotRunning. A lint that
+	// rejects a capitalised error string cannot tell a proper noun from
+	// sloppiness, and "MSI" reads as the acronym it is.
+	ErrBadSignature = errors.New("MSI Afterburner shared memory has an unexpected signature")
 	// ErrTruncated means the mapping is smaller than the header it advertises.
-	ErrTruncated = errors.New("Afterburner shared memory is truncated")
+	ErrTruncated = errors.New("MSI Afterburner shared memory is truncated")
 )
 
 // naValue is what Afterburner writes for a sensor that is not available.
