@@ -375,7 +375,7 @@ func (p *Publisher) Stop() {
 // Status reports the current connection state.
 func (p *Publisher) Status() export.Status {
 	p.mu.RLock()
-	connected, lastError, entities := p.connected, p.lastError, len(p.announced)
+	connected, lastError := p.connected, p.lastError
 	p.mu.RUnlock()
 
 	lang := p.cfg.Lang()
@@ -387,8 +387,10 @@ func (p *Publisher) Status() export.Status {
 	}
 	switch {
 	case connected:
-		status.Detail = fmt.Sprintf("%s · %s · %d %s",
-			i18n.T(lang, "export.connected"), p.cfg.BrokerURL(), entities, i18n.T(lang, "export.entities"))
+		// The entity count used to hang here. It has a chip of its own now:
+		// how many entities exist is a fact about the machine, not about this
+		// one connection, and it was invisible whenever MQTT was switched off.
+		status.Detail = i18n.T(lang, "export.connected") + " · " + p.cfg.BrokerURL()
 	case lastError != "":
 		status.Detail = i18n.T(lang, "export.disconnected") + " · " + lastError
 	default:

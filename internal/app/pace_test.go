@@ -73,7 +73,7 @@ func TestRenderingNeedsBothAGameAndFrames(t *testing.T) {
 				metrics.Bool(metrics.GameRunning, "", tc.running),
 				metrics.Gauge(metrics.FPS, "", tc.fps),
 			)
-			if got := rendering(snap); got != tc.want {
+			if got := snap.Rendering(); got != tc.want {
 				t.Errorf("rendering() = %v, want %v", got, tc.want)
 			}
 		})
