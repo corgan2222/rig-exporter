@@ -45,23 +45,26 @@ func TestTheStandardSetDropsWhatItDoesNotContain(t *testing.T) {
 	add := func() Set {
 		var set Set
 		set.Add(
-			Gauge(FPS, "", 143),            // standard
-			Gauge(CPULoad, "", 37),         // standard
-			Gauge(CPUClock, "", 4200),      // extended
-			Text(Resolution, "", "4K"),     // extended
-			Gauge(GPUTemperature, "0", 45), // standard, with an instance
+			Gauge(FPS, "", 143),                          // standard
+			Gauge(CPULoad, "", 37),                       // standard
+			Gauge(CPUClock, "", 4200),                    // extended
+			Text(Resolution, "", "4K"),                   // extended
+			Gauge(GPUTemperature, "0", 45),               // standard, with an instance
+			Gauge(GPUDedicatedMemoryTotal, "0", 128),     // standard
+			Text(GPUDriverVersion, "0", "31.0.101.5590"), // extended
+			Gauge(GPUSharedMemoryTotal, "0", 8192),       // extended
 		)
 		return set
 	}
 
-	if got := len(add().Readings); got != 5 {
-		t.Fatalf("extended: got %d readings, want all 5", got)
+	if got := len(add().Readings); got != 8 {
+		t.Fatalf("extended: got %d readings, want all 8", got)
 	}
 
 	SetStandardOnly(true)
 	set := add()
-	if got := len(set.Readings); got != 3 {
-		t.Errorf("standard: got %d readings, want 3", got)
+	if got := len(set.Readings); got != 4 {
+		t.Errorf("standard: got %d readings, want 4", got)
 	}
 	for _, r := range set.Readings {
 		if !r.Def.InStandardSet() {
@@ -73,6 +76,15 @@ func TestTheStandardSetDropsWhatItDoesNotContain(t *testing.T) {
 	}
 	if set.Has(CPUClock.ID) {
 		t.Error("cpu_clock survived the standard set")
+	}
+	if set.Has(GPUDriverVersion.ID) {
+		t.Error("gpu_driver_version survived the standard set")
+	}
+	if set.Has(GPUSharedMemoryTotal.ID) {
+		t.Error("gpu_shared_memory_total survived the standard set")
+	}
+	if !set.Has(GPUDedicatedMemoryTotal.ID) {
+		t.Error("gpu_dedicated_memory_total was dropped from the standard set")
 	}
 }
 

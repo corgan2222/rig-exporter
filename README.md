@@ -27,9 +27,9 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 61 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 62 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
-* **Erweitert** (Voreinstellung) — die übrigen 33 dazu: Taktraten, Speicher­riegel,
+* **Erweitert** (Voreinstellung) — die übrigen 35 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
   Problems, im Alltag selten.
 
@@ -63,7 +63,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
-| **Grafikkarte** | Name, Hersteller, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | MSI Afterburner, ersatzweise NVML |
+| **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI und Plug and Play, MSI Afterburner und NVML |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
@@ -84,36 +84,46 @@ Home-Assistant-Entitäten für dieselbe Zahl sind schlechter als keine.
 
 ### Woher die Grafikwerte kommen
 
-Windows selbst gibt weder GPU-Temperatur noch Takt her — dafür braucht es einen
-Treiber. Deshalb:
+Windows kennt jede Grafikkarte selbst: DXGI liefert Modell, PCI-Hersteller,
+dedizierten Grafikspeicher und die Obergrenze des gemeinsam nutzbaren
+Systemspeichers; Plug and Play ergänzt die installierte Treiberversion.
+Temperatur, Takt und Leistung gehören dagegen nicht zu diesen Schnittstellen.
+Deshalb greifen drei Quellen ineinander:
 
-1. **MSI Afterburner** (`MAHMSharedMemory`) ist die erste Wahl: deckt NVIDIA,
+1. **Windows DXGI** (`CreateDXGIFactory1` / `EnumAdapters1`) bildet das Inventar.
+   Es braucht weder Zusatzsoftware noch Administratorrechte und erkennt damit
+   auch eine integrierte Intel Iris auf einem normalen Laptop.
+2. **MSI Afterburner** (`MAHMSharedMemory`) liefert die Live-Werte: deckt NVIDIA,
    AMD und Intel ab, liefert Lüfter, Spannung und Hotspot. RTSS gehört ohnehin
    dazu, ein für den FPS-Overlay eingerichteter Rechner hat das also schon.
-2. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
+3. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
    VRAM-Gesamtausbau und die Lüfterdrehzahl. Ohne Afterburner reicht es allein
    für NVIDIA-Karten.
 
-Ohne Afterburner fehlen von der GPU nur Hotspot-Temperatur und Spannung — den
-Rest liefert NVML, Lüfterdrehzahl eingeschlossen (`nvmlDeviceGetFanSpeedRPM`,
-gemeldet wird der schnellste Lüfter der Karte). NVML wächst mit jeder
+Auf einer NVIDIA-Karte fehlen ohne Afterburner nur die Werte, die NVML nicht
+kennt, etwa Hotspot und Spannung. Auf Intel und AMD bleibt ohne Live-Quelle das
+DXGI-Inventar sichtbar; nicht messbare Werte werden weggelassen statt als null
+behauptet. NVML meldet auch die Lüfterdrehzahl (`nvmlDeviceGetFanSpeedRPM`,
+gemeldet wird der schnellste Lüfter der Karte) und wächst mit jeder
 Treibergeneration um neue Einsprungpunkte, und `LazyProc.Call` löst das Symbol
 über `mustFind` auf — das **panict**, wenn es fehlt. In einem Binary mit
 `-H windowsgui` stirbt damit das Tray wortlos. Deshalb wird jeder Einsprungpunkt
 einmal aufgelöst und vor dem ersten Aufruf geprüft; ein alter Treiber verliert
 einen Wert, nicht das Programm.
 
-Ist beides nicht da, entfällt die GPU-Gruppe. Ohne Kernel-Treiber sind
-Gehäuselüfter, Netzteil-Telemetrie und Spannungen grundsätzlich nicht
-erreichbar.
+Ohne Afterburner und NVML entfällt also nicht mehr die ganze GPU-Gruppe, sondern
+nur die Live-Telemetrie. Ohne Kernel-Treiber sind Gehäuselüfter,
+Netzteil-Telemetrie und Spannungen grundsätzlich nicht erreichbar.
 
-Beide zählen unabhängig voneinander durch, verbunden werden sie deshalb über
-den Kartennamen — und der ist nicht eindeutig, zwei gleiche Karten heißen
-gleich. Zugeordnet wird darum in Indexreihenfolge, jede Instanz höchstens
-einmal, und eine Karte, für die sich kein Name findet, bekommt eine eigene
-Instanz, statt eine fremde zu überschreiben. Auf einem Notebook, dessen
-integrierte Grafik bei Afterburner Karte 0 ist, wäre sonst deren Eintrag mit dem
-VRAM und der Leistungsgrenze der dedizierten Karte überschrieben worden.
+Die drei Quellen zählen unabhängig voneinander durch. DXGI legt die Instanzen
+fest, Afterburner und NVML werden über den Kartennamen darauf abgebildet — der
+ist allerdings nicht eindeutig, zwei gleiche Karten heißen gleich. Zugeordnet
+wird darum in Indexreihenfolge und jede Instanz höchstens einmal. Zusätzlich
+begrenzt die Plug-and-Play-Geräteliste, wie oft dieselbe PCI-Kennung vorkommen
+darf: Ein Citrix-Sitzungsadapter kann sonst eine echte Karte in DXGI spiegeln,
+während zwei wirklich eingebaute gleiche Karten erhalten bleiben. Auf einem
+Hybrid-Notebook vertauscht eine abweichende Aufzählungsreihenfolge dadurch
+nicht mehr Intel- und NVIDIA-Werte.
 
 ### Alle Laufwerke zusammen
 
@@ -340,9 +350,9 @@ das soll im Review auffallen statt beim Nutzer.
 
 Die Anzeigeseite hat ein Panel **Datenquellen**, und `-probe` denselben
 Abschnitt: welche Quelle, wie viele Werte, und welche. Windows stellt überall
-die große Mehrheit, Afterburner und NVML teilen sich die Grafikwerte, RivaTuner
-liefert die Bilder pro Sekunde, PawnIO die zwei Werte, die Kernelrechte
-brauchen, und rig-exporter meldet seine eigene Version.
+die große Mehrheit, DXGI, Afterburner und NVML teilen sich die Grafikwerte,
+RivaTuner liefert die Bilder pro Sekunde, PawnIO die zwei Werte, die
+Kernelrechte brauchen, und rig-exporter meldet seine eigene Version.
 
 Die Summe liegt über der Zahl der Werte, weil Afterburner und NVML sich
 überschneiden und der Zähler zeigt, wer geliefert *hat*, nicht wer gewonnen hat.
@@ -351,9 +361,9 @@ Das entsteht nicht aus einer Tabelle, sondern jede Messung wird beim Hinzufügen
 gestempelt. Eine Tabelle beschriebe den gedachten Aufbau; so beschrieben wird
 der Rechner vor dem Nutzer, einschließlich des Falls, dass ein Programm läuft
 und trotzdem nichts beiträgt. Quellen mit mehreren Lieferanten korrigieren den
-Stempel selbst — deshalb trennt die Grafikgruppe zwischen Afterburner und NVML,
-und die CPU-Temperatur erscheint als Afterburner-Wert, obwohl der Rest der
-Prozessorquelle aus Windows kommt.
+Stempel selbst — deshalb trennt die Grafikgruppe zwischen DXGI, Afterburner und
+NVML, und die CPU-Temperatur erscheint als Afterburner-Wert, obwohl der Rest
+der Prozessorquelle aus Windows kommt.
 
 Die Frage, die das Panel beantwortet, ist: **was verliere ich, wenn ich dieses
 Programm schließe.**
@@ -767,6 +777,12 @@ gruppiert nach Sensorgruppe, gefolgt von JSON, Prometheus-Exposition und Line
 Protocol. Der schnellste Weg zu sehen, welche Quellen greifen und was bei Home
 Assistant ankäme.
 
+Auf einem Laptop ohne Afterburner oder NVIDIA-Treiber muss der Abschnitt
+**Grafikkarte** im erweiterten Messwertsatz mindestens Name, Hersteller,
+Treiberversion, dedizierten und gemeinsam nutzbaren GPU-Speicher sowie
+`Windows DXGI` als Datenquelle enthalten. Auslastung, Temperatur und Takt fehlen
+in diesem Fall absichtlich, solange keine Live-Quelle sie wirklich misst.
+
 Die Ausgabe landet **immer zusätzlich** in `%APPDATA%\rig-exporter\probe.txt`,
 und das hat einen Grund. Das Programm ist als GUI-Anwendung gelinkt, damit beim
 Start kein Konsolenfenster aufblitzt; es hat deshalb von sich aus keine Konsole
@@ -782,7 +798,7 @@ und ihr Pfad steht am Ende der Ausgabe.
 | RTSS `not_running` | RTSS ist nicht gestartet. |
 | RTSS `access_denied` | RTSS läuft erhöht, rig-exporter nicht. Eines von beiden angleichen. |
 | FPS bleibt 0, Spiel `none` | RTSS hookt die Anwendung nicht. Im RTSS-Profil „Application detection level" prüfen. |
-| Keine GPU-Gruppe | Weder Afterburner noch NVML erreichbar. Läuft Afterburner erhöht, gilt dasselbe wie bei RTSS. |
+| Keine GPU-Gruppe | GPU-Gruppe in den Einstellungen aktiv? DXGI und die Windows-Geräteliste fanden keinen physischen Adapter. Ein nicht erreichbarer Afterburner betrifft nur die Live-Werte. |
 | Keine CPU-Temperatur | Kommt über Afterburner, oder über PawnIO — das aber nur auf AMD und nur eleviert. |
 | Keine CPU-Leistung | Gibt es ausschließlich über PawnIO: eingeschaltet, AMD, eleviert. |
 | Keine Durchsatzwerte | Erst ab der zweiten Messung vorhanden, sie sind eine Differenz. |
@@ -1036,12 +1052,15 @@ ein Spiel im Hintergrund weiterzählt. Einträge, deren letztes Bild älter als 
 Idle-Timeout ist, fallen raus; das lässt ein beendetes Spiel auf `none`
 zurückfallen statt beim letzten Wert einzufrieren.
 
-**GPU** kommt aus Afterburners Shared Memory. Die Sensornamen sind pro Karte
+**GPU-Inventar** kommt aus DXGI 1.1. `DXGI_ADAPTER_DESC1` liefert Name,
+PCI-Kennung, dedizierten und gemeinsam nutzbaren Speicher; Plug and Play ergänzt
+die Treiberversion und filtert gespiegelte Sitzungsadapter. **GPU-Livewerte**
+kommen aus Afterburners Shared Memory. Die Sensornamen sind pro Karte
 durchnummeriert (`GPU1 temperature`), und der Kartenindex im Eintrag ist nicht
-verlässlich — Afterburner setzt ihn auch bei „RAM usage" —, deshalb wird
-ausschließlich über den Namen zugeordnet. NVML-Karten werden über den Namen mit
-den Afterburner-Karten gepaart, nicht über den Index: zwei Karten
-verschiedener Hersteller würden sonst vertauscht.
+verlässlich — Afterburner setzt ihn auch bei „RAM usage" —, deshalb wird über
+den Namen auf die DXGI-Instanz abgebildet.
+NVML-Karten werden genauso über den Namen gepaart, nicht über den Index: zwei
+Karten verschiedener Hersteller würden sonst vertauscht.
 
 **Auflösung und Hz** kommen von `EnumDisplaySettingsW` des primären Monitors,
 also aus dem Anzeigetreiber — unabhängig von der DPI-Skalierung des Prozesses.
@@ -1130,7 +1149,7 @@ internal/collector               eine Messung aus Kern- und optionalen Quellen
 internal/rtss                    RTSS Shared Memory
 internal/sysinfo                 CPU-Last, RAM, Anzeigemodus, Leerlauf, Laufzeit
 internal/hardware/afterburner    Afterburner Shared Memory
-internal/hardware/gpu            GPU-Gruppe: Afterburner + NVML
+internal/hardware/gpu            GPU-Gruppe: Windows DXGI + Afterburner + NVML
 internal/hardware/cpu            CPU-Gruppe
 internal/hardware/ram            Speichergruppe, inklusive SMBIOS-Parser
 internal/hardware/disk           Laufwerksgruppe
@@ -1175,13 +1194,14 @@ Parser (RTSS, Afterburner, SMBIOS) werden gegen synthetische Speicherblöcke
 geprüft, die Exporter und Web-Handler gegen `httptest`-Server, die Messquellen
 gegen Attrappen.
 
-269 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
+281 Testfunktionen in 36 Dateien. Abgedeckt sind: die drei Parser, die
 Metrikdefinition und ihre vier Ausgabeformate samt festgeschriebenem Katalog,
 die Konfiguration mit Migration und Grenzwerten, die Übersetzungen, die
 Home-Assistant-Discovery, die Exportziele, der Collector, die Messschleife mit
 ihren zwei Sendetakten, die Web-Handler samt blockweisem Speichern und dem
-erzeugten Recorder-Vorschlag, die Zuordnung zweier Grafikkarten zwischen
-Afterburner und NVML, der Load-Mittelwert — und bei PawnIO die
+erzeugten Recorder-Vorschlag, das DXGI-Inventar samt Plug-and-Play-Abgleich, die
+Zuordnung zweier Grafikkarten zwischen DXGI, Afterburner und NVML, der
+Load-Mittelwert — und bei PawnIO die
 Zen-Dekodierung, die Modulnamen-Prüfung, die Beschränkung des Downloads auf
 GitHub-Release-Hosts und die Zusicherung, dass ein Download nichts ausführt.
 

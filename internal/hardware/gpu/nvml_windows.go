@@ -1,15 +1,15 @@
 //go:build windows
 
-// Package gpu collects graphics card telemetry.
+// Package gpu collects graphics card inventory and telemetry.
 //
-// Two sources, tried in that order: MSI Afterburner's shared memory, which
-// works for NVIDIA, AMD and Intel and is usually already running on a machine
-// set up for the RTSS overlay; and NVML, which ships with the NVIDIA driver
-// and needs nothing installed but only covers NVIDIA cards.
+// Windows DXGI supplies the adapter identity and memory limits on every
+// supported machine, including integrated Intel laptop graphics. MSI
+// Afterburner's shared memory adds live readings for NVIDIA, AMD and Intel;
+// NVML ships with the NVIDIA driver and fills its remaining gaps.
 //
-// Windows itself exposes neither temperature nor clocks, so a machine with an
-// AMD card and no Afterburner simply reports no GPU group. That is what the
-// "only report what is there" behaviour is for.
+// Windows itself exposes neither temperature nor clocks through DXGI, so a
+// card without a live source reports its inventory and leaves those readings
+// out. That is what the "only report what is there" behaviour is for.
 package gpu
 
 import (
