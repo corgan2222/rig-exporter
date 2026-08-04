@@ -73,6 +73,41 @@ func TestTheTableCarriesItsLeaderSeparately(t *testing.T) {
 	}
 }
 
+// The flat ranks are what makes the history chartable at all.
+//
+// A card plotting an attribute over time reads attributes[name] out of every
+// historical state and expects a number there. Handed a list of objects it has
+// nothing to draw, which is a chart that loads forever rather than an error.
+func TestTheTableAlsoCarriesEachRankFlat(t *testing.T) {
+	var set Set
+	set.Add(sampleTable())
+
+	value, ok := set.JSON()["top_cpu"].(map[string]any)
+	if !ok {
+		t.Fatalf("top_cpu is %T, want an object", set.JSON()["top_cpu"])
+	}
+
+	for _, tc := range []struct {
+		key  string
+		want any
+	}{
+		{"rank1", 41.2},
+		{"rank1_name", "firefox.exe"},
+		{"rank2", 12.0},
+		{"rank2_name", "cs2.exe"},
+	} {
+		if got := value[tc.key]; got != tc.want {
+			t.Errorf("%s = %v (%T), want %v", tc.key, got, got, tc.want)
+		}
+	}
+
+	// A shorter list leaves the remaining ranks absent rather than zero: a
+	// column of zeroes is a program using nothing, which is not what happened.
+	if _, present := value["rank3"]; present {
+		t.Error("rank3 exists although only two programs were ranked")
+	}
+}
+
 // Prometheus gets one series per row. The rank is a label of its own because a
 // ranked list raises two questions — "how much did firefox use" and "how much
 // did the busiest program use" — and neither is answerable from a series that

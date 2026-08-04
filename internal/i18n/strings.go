@@ -252,15 +252,13 @@ var catalogue = map[string]Text{
 		EN: "Top processes — which programs are using CPU and memory",
 	},
 	"settings.sensors.topProcsHint": {
-		DE: "Die teuerste Option auf dieser Seite. Jede Messung liest alle laufenden Prozesse — " +
-			"auf diesem Rechner rund 660, gemessene 19 ms und 1,6 MB pro Durchgang. Ergibt zwei Entities, " +
-			"deren Attribute sich bei jeder Messung ändern: bei 10 s rund 17 000 zusätzliche Zeilen " +
-			"pro Tag in der Datenbank von Home Assistant. " +
+		DE: "Die teuerste Option auf dieser Seite: jede Messung liest jeden laufenden Prozess. " +
+			"Ergibt zwei Entities, deren Attribute sich bei jeder Messung ändern — je kürzer das " +
+			"Intervall, desto schneller wächst die Datenbank von Home Assistant. " +
 			"Und die Namen deiner laufenden Programme landen damit dauerhaft in deren Verlauf.",
-		EN: "The most expensive option on this page. Every sample reads every running process — " +
-			"about 660 on this machine, a measured 19 ms and 1.6 MB per pass. It produces two entities " +
-			"whose attributes change on every sample: at 10 s that is roughly 17,000 extra rows per day " +
-			"in the Home Assistant database. " +
+		EN: "The most expensive option on this page: every sample reads every running process. " +
+			"It produces two entities whose attributes change on every sample — the shorter the " +
+			"interval, the faster the Home Assistant database grows. " +
 			"And the names of the programs you run end up in its history for good.",
 	},
 	"settings.sensors.topProcsCount":    {DE: "Wie viele je Liste", EN: "How many per list"},
