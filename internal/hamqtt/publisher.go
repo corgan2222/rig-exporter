@@ -29,11 +29,16 @@ import (
 )
 
 const (
-	publishTimeout    = 5 * time.Second
-	disconnectGraceMs = 500
-	keepAlive         = 30 * time.Second
-	maxReconnect      = 60 * time.Second
+	publishTimeout      = 5 * time.Second
+	initialConnectRetry = 10 * time.Second
+	disconnectGraceMs   = 500
+	keepAlive           = 30 * time.Second
+	maxReconnect        = 60 * time.Second
 )
+
+type connectionClient interface {
+	Connect() mqtt.Token
+}
 
 // Publisher owns one MQTT connection. It is safe for concurrent use and
 // implements export.Target.
@@ -49,10 +54,13 @@ type Publisher struct {
 
 	published export.Counter
 
-	mu        sync.RWMutex
-	client    mqtt.Client
-	connected bool
-	lastError string
+	mu           sync.RWMutex
+	client       mqtt.Client
+	connected    bool
+	lastError    string
+	stop         chan struct{}
+	stopOnce     sync.Once
+	connectRetry time.Duration
 	// announced remembers which entity keys have a retained discovery message,
 	// so each one is announced once per connection rather than every second.
 	announced map[string]EntityRef
@@ -80,7 +88,11 @@ type EntityRef struct {
 // webURL may be nil, in which case the device page links to the configured
 // address. Everything that has one should pass it: see configURL.
 func New(cfg config.Config, log *slog.Logger, webURL func() string) *Publisher {
-	return &Publisher{cfg: cfg, log: log, webURL: webURL, announced: map[string]EntityRef{}}
+	return &Publisher{
+		cfg: cfg, log: log, webURL: webURL,
+		announced: map[string]EntityRef{}, stop: make(chan struct{}),
+		connectRetry: initialConnectRetry,
+	}
 }
 
 // currentWebURL is the interface's real address, empty when nobody reports one.
@@ -114,8 +126,7 @@ func (p *Publisher) forgetAnnouncementsIfURLChanged(webURL string) {
 }
 
 // Start connects to the broker. It returns as soon as the attempt is under
-// way: paho retries in the background, so a broker that is down at boot does
-// not stop the tray from appearing.
+// way, so a broker that is down at boot does not stop the tray from appearing.
 func (p *Publisher) Start() error {
 	opts := mqtt.NewClientOptions().
 		AddBroker(p.cfg.BrokerURL()).
@@ -124,8 +135,6 @@ func (p *Publisher) Start() error {
 		SetKeepAlive(keepAlive).
 		SetAutoReconnect(true).
 		SetMaxReconnectInterval(maxReconnect).
-		SetConnectRetry(true).
-		SetConnectRetryInterval(10*time.Second).
 		SetOrderMatters(false).
 		SetWill(p.cfg.AvailabilityTopic(), availableOffline, 1, true).
 		SetOnConnectHandler(p.onConnect).
@@ -149,12 +158,59 @@ func (p *Publisher) Start() error {
 	p.mu.Unlock()
 
 	p.log.Info("connecting to broker", "broker", p.cfg.BrokerURL(), "client_id", p.cfg.ClientID)
-	client.Connect()
+	go p.connect(client)
 	return nil
+}
+
+// connect retries the initial connection while keeping the most recent error
+// visible. Paho's ConnectRetry deliberately leaves its token pending between
+// attempts, so its useful socket or authentication error cannot reach Status.
+// AutoReconnect still owns failures after the first successful connection.
+func (p *Publisher) connect(client connectionClient) {
+	for {
+		select {
+		case <-p.stop:
+			return
+		default:
+		}
+
+		token := client.Connect()
+		select {
+		case <-p.stop:
+			return
+		case <-token.Done():
+		}
+
+		if err := token.Error(); err == nil {
+			return
+		} else {
+			p.recordError(fmt.Errorf("connect to broker: %w", err))
+		}
+
+		timer := time.NewTimer(p.connectRetry)
+		select {
+		case <-p.stop:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
 }
 
 func (p *Publisher) onConnect(client mqtt.Client) {
 	p.mu.Lock()
+	select {
+	case <-p.stop:
+		p.mu.Unlock()
+		client.Disconnect(0)
+		return
+	default:
+	}
+	if p.client != client {
+		p.mu.Unlock()
+		client.Disconnect(0)
+		return
+	}
 	p.connected = true
 	p.lastError = ""
 	// Forget what was announced, so discovery is republished. A Home Assistant
@@ -211,6 +267,14 @@ func (p *Publisher) Export(snap collector.Snapshot) error {
 		return fmt.Errorf("publish state: %w", err)
 	}
 
+	// A transient publish error must disappear again after the broker accepts a
+	// complete export. Preserve a connection-loss error that may have arrived
+	// concurrently after Publish returned.
+	p.mu.Lock()
+	if p.connected {
+		p.lastError = ""
+	}
+	p.mu.Unlock()
 	p.published.Inc()
 	return nil
 }
@@ -401,6 +465,8 @@ func (p *Publisher) clearLegacyDiscovery(client mqtt.Client) {
 
 // Stop announces offline and closes the connection.
 func (p *Publisher) Stop() {
+	p.stopOnce.Do(func() { close(p.stop) })
+
 	p.mu.Lock()
 	client := p.client
 	p.client = nil
@@ -426,20 +492,24 @@ func (p *Publisher) Status() export.Status {
 	p.mu.RUnlock()
 
 	lang := p.cfg.Lang()
+	failed := lastError != ""
 	status := export.Status{
 		Name:      "mqtt",
 		Label:     i18n.T(lang, "export.mqtt"),
-		Healthy:   connected,
+		Healthy:   connected && !failed,
+		Failed:    failed,
 		Delivered: p.published.Count(),
 	}
 	switch {
+	case failed && !connected:
+		status.Detail = i18n.T(lang, "export.disconnected") + " · " + lastError
+	case failed:
+		status.Detail = lastError
 	case connected:
 		// The entity count used to hang here. It has a chip of its own now:
 		// how many entities exist is a fact about the machine, not about this
 		// one connection, and it was invisible whenever MQTT was switched off.
 		status.Detail = i18n.T(lang, "export.connected") + " · " + p.cfg.BrokerURL()
-	case lastError != "":
-		status.Detail = i18n.T(lang, "export.disconnected") + " · " + lastError
 	default:
 		status.Detail = i18n.T(lang, "export.connecting") + " · " + p.cfg.BrokerURL()
 	}
