@@ -26,6 +26,12 @@ func newServer(t *testing.T, mutate func(*config.Config)) (*Server, *httptest.Se
 	t.Helper()
 
 	cfg := config.Defaults()
+	// Pinned for the same reason as in the hamqtt tests: Defaults takes the
+	// language from Windows, and a page rendered in one language cannot be
+	// checked against a string fetched in another. A test that depends on the
+	// host's locale is not a test. Cases that are about the language switch
+	// set it themselves through mutate.
+	cfg.Language = string(i18n.DE)
 	cfg.MQTTEnabled = false
 	cfg.DataServerEnabled = false
 	cfg.NodeID = "corganpc2"
@@ -228,7 +234,7 @@ func TestAnAbsentCheckboxWithinTheBlockMeansOff(t *testing.T) {
 // "Install it" and "restart as administrator" are different problems with
 // different fixes, and giving someone the wrong one wastes their afternoon.
 func TestTheCapturePageReportsWhatPawnIOCanDo(t *testing.T) {
-	_, ts := newServer(t, nil)
+	server, ts := newServer(t, nil)
 
 	code, body := get(t, ts.URL+"/capture")
 	if code != http.StatusOK {
@@ -240,7 +246,12 @@ func TestTheCapturePageReportsWhatPawnIOCanDo(t *testing.T) {
 
 	// Whatever this machine's state, one of the four sentences must be there,
 	// and it must not be the empty string.
-	note := pawnIOStatus(i18n.DE)
+	//
+	// Fetched in the language the page was rendered in, not a fixed one:
+	// comparing a German sentence against an English page is how this failed on
+	// the build server, and hard-coding the language here would only move the
+	// trap rather than remove it.
+	note := pawnIOStatus(server.app.Config().Lang())
 	if strings.TrimSpace(note) == "" {
 		t.Fatal("pawnIOStatus said nothing")
 	}
