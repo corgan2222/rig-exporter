@@ -137,7 +137,17 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger, updates updateCont
 // constructor arguments to a dozen hardware sources.
 func applyMetricsOptions(cfg config.Config) {
 	metrics.SetDecimals(cfg.Decimals)
-	metrics.SetStandardOnly(cfg.SensorSet == config.SensorSetStandard)
+	metrics.SetSelection(selectionFor(cfg))
+}
+
+// selectionFor turns the stored rung and the hand-picked exceptions into the
+// set of measurements that is actually collected.
+func selectionFor(cfg config.Config) map[string]bool {
+	return metrics.Resolve(
+		metrics.Preset(cfg.Measurements.Preset),
+		cfg.Measurements.Added,
+		cfg.Measurements.Removed,
+	)
 }
 
 // buildCollector wires the core source together with the optional ones the
@@ -511,7 +521,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 // nothing. Narrowing the set is different — it is a statement about what should
 // exist, not about what happened to be readable this second.
 func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collector.Snapshot, log *slog.Logger) {
-	dropped := droppedByStandardSet(oldCfg, newCfg, snap)
+	dropped := droppedBySelection(oldCfg, newCfg, snap)
 	dropped = append(dropped, droppedBySelfUsage(oldCfg, newCfg, snap)...)
 	if len(dropped) == 0 {
 		return
@@ -525,19 +535,20 @@ func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collect
 	}
 }
 
-// droppedByStandardSet is the decision on its own: which of the readings taken
+// droppedBySelection is the decision on its own: which of the readings taken
 // under the old configuration the new one will no longer produce.
 //
-// Nothing at all unless the set actually narrowed. Going the other way only
-// adds measurements, and announceNew picks those up by itself.
-func droppedByStandardSet(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
-	if oldCfg.SensorSet == newCfg.SensorSet || newCfg.SensorSet != config.SensorSetStandard {
-		return nil
-	}
+// Compared set against set rather than rung against rung, because the ladder
+// is no longer the only way to lose a measurement — unticking a single one has
+// to retire its entity just as surely as sliding the whole thing down. Going
+// the other way only adds measurements, and announceNew picks those up by
+// itself.
+func droppedBySelection(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
+	before, after := selectionFor(oldCfg), selectionFor(newCfg)
 
 	var dropped []metrics.Reading
 	for _, r := range snap.Entities() {
-		if !r.Def.InStandardSet() {
+		if before[r.Def.ID] && !after[r.Def.ID] {
 			dropped = append(dropped, r)
 		}
 	}

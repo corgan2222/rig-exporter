@@ -654,7 +654,7 @@ func (p *Publisher) onUpdateCommand(_ mqtt.Client, message mqtt.Message) {
 // Deliberately not read from p.cfg: that copy is frozen when the publisher is
 // built and is not refreshed when a configuration change does not rebuild it.
 func announceable(r metrics.Reading) bool {
-	return !metrics.StandardOnly() || r.Def.InStandardSet()
+	return metrics.Selected(r.Def.ID)
 }
 
 // Retire removes named entities from Home Assistant by emptying their retained

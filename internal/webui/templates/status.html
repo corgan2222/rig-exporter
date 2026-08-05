@@ -147,6 +147,7 @@ const L = {
   disabled: {{ .T "hardware.disabled" }},
   noData: {{ .T "hardware.noData" }},
   noGroups: {{ .T "hardware.none" }},
+  setMinimal: {{ .T "settings.sensors.setMinimal" }},
   setStandard: {{ .T "settings.sensors.setStandard" }},
   setExtended: {{ .T "settings.sensors.setExtended" }},
   chipSet: {{ .T "status.chipSet" }},
@@ -166,7 +167,7 @@ function setDot(el, state) {
 // The four chips under the tiles. They carry no dot: none of them is a health
 // state, they say what the exporter is set to do right now.
 function renderChips(s) {
-  const set = s.sensor_set === "standard" ? L.setStandard : L.setExtended;
+  const set = {minimal: L.setMinimal, basic: L.setStandard}[s.preset] || L.setExtended;
   $("c-set").textContent = L.chipSet + " " + set;
   $("c-decimals").textContent =
     L.chipDecimals + " " + (s.decimals ? L.chipDecimalsOn : L.chipDecimalsOff);

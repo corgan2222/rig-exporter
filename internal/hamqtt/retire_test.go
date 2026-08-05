@@ -21,17 +21,17 @@ func testPublisher(t *testing.T) *Publisher {
 // retirement — and without this guard it would re-announce every entity that
 // was just retired, retained, and the switch would appear to do nothing.
 func TestAStaleSnapshotCannotResurrectARetiredEntity(t *testing.T) {
-	t.Cleanup(func() { metrics.SetStandardOnly(false) })
+	t.Cleanup(func() { metrics.SetSelection(metrics.Resolve(metrics.PresetExtended, nil, nil)) })
 
 	stale := metrics.Gauge(metrics.CPUClock, "", 4200) // extended
 	keep := metrics.Gauge(metrics.CPULoad, "", 37)     // standard
 
-	metrics.SetStandardOnly(false)
+	metrics.SetSelection(metrics.Resolve(metrics.PresetExtended, nil, nil))
 	if !announceable(stale) || !announceable(keep) {
-		t.Error("the extended set refused to announce something")
+		t.Error("the extended rung refused to announce something")
 	}
 
-	metrics.SetStandardOnly(true)
+	metrics.SetSelection(metrics.Resolve(metrics.PresetBasic, nil, nil))
 	if announceable(stale) {
 		t.Error("a measurement outside the standard set would still be announced")
 	}

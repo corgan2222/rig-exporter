@@ -210,6 +210,7 @@ var catalogue = map[string]Text{
 
 	// Settings, the two sensor sets.
 	"settings.sensors.set":         {DE: "Messwerte", EN: "Measurements"},
+	"settings.sensors.setMinimal":  {DE: "Minimal", EN: "Minimal"},
 	"settings.sensors.setStandard": {DE: "Standard", EN: "Standard"},
 	"settings.sensors.setExtended": {DE: "Erweitert", EN: "Extended"},
 	"settings.sensors.setHint": {

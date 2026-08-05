@@ -524,7 +524,7 @@ func (s *Set) Add(readings ...Reading) {
 		// measurement the user switched off is absent everywhere at once. A
 		// value that the dashboard shows but Home Assistant never receives
 		// would be the worse kind of setting.
-		if standardOnly.Load() && !r.Def.InStandardSet() {
+		if !Selected(r.Def.ID) {
 			continue
 		}
 		if r.Origin == "" {

@@ -361,8 +361,8 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		DiskInclude:     strings.Join(cfg.DiskInclude, ", "),
 		EntityCount:     len(status.Snapshot.Entities()),
 		RecorderYAML:    recorderSnippet(cfg, status.Snapshot),
-		StandardSet:     setEntries(metrics.StandardDefinitions(), lang),
-		ExtendedSet:     setEntries(metrics.ExtendedDefinitions(), lang),
+		StandardSet:     setEntries(metrics.PresetDefinitions(metrics.PresetBasic), lang),
+		ExtendedSet:     setEntries(addedByExtended(), lang),
 	}
 }
 
@@ -524,7 +524,10 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.InfluxToken = updateSecret(r, "influx_token", "clear_influx_token", cfg.InfluxToken)
 
 	case "sensors":
+		// The control still offers the old two; the rung is what is stored and
+		// what everything downstream reads. Normalize keeps sensor_set in step.
 		cfg.SensorSet = r.FormValue("sensor_set")
+		cfg.Measurements.Preset = config.PresetForSensorSet(cfg.SensorSet)
 		cfg.GPUEnabled = r.FormValue("gpu_enabled") != ""
 		cfg.CPUDetailEnabled = r.FormValue("cpu_detail_enabled") != ""
 		cfg.CPUPerCore = r.FormValue("cpu_per_core") != ""
@@ -695,7 +698,7 @@ type statusResponse struct {
 	// What the exporter is currently doing, for the chips under the tiles.
 	// They come through the API rather than the template because the page is
 	// not reloaded when a setting is saved from the other tab.
-	SensorSet   string `json:"sensor_set"`
+	Preset      string `json:"preset"`
 	Decimals    bool   `json:"decimals"`
 	EntityCount int    `json:"entity_count"`
 	// PublishMs is the pace in force right now, and Rendering says which of
@@ -795,7 +798,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		Groups:      groupStatuses(st, lang),
 		Exports:     make([]exportStatus, 0, len(st.Exports)),
 		Paused:      st.Paused,
-		SensorSet:   st.Config.SensorSet,
+		Preset:      st.Config.Measurements.Preset,
 		Decimals:    st.Config.Decimals,
 		EntityCount: len(snap.Entities()),
 		PublishMs:   publishPace(st),
@@ -1058,4 +1061,18 @@ func formInt(r *http.Request, field string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+// addedByExtended is what the extended rung carries beyond the basic one.
+//
+// The page puts the two lists side by side, so repeating the basic rung in
+// both would say nothing.
+func addedByExtended() []metrics.Definition {
+	out := make([]metrics.Definition, 0, len(metrics.All))
+	for _, d := range metrics.All {
+		if !metrics.PresetContains(metrics.PresetBasic, d.ID) {
+			out = append(out, d)
+		}
+	}
+	return out
 }

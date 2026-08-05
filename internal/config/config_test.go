@@ -501,3 +501,76 @@ func TestLoadReportsBrokenJSONAndStillReturnsDefaults(t *testing.T) {
 		t.Errorf("PublishIntervalMs = %d, want defaults after a parse failure", cfg.PublishIntervalMs)
 	}
 }
+
+// A configuration written before the ladder existed carries sensor_set and no
+// rung. It has to arrive on the rung that means the same thing.
+//
+// This is the one that would have gone unnoticed: Load unmarshals into
+// Defaults, so a rung prefilled there looks exactly like a chosen one, and
+// every old configuration would have been read as "extended" — silently
+// reporting the whole catalogue to somebody who had asked for half of it.
+func TestAnOldConfigurationArrivesOnTheMatchingRung(t *testing.T) {
+	for _, tc := range []struct {
+		sensorSet string
+		want      string
+	}{
+		{SensorSetStandard, PresetBasic},
+		{SensorSetExtended, PresetExtended},
+		{"", PresetExtended},
+	} {
+		t.Run(tc.sensorSet, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			written := `{"sensor_set": "` + tc.sensorSet + `", "node_id": "old"}`
+			if err := os.WriteFile(path, []byte(written), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			cfg, _, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if cfg.Measurements.Preset != tc.want {
+				t.Errorf("sensor_set %q arrived on rung %q, want %q",
+					tc.sensorSet, cfg.Measurements.Preset, tc.want)
+			}
+		})
+	}
+}
+
+// The rung leads from then on, and the old field follows it, so the file never
+// says two different things about the same decision.
+func TestTheOldFieldFollowsTheRung(t *testing.T) {
+	for _, tc := range []struct{ preset, want string }{
+		{PresetMinimal, SensorSetStandard},
+		{PresetBasic, SensorSetStandard},
+		{PresetExtended, SensorSetExtended},
+	} {
+		cfg := Defaults()
+		cfg.Measurements.Preset = tc.preset
+		cfg.SensorSet = "whatever was in the file"
+		cfg.Normalize()
+
+		if cfg.SensorSet != tc.want {
+			t.Errorf("rung %q left sensor_set at %q, want %q", tc.preset, cfg.SensorSet, tc.want)
+		}
+		if cfg.Measurements.Preset != tc.preset {
+			t.Errorf("rung %q was changed to %q", tc.preset, cfg.Measurements.Preset)
+		}
+	}
+}
+
+// A hand-edited list comes back readable: trimmed, without blanks, without
+// duplicates, and in a stable order.
+func TestTheHandPickedListsAreTidiedUp(t *testing.T) {
+	cfg := Defaults()
+	cfg.Measurements.Added = []string{" gpu_hotspot ", "", "cpu_clock", "gpu_hotspot"}
+	cfg.Normalize()
+
+	got := cfg.Measurements.Added
+	if len(got) != 2 || got[0] != "cpu_clock" || got[1] != "gpu_hotspot" {
+		t.Errorf("added = %v, want [cpu_clock gpu_hotspot]", got)
+	}
+	if cfg.Measurements.Removed != nil {
+		t.Errorf("removed = %v, want nothing at all", cfg.Measurements.Removed)
+	}
+}

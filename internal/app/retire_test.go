@@ -18,7 +18,7 @@ func snapshotOf(readings ...metrics.Reading) collector.Snapshot {
 
 func sets(old, next string) (config.Config, config.Config) {
 	a, b := config.Defaults(), config.Defaults()
-	a.SensorSet, b.SensorSet = old, next
+	a.Measurements.Preset, b.Measurements.Preset = old, next
 	return a, b
 }
 
@@ -36,8 +36,8 @@ func TestNarrowingTheSetRetiresWhatItDrops(t *testing.T) {
 		metrics.Gauge(metrics.GPUTemperature, "0", 45), // standard, stays
 	)
 
-	old, next := sets(config.SensorSetExtended, config.SensorSetStandard)
-	dropped := droppedByStandardSet(old, next, snap)
+	old, next := sets(config.PresetExtended, config.PresetBasic)
+	dropped := droppedBySelection(old, next, snap)
 
 	if len(dropped) != 4 {
 		t.Fatalf("got %d entities to retire, want 4", len(dropped))
@@ -46,8 +46,8 @@ func TestNarrowingTheSetRetiresWhatItDrops(t *testing.T) {
 	keys := map[string]bool{}
 	for _, r := range dropped {
 		keys[r.Key()] = true
-		if r.Def.InStandardSet() {
-			t.Errorf("%q was retired although it is in the standard set", r.Key())
+		if metrics.PresetContains(metrics.PresetBasic, r.Def.ID) {
+			t.Errorf("%q was retired although the basic rung carries it", r.Key())
 		}
 	}
 	// Both cards, separately — an instance is part of the identity.
@@ -71,14 +71,14 @@ func TestNothingElseRetiresAnything(t *testing.T) {
 		name     string
 		old, new string
 	}{
-		{"widening", config.SensorSetStandard, config.SensorSetExtended},
-		{"unchanged extended", config.SensorSetExtended, config.SensorSetExtended},
-		{"unchanged standard", config.SensorSetStandard, config.SensorSetStandard},
+		{"widening", config.PresetBasic, config.PresetExtended},
+		{"unchanged extended", config.PresetExtended, config.PresetExtended},
+		{"unchanged standard", config.PresetBasic, config.PresetBasic},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			old, next := sets(tc.old, tc.new)
-			if dropped := droppedByStandardSet(old, next, snap); len(dropped) != 0 {
+			if dropped := droppedBySelection(old, next, snap); len(dropped) != 0 {
 				t.Errorf("retired %d entities, want none", len(dropped))
 			}
 		})
@@ -88,8 +88,8 @@ func TestNothingElseRetiresAnything(t *testing.T) {
 // A machine that reported nothing has nothing to retire, and must not send a
 // burst of empty payloads for entities that never existed.
 func TestAnEmptyReadingRetiresNothing(t *testing.T) {
-	old, next := sets(config.SensorSetExtended, config.SensorSetStandard)
-	if dropped := droppedByStandardSet(old, next, snapshotOf()); len(dropped) != 0 {
+	old, next := sets(config.PresetExtended, config.PresetBasic)
+	if dropped := droppedBySelection(old, next, snapshotOf()); len(dropped) != 0 {
 		t.Errorf("retired %d entities from an empty reading", len(dropped))
 	}
 }
