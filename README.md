@@ -555,6 +555,14 @@ nicht: eine zweite Instanz meldet sich mit einem Hinweis und beendet sich.
 
 ## Oberfläche
 
+Jeder Kasten lässt sich über seine Überschrift **zuklappen**, und die Seite
+merkt sich, was zu war — auch über einen Neustart. Das liegt bewusst im
+Browser und nicht in der Konfiguration: geht der eingestellte Port verloren,
+weicht die Oberfläche auf einen zufälligen aus, und ein anderer Port ist eine
+andere Herkunft, an der der Speicher hängt. Eine Ansichtsvorliebe darf dabei
+verloren gehen; die Antwort auf eine Frage nicht, die steht in der
+Konfiguration. Ein Link auf einen zugeklappten Kasten klappt ihn wieder auf.
+
 Drei Seiten, erreichbar über die Kopfzeile:
 
 * **Anzeige** — Live-Werte, Zustand der Exportziele, ein Panel je Sensorgruppe
