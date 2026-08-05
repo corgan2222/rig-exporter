@@ -34,13 +34,24 @@ var catalogue = map[string]Text{
 	"status.offline":    {DE: "Oberfläche getrennt", EN: "Interface disconnected"},
 	"status.updated":    {DE: "Aktualisiert", EN: "Updated"},
 
-	"rtss.unavailable":       {DE: "RTSS nicht verfügbar", EN: "RTSS unavailable"},
-	"rtss.connected":         {DE: "verbunden", EN: "connected"},
-	"rtss.bannerTitle":       {DE: "RivaTuner Statistics Server läuft nicht.", EN: "RivaTuner Statistics Server is not running."},
-	"rtss.bannerBody":        {DE: "Ohne RTSS gibt es keine FPS-Werte — alle übrigen Gruppen melden weiter.", EN: "Without RTSS there are no FPS values; every other group keeps reporting."},
-	"rtss.download":          {DE: "RTSS herunterladen", EN: "Download RTSS"},
-	"rtss.alsoInAfterburner": {DE: "(auch in MSI Afterburner enthalten)", EN: "(also part of MSI Afterburner)"},
-	"rtss.dismissNoGPU":      {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
+	"rtss.unavailable": {DE: "RTSS nicht verfügbar", EN: "RTSS unavailable"},
+	"rtss.connected":   {DE: "verbunden", EN: "connected"},
+	// Both programs are named, and both are linked. RTSS supplies the frame
+	// rate and Afterburner the temperatures, so somebody looking at an empty
+	// FPS tile is usually missing both — and pointing at only one of them
+	// sends them back a second time.
+	"rtss.bannerTitle": {
+		DE: "MSI Afterburner oder RivaTuner Statistics Server läuft nicht.",
+		EN: "MSI Afterburner or RivaTuner Statistics Server is not running.",
+	},
+	"rtss.bannerBody": {
+		DE: "Ohne RTSS gibt es keine FPS-Werte, ohne Afterburner keine Temperaturen — alle übrigen Gruppen melden weiter.",
+		EN: "Without RTSS there are no FPS values, without Afterburner no temperatures; every other group keeps reporting.",
+	},
+	"rtss.downloadAfterburner": {DE: "MSI Afterburner herunterladen", EN: "Download MSI Afterburner"},
+	"rtss.download":            {DE: "RTSS herunterladen", EN: "Download RTSS"},
+	"rtss.alsoInAfterburner":   {DE: "(in Afterburner bereits enthalten)", EN: "(already included with Afterburner)"},
+	"rtss.dismissNoGPU":        {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
 
 	// Hardware panels.
 	"hardware.title":    {DE: "Hardware", EN: "Hardware"},
