@@ -1,5 +1,10 @@
 # rig-exporter
 
+[![CI](https://github.com/corgan2222/rig-exporter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/corgan2222/rig-exporter/actions/workflows/ci.yml)
+[![Release](https://github.com/corgan2222/rig-exporter/actions/workflows/release.yml/badge.svg)](https://github.com/corgan2222/rig-exporter/actions/workflows/release.yml)
+[![Neuestes Release](https://img.shields.io/github/v/release/corgan2222/rig-exporter?label=release&color=blue)](https://github.com/corgan2222/rig-exporter/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/corgan2222/rig-exporter/total?label=downloads&color=blue)](https://github.com/corgan2222/rig-exporter/releases)
+
 Telemetrie eines Gaming-PCs für Home Assistant, Prometheus und InfluxDB.
 
 Liest die FPS aus dem RivaTuner Statistics Server, erkennt das laufende Spiel
@@ -486,6 +491,14 @@ Binary in den Build-Cache linkt und von dort startet — genau das Muster, das
 Microsoft Defender heuristisch als `Trojan:Win32/Sabsik` meldet. Ein
 Warnhinweis bei jedem Prüflauf, für ein Programm, das aus der
 Standardbibliothek ein Bild malt, ist den Schreck nicht wert.
+
+Die beiden Abzeichen oben zeigen, ob das noch funktioniert. **CI** ist der
+Prüflauf auf `main` — derselbe `build.ps1 -Check`, nur auf einem
+GitHub-Windows-Läufer. **Release** ist der Lauf, der die veröffentlichten
+Binaries baut und signiert; grün heißt, das zuletzt veröffentlichte Release ist
+tatsächlich durchgebaut worden. Beide zeigen immer den **jüngsten** Lauf, nicht
+einen bestimmten Stand — für ein einzelnes Release steht die Wahrheit auf seiner
+eigenen Seite.
 
 Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
 

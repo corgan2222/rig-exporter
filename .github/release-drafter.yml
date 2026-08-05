@@ -3,21 +3,35 @@ tag-template: "v$RESOLVED_VERSION"
 
 # The sections follow the branch prefixes this project already uses, so a
 # release note writes itself from how the work was branched.
+#
+# The emoji are there to be scanned rather than read: somebody opening a
+# release wants to know within a second whether it carries features or only
+# fixes, and a heading with a picture in front of it answers that before the
+# words do. Second labels are listed where GitHub's own defaults differ from
+# this project's prefixes — a pull request labelled "bug" by hand should not
+# fall out of the notes.
 categories:
-  - title: New
-    labels: [feature]
-  - title: Fixed
-    labels: [fix]
-  - title: Documentation
-    labels: [docs]
-  - title: Tests
+  - title: "🚀 New"
+    labels: [feature, enhancement]
+  - title: "🐛 Fixed"
+    labels: [fix, bug, bugfix]
+  - title: "📖 Documentation"
+    labels: [docs, documentation]
+  - title: "🧪 Tests"
     labels: [test]
-  - title: Build and tooling
-    labels: [chore]
+  - title: "🔧 Build and tooling"
+    labels: [chore, build, ci]
+  - title: "📦 Dependencies"
+    labels: [dependencies]
+    collapse-after: 5
 
 # A pull request that carries no label still has to appear somewhere, or the
 # notes would quietly omit it.
 exclude-labels: [skip-changelog]
+
+# A release with nothing in it is a release that should not have been cut, and
+# saying so beats an empty heading.
+no-changes-template: "- Nothing user-visible. This release only moves the tag."
 
 change-template: "- $TITLE (#$NUMBER)"
 # Backticks and underscores in a title would otherwise become markup.
@@ -25,9 +39,9 @@ change-title-escapes: '\<*_&`#@'
 
 version-resolver:
   minor:
-    labels: [feature]
+    labels: [feature, enhancement]
   patch:
-    labels: [fix, docs, test, chore]
+    labels: [fix, bug, bugfix, docs, documentation, test, chore, build, ci, dependencies]
   default: patch
 
 autolabeler:
