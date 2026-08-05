@@ -41,6 +41,7 @@
         <input type="checkbox" name="pawnio_enabled" id="pawnio_enabled" value="1" {{ if .Config.PawnIOEnabled }}checked{{ end }}>
         <label for="pawnio_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.pawnio" }}</span></label>
         <span class="help" title="{{ .PawnIOStatus }}">?</span>
+        <a class="sidelink" href="{{ .PawnIOURL }}" target="_blank" rel="noopener">PawnIO</a>
       </div>
 
       <div class="check">

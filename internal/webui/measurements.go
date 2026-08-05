@@ -91,6 +91,13 @@ type measurementsData struct {
 	Rungs    []string
 	RungAt   int
 	Estimate estimateInputs
+	// Unlisted are selected measurements the page does not show — the battery
+	// on a machine that has none. They ride along as hidden ticks, because
+	// saving reads an absent box as "switched off": without them, opening this
+	// page on a tower and touching anything would strike the battery out of the
+	// configuration for good, and the same file on a laptop would come back
+	// short.
+	Unlisted []string
 }
 
 // estimateInputs are the numbers the page multiplies together. They are handed
@@ -142,9 +149,21 @@ func measurementsFor(st app.Status, lang i18n.Lang) measurementsData {
 	}
 
 	groups := make([]measurementGroup, 0, len(metrics.Groups))
+	var unlisted []string
 	for _, group := range metrics.Groups {
 		rows := byGroup[group]
 		if len(rows) == 0 {
+			continue
+		}
+		// A battery box on a tower is a box that can never be ticked into
+		// anything. The dashboard leaves the panel out for the same reason;
+		// this is the same rule, so the two pages agree about what exists.
+		if group == metrics.GroupBattery && !batteryIsThere(st) {
+			for _, row := range rows {
+				if row.Selected {
+					unlisted = append(unlisted, row.ID)
+				}
+			}
 			continue
 		}
 		groups = append(groups, measurementGroup{
@@ -164,10 +183,11 @@ func measurementsFor(st app.Status, lang i18n.Lang) measurementsData {
 	}
 
 	return measurementsData{
-		Groups: groups,
-		Preset: st.Config.Measurements.Preset,
-		Rungs:  rungs,
-		RungAt: at,
+		Groups:   groups,
+		Preset:   st.Config.Measurements.Preset,
+		Rungs:    rungs,
+		RungAt:   at,
+		Unlisted: unlisted,
 		Estimate: estimateInputs{
 			Churn:        st.Churn,
 			Samples:      st.ChurnSamples,
@@ -179,6 +199,16 @@ func measurementsFor(st app.Status, lang i18n.Lang) measurementsData {
 			FallbackRate: fallbackChurn,
 		},
 	}
+}
+
+// batteryIsThere says whether this machine has a battery worth offering.
+//
+// A pack that answered is one. A pack that failed to answer is one too — that
+// is a fault to show rather than to hide, and hiding it would leave somebody
+// wondering where their battery went.
+func batteryIsThere(st app.Status) bool {
+	return st.Snapshot.HasGroup(metrics.GroupBattery) ||
+		st.Snapshot.SourceErrors[metrics.GroupBattery] != ""
 }
 
 // selectionOf is what the stored configuration currently selects.

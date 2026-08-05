@@ -29,7 +29,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.8.5"
+	Version = "1.8.6"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -39,6 +39,10 @@ const (
 	RTSSDownloadURL = "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"
 	// AfterburnerURL is shown when no graphics telemetry source is available.
 	AfterburnerURL = "https://www.msi.com/Landing/afterburner/graphics-cards"
+	// PawnIOURL is where the kernel driver behind CPU power comes from. Named
+	// on the source line rather than hidden in a tooltip: it is the one source
+	// this program cannot install for you.
+	PawnIOURL = "https://pawnio.eu/"
 
 	// ProjectURL and AuthorURL are where the interface points when somebody
 	// clicks the name in the header or the credit in the footer.

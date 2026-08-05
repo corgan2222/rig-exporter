@@ -180,10 +180,27 @@ func TestTheMeasurementPageOffersTheRungAndTheTree(t *testing.T) {
 			t.Errorf("the tree does not offer %q", want)
 		}
 	}
+	// One tick per measurement this machine can have. The test fixture has no
+	// battery, so the battery group is not offered — a box that can never be
+	// ticked into anything is worse than no box.
+	//
 	// Counted on the attribute pair, not on the name alone: the script below
 	// selects the same boxes and would otherwise be counted as three more.
-	if got := strings.Count(body, `name="measurement" value=`); got != len(metrics.All) {
-		t.Errorf("%d ticks for %d measurements", got, len(metrics.All))
+	offered, hidden := 0, 0
+	for _, d := range metrics.All {
+		if d.PanelGroup() == metrics.GroupBattery {
+			hidden++
+		} else {
+			offered++
+		}
+	}
+	if got := strings.Count(body, `type="checkbox" name="measurement" value=`); got != offered {
+		t.Errorf("%d ticks for %d measurements", got, offered)
+	}
+	// The rest are on the page too, as hidden fields, or the first save would
+	// throw them away.
+	if got := strings.Count(body, `type="hidden" name="measurement" value=`); got != hidden {
+		t.Errorf("%d hidden measurements, want %d", got, hidden)
 	}
 	// The estimate needs its inputs, and the assumptions have to be on the
 	// page rather than buried in the number.
@@ -579,6 +596,52 @@ func TestABatteryPanelOnlyExistsWhereThereIsABattery(t *testing.T) {
 			t.Error("the panel is there but says nothing about the failure")
 		}
 	})
+}
+
+// The measurement page follows the same rule as the dashboard: a machine
+// without a battery is not offered a battery card. The two pages have to agree
+// about what exists, or one of them is lying.
+func TestTheMeasurementTreeLeavesTheBatteryOutOnADesktop(t *testing.T) {
+	battery := func(st app.Status) (measurementGroup, bool) {
+		for _, group := range measurementsFor(st, i18n.DE).Groups {
+			if group.Key == string(metrics.GroupBattery) {
+				return group, true
+			}
+		}
+		return measurementGroup{}, false
+	}
+
+	desktop := app.Status{
+		Config:   config.Defaults(),
+		Snapshot: collector.Snapshot{SourceErrors: map[metrics.Group]string{}},
+	}
+	if group, found := battery(desktop); found {
+		t.Errorf("a tower was offered battery measurements: %+v", group.Key)
+	}
+
+	laptop := desktop
+	laptop.Snapshot.Set.Add(metrics.Gauge(metrics.BatteryCharge, "", 87))
+	if _, found := battery(laptop); !found {
+		t.Error("a laptop was not offered its battery measurements")
+	}
+
+	// What is not shown still has to come back with the form. Saving reads an
+	// absent box as "switched off", so without this the first save on a tower
+	// would strike the battery out of the configuration for good — and the same
+	// file carried to a laptop would come back short.
+	unlisted := measurementsFor(desktop, i18n.DE).Unlisted
+	if len(unlisted) == 0 {
+		t.Fatal("the hidden battery measurements do not ride along")
+	}
+	fromBattery := map[string]bool{}
+	for _, d := range metrics.All {
+		fromBattery[d.ID] = d.PanelGroup() == metrics.GroupBattery
+	}
+	for _, id := range unlisted {
+		if !fromBattery[id] {
+			t.Errorf("%q is not a battery measurement but was hidden", id)
+		}
+	}
 }
 
 // fakeUpdates stands in for the real manager. Its methods are exported, which

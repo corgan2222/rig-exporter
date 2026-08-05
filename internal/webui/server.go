@@ -190,6 +190,7 @@ type pageData struct {
 
 	RTSSDownloadURL string
 	AfterburnerURL  string
+	PawnIOURL       string
 	// Where the name in the header and the credit in the footer point.
 	ProjectURL string
 	AuthorURL  string
@@ -350,6 +351,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		Status:          status,
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
+		PawnIOURL:       config.PawnIOURL,
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,

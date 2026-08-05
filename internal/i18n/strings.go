@@ -8,7 +8,6 @@ var catalogue = map[string]Text{
 	"nav.capture":       {DE: "Datengewinnung", EN: "Data capture"},
 	"nav.export":        {DE: "Export & Anzeige", EN: "Export & display"},
 	"nav.settings":      {DE: "Einstellungen", EN: "Settings"},
-	"nav.language":      {DE: "Sprache", EN: "Language"},
 	"page.status":       {DE: "Anzeige", EN: "Dashboard"},
 	"page.capture":      {DE: "Datengewinnung", EN: "Data capture"},
 	"nav.measurements":  {DE: "Messwerte", EN: "Measurements"},

@@ -82,6 +82,11 @@
 
   <form method="post" action="/save/measurements" data-block="measurements" id="picks-form">
     <input type="hidden" name="preset" id="picks-preset" value="{{ .Measurements.Preset }}">
+    <!-- Selected measurements this machine cannot show a box for. They have to
+         come back with the form or saving would read them as switched off. -->
+    {{ range .Measurements.Unlisted }}
+    <input type="hidden" name="measurement" value="{{ . }}">
+    {{ end }}
     {{ range .Measurements.Groups }}
     <div class="card" id="node-{{ .Key }}">
       <div class="cardhead tight">
