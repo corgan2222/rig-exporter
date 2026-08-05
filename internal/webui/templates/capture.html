@@ -95,6 +95,12 @@
       <p class="note indent">{{ .T "settings.sensors.netHint" }}</p>
 
       <div class="check">
+        <input type="checkbox" name="battery_enabled" id="battery_enabled" value="1" {{ if .Config.BatteryEnabled }}checked{{ end }}>
+        <label for="battery_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.battery" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.sensors.batteryHint" }}</p>
+
+      <div class="check">
         <input type="checkbox" name="ping_enabled" id="ping_enabled" value="1" {{ if .Config.PingEnabled }}checked{{ end }}>
         <label for="ping_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ping" }}</span></label>
       </div>

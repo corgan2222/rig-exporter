@@ -89,6 +89,16 @@ var standardSet = map[string]bool{
 	// they exist, and a second switch hiding them would only confuse.
 	"top_cpu":    true,
 	"top_memory": true,
+	// The live half of the battery: how full, whether it is charging, how
+	// long it will last. What the pack is made of and how worn it has become
+	// answers "how is this machine built", which is the extended set's
+	// question — and on a desktop none of it exists either way.
+	"battery":           true,
+	"battery_ac":        true,
+	"battery_charging":  true,
+	"battery_power":     true,
+	"battery_remaining": true,
+	"battery_runtime":   true,
 }
 
 // standardOnly drops everything outside the standard set at collection time.

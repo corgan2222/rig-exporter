@@ -774,6 +774,101 @@ var (
 		Prom: "rig_ping_loss_percent", Help: "Share of ICMP echoes that went unanswered",
 		StateClass: "measurement", Icon: "mdi:lan-disconnect",
 	}
+
+	// The battery group exists only where there is a battery. A desktop
+	// produces none of these, which is the point: an entity that says a
+	// machine without a pack is at nought percent is worse than no entity.
+	//
+	// Everything here is the pack as a whole. Windows aggregates the live
+	// figures over however many cells are installed, and a machine with two
+	// batteries is rare enough that two sets of entities would confuse more
+	// people than it would help.
+	BatteryCharge = Definition{
+		ID: "battery", Name: i18n.Text{DE: "Ladestand", EN: "Charge"},
+		Unit: "%", Kind: KindGauge, Group: GroupBattery,
+		Prom: "rig_battery_percent", Help: "Battery charge level",
+		DeviceClass: "battery", StateClass: "measurement", Icon: "mdi:battery",
+	}
+	BatteryCharging = Definition{
+		ID: "battery_charging", Name: i18n.Text{DE: "Lädt", EN: "Charging"},
+		Kind: KindBool, Group: GroupBattery,
+		Prom: "rig_battery_charging", Help: "Whether the battery is currently taking charge",
+		DeviceClass: "battery_charging", Icon: "mdi:battery-charging",
+	}
+	// On mains and charging are different answers: a pack that is full stays
+	// on mains without taking any charge, and an automation that wants to
+	// know whether the laptop is plugged in should not have to infer it.
+	BatteryAC = Definition{
+		ID: "battery_ac", Name: i18n.Text{DE: "Netzbetrieb", EN: "On mains"},
+		Kind: KindBool, Group: GroupBattery,
+		Prom: "rig_battery_ac_online", Help: "Whether the machine is running on mains power",
+		DeviceClass: "plug", Icon: "mdi:power-plug",
+	}
+	BatteryRemaining = Definition{
+		ID: "battery_remaining", Name: i18n.Text{DE: "Restenergie", EN: "Remaining energy"},
+		Unit: "Wh", Kind: KindGauge, Precision: 1, Group: GroupBattery,
+		Prom: "rig_battery_remaining_watthours", Help: "Energy left in the battery",
+		DeviceClass: "energy_storage", StateClass: "measurement", Icon: "mdi:battery-50",
+	}
+	// Signed on purpose: positive while the pack takes charge, negative while
+	// it gives it back. One series then shows the whole picture instead of
+	// two that are never both interesting at once.
+	BatteryPower = Definition{
+		ID: "battery_power", Name: i18n.Text{DE: "Leistung", EN: "Power"},
+		Unit: "W", Kind: KindGauge, Precision: 1, Group: GroupBattery,
+		Prom: "rig_battery_power_watts", Help: "Charge rate, negative while discharging",
+		DeviceClass: "power", StateClass: "measurement", Icon: "mdi:battery-arrow-down",
+	}
+	// Only meaningful while the pack is draining, and left out otherwise:
+	// Windows has no estimate to give while charging, and a nought would read
+	// as "about to die".
+	BatteryRuntime = Definition{
+		ID: "battery_runtime", Name: i18n.Text{DE: "Restlaufzeit", EN: "Runtime left"},
+		Unit: "min", Kind: KindGauge, Group: GroupBattery,
+		Prom: "rig_battery_runtime_minutes", Help: "Estimated time left while running on battery",
+		DeviceClass: "duration", StateClass: "measurement", Icon: "mdi:timer-outline",
+	}
+	// Wear, said the way round that graphs well: a fresh pack is at a hundred
+	// and works downwards. The two capacities sit beside it so the number can
+	// be checked rather than believed.
+	BatteryHealth = Definition{
+		ID: "battery_health", Name: i18n.Text{DE: "Zustand", EN: "Health"},
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupBattery,
+		Prom: "rig_battery_health_percent", Help: "Full charge capacity as a share of the designed capacity",
+		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:battery-heart-variant",
+	}
+	// Plenty of controllers never count cycles and answer nought forever.
+	// That is reported as nothing at all rather than as a brand new battery.
+	BatteryCycles = Definition{
+		ID: "battery_cycles", Name: i18n.Text{DE: "Ladezyklen", EN: "Charge cycles"},
+		Kind: KindGauge, Group: GroupBattery,
+		Prom: "rig_battery_cycles_total", Help: "Charge cycles the battery controller has counted",
+		StateClass: "total_increasing", EntityCategory: "diagnostic", Icon: "mdi:battery-sync",
+	}
+	BatteryCapacityFull = Definition{
+		ID: "battery_capacity_full", Name: i18n.Text{DE: "Kapazität geladen", EN: "Full-charge capacity"},
+		Unit: "Wh", Kind: KindGauge, Precision: 1, Group: GroupBattery,
+		Prom: "rig_battery_capacity_full_watthours", Help: "Energy the battery holds when full today",
+		EntityCategory: "diagnostic", Icon: "mdi:battery-high",
+	}
+	BatteryCapacityDesign = Definition{
+		ID: "battery_capacity_design", Name: i18n.Text{DE: "Designkapazität", EN: "Design capacity"},
+		Unit: "Wh", Kind: KindGauge, Precision: 1, Group: GroupBattery,
+		Prom: "rig_battery_capacity_design_watthours", Help: "Energy the battery held when new",
+		EntityCategory: "diagnostic", Icon: "mdi:battery-outline",
+	}
+	BatteryChemistry = Definition{
+		ID: "battery_chemistry", Name: i18n.Text{DE: "Chemie", EN: "Chemistry"},
+		Kind: KindText, Group: GroupBattery,
+		Prom: "rig_battery_chemistry_info", PromLabel: "chemistry", Help: "Battery cell chemistry, e.g. LION",
+		EntityCategory: "diagnostic", Icon: "mdi:flask-outline",
+	}
+	BatteryVoltage = Definition{
+		ID: "battery_voltage", Name: i18n.Text{DE: "Spannung", EN: "Voltage"},
+		Unit: "V", Kind: KindGauge, Precision: 2, Group: GroupBattery,
+		Prom: "rig_battery_voltage_volts", Help: "Battery terminal voltage",
+		DeviceClass: "voltage", StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:flash",
+	}
 )
 
 // All is every definition, used to validate the catalogue in tests and to
@@ -801,6 +896,10 @@ var All = []Definition{
 	NetType, NetIP, NetLinkSpeed, NetRx, NetTx, NetRxTotal, NetTxTotal,
 	NetErrors, NetDiscards, NetWifiSignal,
 	PingTarget, PingRTT, PingLoss,
+
+	BatteryCharge, BatteryCharging, BatteryAC, BatteryRemaining, BatteryPower, BatteryRuntime,
+	BatteryHealth, BatteryCycles, BatteryCapacityFull, BatteryCapacityDesign,
+	BatteryChemistry, BatteryVoltage,
 }
 
 // ByGroup returns every definition in one group.

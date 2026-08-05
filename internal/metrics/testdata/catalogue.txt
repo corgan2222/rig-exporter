@@ -1,3 +1,15 @@
+battery                  %          gauge  prec=0 group=battery panel=battery cat=primary    prom=rig_battery_percent
+battery_ac               -          bool   prec=0 group=battery panel=battery cat=primary    prom=rig_battery_ac_online
+battery_capacity_design  Wh         gauge  prec=1 group=battery panel=battery cat=diagnostic prom=rig_battery_capacity_design_watthours
+battery_capacity_full    Wh         gauge  prec=1 group=battery panel=battery cat=diagnostic prom=rig_battery_capacity_full_watthours
+battery_charging         -          bool   prec=0 group=battery panel=battery cat=primary    prom=rig_battery_charging
+battery_chemistry        -          text   prec=0 group=battery panel=battery cat=diagnostic prom=rig_battery_chemistry_info
+battery_cycles           -          gauge  prec=0 group=battery panel=battery cat=diagnostic prom=rig_battery_cycles_total
+battery_health           %          gauge  prec=1 group=battery panel=battery cat=diagnostic prom=rig_battery_health_percent
+battery_power            W          gauge  prec=1 group=battery panel=battery cat=primary    prom=rig_battery_power_watts
+battery_remaining        Wh         gauge  prec=1 group=battery panel=battery cat=primary    prom=rig_battery_remaining_watthours
+battery_runtime          min        gauge  prec=0 group=battery panel=battery cat=primary    prom=rig_battery_runtime_minutes
+battery_voltage          V          gauge  prec=2 group=battery panel=battery cat=diagnostic prom=rig_battery_voltage_volts
 cpu                      %          gauge  prec=1 group=core  panel=cpu   cat=primary    prom=rig_cpu_percent
 cpu_clock                MHz        gauge  prec=0 group=cpu   panel=cpu   cat=primary    prom=rig_cpu_clock_megahertz
 cpu_clock_base           MHz        gauge  prec=0 group=cpu   panel=cpu   cat=diagnostic prom=rig_cpu_clock_base_megahertz

@@ -61,19 +61,24 @@ const (
 	GroupDisk Group = "disk"
 	// GroupNet covers network adapters and the latency probe.
 	GroupNet Group = "net"
+	// GroupBattery covers the battery pack, and stays empty on any machine
+	// that does not have one.
+	GroupBattery Group = "battery"
 )
 
-// Groups lists every group in presentation order.
-var Groups = []Group{GroupCore, GroupGPU, GroupCPU, GroupRAM, GroupDisk, GroupNet}
+// Groups lists every group in presentation order. Battery comes last because
+// it is the only one that most machines will never fill.
+var Groups = []Group{GroupCore, GroupGPU, GroupCPU, GroupRAM, GroupDisk, GroupNet, GroupBattery}
 
 // groupLabels names the groups for the settings page, the tray and -probe.
 var groupLabels = map[Group]i18n.Text{
-	GroupCore: {DE: "FPS & System", EN: "FPS & system"},
-	GroupGPU:  {DE: "Grafikkarte", EN: "Graphics card"},
-	GroupCPU:  {DE: "Prozessor", EN: "Processor"},
-	GroupRAM:  {DE: "Arbeitsspeicher", EN: "Memory"},
-	GroupDisk: {DE: "Laufwerke", EN: "Drives"},
-	GroupNet:  {DE: "Netzwerk", EN: "Network"},
+	GroupCore:    {DE: "FPS & System", EN: "FPS & system"},
+	GroupGPU:     {DE: "Grafikkarte", EN: "Graphics card"},
+	GroupCPU:     {DE: "Prozessor", EN: "Processor"},
+	GroupRAM:     {DE: "Arbeitsspeicher", EN: "Memory"},
+	GroupDisk:    {DE: "Laufwerke", EN: "Drives"},
+	GroupNet:     {DE: "Netzwerk", EN: "Network"},
+	GroupBattery: {DE: "Akku", EN: "Battery"},
 }
 
 // Label is the group's name in the given language.
@@ -390,11 +395,12 @@ var deviceLabels = map[string]i18n.Text{
 // deliberate: the only instance-less drive readings are the sums over every
 // volume. "Laufwerk Gesamtkapazität" would claim to describe one disk.
 var groupPrefixes = map[Group]i18n.Text{
-	GroupCPU:  {DE: "CPU", EN: "CPU"},
-	GroupRAM:  {DE: "RAM", EN: "RAM"},
-	GroupGPU:  {DE: "GPU", EN: "GPU"},
-	GroupDisk: {DE: "Laufwerke", EN: "Drives"},
-	GroupNet:  {DE: "Netzwerk", EN: "Network"},
+	GroupCPU:     {DE: "CPU", EN: "CPU"},
+	GroupRAM:     {DE: "RAM", EN: "RAM"},
+	GroupGPU:     {DE: "GPU", EN: "GPU"},
+	GroupDisk:    {DE: "Laufwerke", EN: "Drives"},
+	GroupNet:     {DE: "Netzwerk", EN: "Network"},
+	GroupBattery: {DE: "Akku", EN: "Battery"},
 }
 
 // hardwarePrefix is what leads this reading's name, empty for the ones that

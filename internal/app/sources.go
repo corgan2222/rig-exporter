@@ -8,6 +8,7 @@ import (
 
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/hardware/battery"
 	"github.com/corgan2222/rig-exporter/internal/hardware/cpu"
 	"github.com/corgan2222/rig-exporter/internal/hardware/disk"
 	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
@@ -61,6 +62,9 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 				time.Duration(cfg.PingIntervalMs)*time.Millisecond, log)
 		}
 		s.sources = append(s.sources, hwnet.New(s.pinger, cfg.NetAllAdapters))
+	}
+	if cfg.BatteryEnabled {
+		s.sources = append(s.sources, battery.New(log))
 	}
 	// Last, because it is the only source that reads the whole machine rather
 	// than one piece of it, and its own ticker means the order here decides
@@ -126,6 +130,7 @@ func sensorsChanged(a, b config.Config) bool {
 		a.DiskEnabled != b.DiskEnabled ||
 		a.NetEnabled != b.NetEnabled ||
 		a.NetAllAdapters != b.NetAllAdapters ||
+		a.BatteryEnabled != b.BatteryEnabled ||
 		a.PingEnabled != b.PingEnabled ||
 		a.PingTarget != b.PingTarget ||
 		a.PingCount != b.PingCount ||

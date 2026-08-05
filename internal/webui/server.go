@@ -519,6 +519,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.DiskInclude = splitList(r.FormValue("disk_include"))
 		cfg.NetEnabled = r.FormValue("net_enabled") != ""
 		cfg.NetAllAdapters = r.FormValue("net_all_adapters") != ""
+		cfg.BatteryEnabled = r.FormValue("battery_enabled") != ""
 		cfg.PingEnabled = r.FormValue("ping_enabled") != ""
 		cfg.PingTarget = strings.TrimSpace(r.FormValue("ping_target"))
 		cfg.PingCount = formInt(r, "ping_count", cfg.PingCount)
@@ -807,11 +808,12 @@ func publishPace(st app.Status) int {
 func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 	snap := st.Snapshot
 	enabled := map[metrics.Group]bool{
-		metrics.GroupGPU:  st.Config.GPUEnabled,
-		metrics.GroupCPU:  st.Config.CPUDetailEnabled,
-		metrics.GroupRAM:  st.Config.RAMDetailEnabled,
-		metrics.GroupDisk: st.Config.DiskEnabled,
-		metrics.GroupNet:  st.Config.NetEnabled,
+		metrics.GroupGPU:     st.Config.GPUEnabled,
+		metrics.GroupCPU:     st.Config.CPUDetailEnabled,
+		metrics.GroupRAM:     st.Config.RAMDetailEnabled,
+		metrics.GroupDisk:    st.Config.DiskEnabled,
+		metrics.GroupNet:     st.Config.NetEnabled,
+		metrics.GroupBattery: st.Config.BatteryEnabled,
 	}
 
 	out := make([]groupStatus, 0, len(enabled))
