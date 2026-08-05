@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="64" height="64">
+  <defs>
+    <linearGradient id="red" x1="59" y1="176" x2="59" y2="80" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#ff3b3b"></stop><stop offset="100%" stop-color="#ff6b2c"></stop></linearGradient>
+    <linearGradient id="amb" x1="80" y1="59" x2="176" y2="59" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#ff9e1b"></stop><stop offset="100%" stop-color="#ffd23f"></stop></linearGradient>
+    <linearGradient id="grn" x1="197" y1="80" x2="197" y2="176" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#b3e934"></stop><stop offset="100%" stop-color="#22c55e"></stop></linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="124" fill="#17171b"></circle>
+  <circle cx="128" cy="128" r="122" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="3"></circle>
+  <g fill="none" stroke-width="24" stroke-linecap="round">
+    <path d="M 59.2 176.2 A 84 84 0 0 1 59.2 79.8" stroke="url(#red)"></path>
+    <path d="M 79.8 59.2 A 84 84 0 0 1 176.2 59.2" stroke="url(#amb)"></path>
+    <path d="M 196.8 79.8 A 84 84 0 0 1 196.8 176.2" stroke="url(#grn)"></path>
+  </g>
+  <polygon points="117,133.3 119.2,119.5 189.2,137.8" fill="#f6f6f8"></polygon>
+  <circle cx="128" cy="128" r="14" fill="#151519" stroke="#55555e" stroke-width="3"></circle>
+  <circle cx="128" cy="128" r="6" fill="#4ade80"></circle>
+</svg>
