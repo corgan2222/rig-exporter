@@ -120,14 +120,45 @@ func TestEveryChipLinksToItsSetting(t *testing.T) {
 
 	_, body := get(t, ts.URL+"/")
 
-	for _, want := range []struct{ id, href string }{
-		{"c-set", "/capture#sensors"},
-		{"c-decimals", "/capture#capture"},
-		{"c-entities", "/capture#sensors"},
-		{"c-interval", "/capture#capture"},
-	} {
-		if !strings.Contains(body, `id="`+want.id+`" href="`+want.href+`"`) {
-			t.Errorf("chip %s does not link to %s", want.id, want.href)
+	// All four end up on the scope card, because that is where all four are
+	// now decided: the rung, the decimals and both publish intervals sit in
+	// one box. They used to point at the capture page, and two of them at an
+	// anchor that stopped existing when the capture settings moved.
+	for _, id := range []string{"c-set", "c-decimals", "c-entities", "c-interval"} {
+		if !strings.Contains(body, `id="`+id+`" href="/measurements#rung"`) {
+			t.Errorf("chip %s does not link to the scope card", id)
+		}
+	}
+}
+
+// A chip that links to an anchor no longer on the page scrolls nowhere and
+// looks like a broken link. Every target a chip names has to exist.
+func TestEveryChipTargetExistsOnThePageItNames(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	_, status := get(t, ts.URL+"/")
+	seen := map[string]bool{}
+	for _, chip := range []string{"c-set", "c-decimals", "c-entities", "c-interval"} {
+		at := strings.Index(status, `id="`+chip+`" href="`)
+		if at < 0 {
+			t.Fatalf("chip %s is gone", chip)
+		}
+		rest := status[at+len(`id="`+chip+`" href="`):]
+		seen[rest[:strings.Index(rest, `"`)]] = true
+	}
+
+	for target := range seen {
+		page, anchor, found := strings.Cut(target, "#")
+		if !found {
+			continue
+		}
+		code, body := get(t, ts.URL+page)
+		if code != http.StatusOK {
+			t.Errorf("chip target %s answers %d", target, code)
+			continue
+		}
+		if !strings.Contains(body, `id="`+anchor+`"`) {
+			t.Errorf("chip target %s points at an anchor that is not on that page", target)
 		}
 	}
 }
