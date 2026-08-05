@@ -129,7 +129,6 @@ func (s *githubReleaseSource) Latest(ctx context.Context) (Release, bool, error)
 	}
 	return Release{
 		Version: version,
-		Title:   release.Name,
 		Notes:   release.ReleaseNotes,
 		URL:     release.URL,
 		Size:    release.AssetByteSize,

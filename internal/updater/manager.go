@@ -31,6 +31,20 @@ const (
 	defaultInstallTimeout = 5 * time.Minute
 	maxReleaseSize        = 50 << 20
 	maxReleaseSummary     = 255
+
+	// softwareTitle is what Home Assistant means by the title of an update
+	// entity: the name of the software, not the name of the release.
+	//
+	// The GitHub release name went in here, which is "v1.7.1" — so the update
+	// card never mentioned rig-exporter at all, and the overview row read
+	// "v1.7.1 1.7.1", the title and the version saying the same thing twice.
+	softwareTitle = "rig-exporter"
+
+	// installSection opens the part of the release notes that explains how to
+	// download and verify the file. Useful on the release page, worthless in a
+	// notification with 255 characters to spend — and it is our own template
+	// that puts it there, so cutting on it is cutting on something we own.
+	installSection = "## Installing"
 )
 
 var (
@@ -63,11 +77,13 @@ type Controller interface {
 // seam. Provider-specific objects stay private to their adapter.
 type Release struct {
 	Version string
-	Title   string
-	Notes   string
-	URL     string
-	Size    int
-	native  any
+	// No Title. GitHub names every release after its version, so it carried
+	// nothing the version did not already say, and Home Assistant wants the
+	// name of the software there instead — see softwareTitle.
+	Notes  string
+	URL    string
+	Size   int
+	native any
 }
 
 // PreparedUpdate is handed to the Windows apply adapter only after the release
@@ -177,7 +193,7 @@ func newManager(source releaseSource, apply applyPreparer, opts Options) *Manage
 		state: State{
 			InstalledVersion: opts.CurrentVersion,
 			LatestVersion:    opts.CurrentVersion,
-			Title:            "rig-exporter",
+			Title:            softwareTitle,
 		},
 		listeners: map[uint64]func(State){},
 		ctx:       ctx,
@@ -270,14 +286,10 @@ func (m *Manager) Check(ctx context.Context) error {
 		return m.checkFailed(fmt.Errorf("release asset size %d is outside the allowed range", release.Size))
 	}
 
-	title := strings.TrimSpace(release.Title)
-	if title == "" {
-		title = "rig-exporter " + release.Version
-	}
 	m.mu.Lock()
 	m.available = &release
 	m.state.LatestVersion = release.Version
-	m.state.Title = title
+	m.state.Title = softwareTitle
 	m.state.ReleaseSummary = summarize(release.Notes)
 	m.state.ReleaseURL = release.URL
 	m.state.LastError = ""
@@ -300,7 +312,7 @@ func (m *Manager) setNoUpdate() {
 	m.mu.Lock()
 	m.available = nil
 	m.state.LatestVersion = m.opts.CurrentVersion
-	m.state.Title = "rig-exporter"
+	m.state.Title = softwareTitle
 	m.state.ReleaseSummary = ""
 	m.state.ReleaseURL = ""
 	m.state.LastError = ""
@@ -308,7 +320,12 @@ func (m *Manager) setNoUpdate() {
 	m.notify()
 }
 
+// summarize turns the release notes into the one paragraph Home Assistant has
+// room for: what changed, and nothing about how to install it.
 func summarize(notes string) string {
+	if cut := strings.Index(notes, installSection); cut >= 0 {
+		notes = notes[:cut]
+	}
 	text := strings.Join(strings.Fields(notes), " ")
 	if utf8.RuneCountInString(text) <= maxReleaseSummary {
 		return text

@@ -169,7 +169,7 @@ func TestReleaseSourceStagesOnlyAnAuthenticRelease(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("Latest = found:%v err:%v", found, err)
 	}
-	if release.Version != "1.6.4" || release.Title != "rig-exporter 1.6.4" || release.Notes != "A useful changelog" {
+	if release.Version != "1.6.4" || release.Notes != "A useful changelog" {
 		t.Fatalf("release = %#v", release)
 	}
 
