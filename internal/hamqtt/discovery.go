@@ -3,6 +3,7 @@ package hamqtt
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -13,8 +14,6 @@ const (
 	availableOffline = "offline"
 	updateKey        = "software"
 	installPayload   = "install"
-
-	projectURL = "https://github.com/corgan2222/rig-exporter"
 )
 
 // deviceInfo groups every entity under one device in Home Assistant.
@@ -61,8 +60,12 @@ type updateDiscoveryPayload struct {
 	Retain                bool                  `json:"retain"`
 	MessageExpiryInterval messageExpiryInterval `json:"message_expiry_interval"`
 	EntityCategory        string                `json:"entity_category"`
-	Device                deviceInfo            `json:"device"`
-	Origin                originInfo            `json:"origin"`
+	// Icon is what Home Assistant draws when there is no picture to draw
+	// instead — on a machine whose interface only listens on loopback, that is
+	// always. A speedometer, because that is what the mark is.
+	Icon   string     `json:"icon,omitempty"`
+	Device deviceInfo `json:"device"`
+	Origin originInfo `json:"origin"`
 }
 
 // discoveryPayload is the JSON published to the discovery topic. Fields are
@@ -135,7 +138,7 @@ func originFor() originInfo {
 	return originInfo{
 		Name:       config.AppName,
 		SWVersion:  config.Version,
-		SupportURL: projectURL,
+		SupportURL: config.ProjectURL,
 	}
 }
 
@@ -215,9 +218,29 @@ func updateDiscoveryFor(cfg config.Config, webURL string) updateDiscoveryPayload
 		Retain:                false,
 		MessageExpiryInterval: messageExpiryInterval{Seconds: 30},
 		EntityCategory:        "config",
+		Icon:                  updateIcon,
 		Device:                deviceFor(cfg, webURL),
 		Origin:                originFor(),
 	}
+}
+
+// updateIcon is the Material Design name Home Assistant resolves itself, with
+// no request leaving its own frontend. It is the fallback for the picture,
+// which is a URL and only works where the interface can be reached.
+const updateIcon = "mdi:speedometer"
+
+// iconPictureURL is where Home Assistant fetches the application mark.
+//
+// Only offered when the interface listens on the network. Bound to loopback
+// the address resolves to the machine running the browser, which is somebody
+// else's 127.0.0.1 — the request would fail and the card would show a broken
+// image where an icon belongs. A missing picture falls back to updateIcon,
+// which is a worse picture but never a broken one.
+func iconPictureURL(cfg config.Config, webURL string) string {
+	if !cfg.WebBindAll || webURL == "" {
+		return ""
+	}
+	return strings.TrimSuffix(webURL, "/") + "/icon.png"
 }
 
 func updateDiscoveryMessage(cfg config.Config, webURL string) (string, []byte, error) {

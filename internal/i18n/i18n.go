@@ -29,15 +29,17 @@ const Default = DE
 // Language pairs a code with its own name, for the language switcher.
 type Language struct {
 	Code Lang
-	// Name is the language's name in itself, which is what a switcher should
-	// show: someone looking for English does not read "Englisch".
+	// Name is what the switcher shows. The codes rather than "Deutsch" and
+	// "English": two buttons of three characters leave the header room for the
+	// name, the author and the version, and nobody has ever needed the word
+	// spelled out to find their own language.
 	Name string
 }
 
 // Available lists the supported languages in presentation order.
 var Available = []Language{
-	{DE, "Deutsch"},
-	{EN, "English"},
+	{DE, "DE"},
+	{EN, "ENG"},
 }
 
 // Parse turns a configured or submitted value into a language, falling back to

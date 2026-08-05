@@ -13,9 +13,11 @@ var catalogue = map[string]Text{
 	"page.capture": {DE: "Datengewinnung", EN: "Data capture"},
 	"page.export":  {DE: "Export & Anzeige", EN: "Export & display"},
 
-	"footer.config": {DE: "Konfiguration öffnen", EN: "Open configuration"},
-	"footer.log":    {DE: "Log öffnen", EN: "Open log"},
-	"footer.folder": {DE: "Ordner öffnen", EN: "Open folder"},
+	"footer.by":      {DE: "von", EN: "by"},
+	"footer.project": {DE: "Projektseite auf GitHub", EN: "Project page on GitHub"},
+	"footer.config":  {DE: "Konfiguration öffnen", EN: "Open configuration"},
+	"footer.log":     {DE: "Log öffnen", EN: "Open log"},
+	"footer.folder":  {DE: "Ordner öffnen", EN: "Open folder"},
 
 	// Status page.
 	"status.title":      {DE: "Status", EN: "Status"},

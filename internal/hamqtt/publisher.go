@@ -578,6 +578,12 @@ type updateStatePayload struct {
 	ReleaseURL       string   `json:"release_url,omitempty"`
 	InProgress       bool     `json:"in_progress"`
 	UpdatePercentage *float64 `json:"update_percentage"`
+	// EntityPicture is the application mark, served by this program's own web
+	// interface. Omitted where that interface cannot be reached from wherever
+	// Home Assistant is being looked at; the card then falls back to the icon
+	// in the discovery payload, which is a worse picture but never a broken
+	// one.
+	EntityPicture string `json:"entity_picture,omitempty"`
 }
 
 func (p *Publisher) publishUpdateState(client mqtt.Client, state updater.State) error {
@@ -589,6 +595,7 @@ func (p *Publisher) publishUpdateState(client mqtt.Client, state updater.State) 
 		ReleaseURL:       state.ReleaseURL,
 		InProgress:       state.InProgress,
 		UpdatePercentage: state.UpdatePercentage,
+		EntityPicture:    iconPictureURL(p.cfg, p.currentWebURL()),
 	})
 	if err != nil {
 		return fmt.Errorf("encode software update state: %w", err)

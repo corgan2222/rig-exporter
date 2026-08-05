@@ -1,12 +1,13 @@
-// Command genicon renders the tray icon and writes it to
-// internal/assets/icon.ico, where it is embedded into the binary.
+// Command genicon packs the application artwork into the forms Windows and the
+// web interface need, and writes them to internal/assets.
 //
-// The icon is drawn once at high resolution and box-filtered down to each of
-// the sizes Windows asks for, which keeps the small variants readable without
-// hand-tuning them. Output is a classic BMP-payload ICO so it loads on every
-// Windows version systray supports.
+// The gauge used to be drawn here in code. It is a designed asset now, kept as
+// PNG under docs/images, and this only repackages it: an ICO for the tray, a
+// resource object so Explorer and the taskbar show it too, and one PNG the web
+// interface serves. Deriving all three from one source is the point — three
+// pictures of the same program that disagree is worse than none of them.
 //
-// Regenerate with: go run ./tools/genicon
+// Regenerate with: .\build.ps1 -Icon
 package main
 
 import (
@@ -15,38 +16,20 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"math"
+	"image/draw"
+	"image/png"
 	"os"
 	"path/filepath"
 )
 
-// master is the resolution the gauge is drawn at before downsampling.
-const master = 256
+// artwork is the largest rendering of the mark, and the source every output
+// below is filtered down from.
+const artwork = "docs/images/rig-exporter-entity-512.png"
 
-// Gauge geometry, in master-resolution pixels.
-const (
-	discRadius    = 124.0
-	rimInner      = 116.0
-	arcInner      = 86.0
-	arcOuter      = 110.0
-	needleLength  = 82.0
-	needleHalf    = 6.0
-	hubRadius     = 13.0
-	sweepStartDeg = 135.0 // lower left
-	sweepDeg      = 270.0 // clockwise through the top to the lower right
-	needleAt      = 0.76  // position of the needle along the sweep, 0..1
-)
-
-var (
-	discColor   = color.RGBA{17, 24, 39, 255}
-	rimColor    = color.RGBA{51, 65, 85, 255}
-	needleColor = color.RGBA{241, 245, 249, 255}
-	arcStops    = []color.RGBA{
-		{34, 197, 94, 255}, // green
-		{234, 179, 8, 255}, // amber
-		{239, 68, 68, 255}, // red
-	}
-)
+// servedSize is the PNG the web interface serves, for its own header and for
+// the picture on the Home Assistant update card. The card draws it at about
+// forty pixels and a dense display asks for three times that.
+const servedSize = 256
 
 func main() {
 	out := filepath.Join("internal", "assets", "icon.ico")
@@ -57,7 +40,11 @@ func main() {
 		fail(err)
 	}
 
-	src := renderGauge(master)
+	src, err := loadArtwork(artwork)
+	if err != nil {
+		fail(err)
+	}
+
 	// Tray, taskbar and Alt-Tab never ask for more than 64px here, and each
 	// larger frame costs w*h*4 bytes uncompressed in the binary.
 	sizes := []int{16, 24, 32, 48, 64}
@@ -74,6 +61,16 @@ func main() {
 		fail(err)
 	}
 	fmt.Printf("wrote %s (%d bytes, %d frames)\n", out, len(data), len(frames))
+
+	pngPath := filepath.Join(filepath.Dir(out), "icon.png")
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, downsample(src, servedSize)); err != nil {
+		fail(err)
+	}
+	if err := os.WriteFile(pngPath, buf.Bytes(), 0o644); err != nil {
+		fail(err)
+	}
+	fmt.Printf("wrote %s (%d bytes)\n", pngPath, buf.Len())
 
 	// The same icon again, as a Windows resource object. The Go linker picks
 	// any .syso up out of the main package directory, which is what gives the
@@ -103,98 +100,27 @@ func fail(err error) {
 	os.Exit(1)
 }
 
-// renderGauge draws the speedometer at size n with alpha-premultiplied pixels.
-func renderGauge(n int) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, n, n))
-	center := float64(n) / 2
-	scale := float64(n) / master
-
-	needleRad := angleAt(needleAt) * math.Pi / 180
-	tipX := center + math.Cos(needleRad)*needleLength*scale
-	tipY := center + math.Sin(needleRad)*needleLength*scale
-
-	for y := 0; y < n; y++ {
-		for x := 0; x < n; x++ {
-			px := float64(x) + 0.5
-			py := float64(y) + 0.5
-			dx := px - center
-			dy := py - center
-			r := math.Hypot(dx, dy) / scale
-
-			var c color.RGBA
-			switch {
-			case r > discRadius:
-				continue // transparent outside the disc
-			case r > rimInner:
-				c = rimColor
-			default:
-				c = discColor
-			}
-
-			if u, ok := sweepPosition(dx, dy); ok && r >= arcInner && r <= arcOuter {
-				c = arcColorAt(u)
-			}
-
-			if pointToSegment(px, py, center, center, tipX, tipY) <= needleHalf*scale ||
-				math.Hypot(dx, dy) <= hubRadius*scale {
-				c = needleColor
-			}
-
-			img.SetRGBA(x, y, c)
-		}
+// loadArtwork reads the source PNG and hands back pixels the filters below can
+// work on. Nothing else in this program knows how the mark is drawn.
+func loadArtwork(path string) (*image.RGBA, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return img
-}
-
-// angleAt maps a sweep position in 0..1 to a screen-space angle in degrees
-// (0 = right, 90 = down), walking clockwise from the lower left.
-func angleAt(u float64) float64 {
-	return math.Mod(sweepStartDeg+u*sweepDeg, 360)
-}
-
-// sweepPosition is the inverse of angleAt: it reports where the given offset
-// from the center falls along the gauge sweep, and whether it falls on it.
-func sweepPosition(dx, dy float64) (float64, bool) {
-	deg := math.Mod(math.Atan2(dy, dx)*180/math.Pi+360, 360)
-	rel := deg - sweepStartDeg
-	if rel < 0 {
-		rel += 360
+	decoded, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("decode %s: %w", path, err)
 	}
-	if rel > sweepDeg {
-		return 0, false
+	bounds := decoded.Bounds()
+	if bounds.Dx() != bounds.Dy() {
+		return nil, fmt.Errorf("%s is %dx%d; the mark has to be square", path, bounds.Dx(), bounds.Dy())
 	}
-	return rel / sweepDeg, true
-}
 
-func arcColorAt(u float64) color.RGBA {
-	span := float64(len(arcStops) - 1)
-	pos := clamp(u, 0, 1) * span
-	i := int(pos)
-	if i >= len(arcStops)-1 {
-		return arcStops[len(arcStops)-1]
-	}
-	return lerpColor(arcStops[i], arcStops[i+1], pos-float64(i))
-}
-
-func lerpColor(a, b color.RGBA, t float64) color.RGBA {
-	mix := func(x, y uint8) uint8 { return uint8(float64(x) + (float64(y)-float64(x))*t + 0.5) }
-	return color.RGBA{mix(a.R, b.R), mix(a.G, b.G), mix(a.B, b.B), 255}
-}
-
-// pointToSegment returns the distance from (px,py) to the segment (ax,ay)-(bx,by).
-func pointToSegment(px, py, ax, ay, bx, by float64) float64 {
-	vx, vy := bx-ax, by-ay
-	wx, wy := px-ax, py-ay
-	lenSq := vx*vx + vy*vy
-	if lenSq == 0 {
-		return math.Hypot(wx, wy)
-	}
-	t := clamp((wx*vx+wy*vy)/lenSq, 0, 1)
-	return math.Hypot(wx-t*vx, wy-t*vy)
-}
-
-func clamp(v, lo, hi float64) float64 {
-	return math.Min(math.Max(v, lo), hi)
+	// Into RGBA at the origin, because every filter here indexes from nought
+	// and expects premultiplied alpha.
+	img := image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	draw.Draw(img, img.Bounds(), decoded, bounds.Min, draw.Src)
+	return img, nil
 }
 
 // downsample box-filters src down to size x size. Averaging is done on
