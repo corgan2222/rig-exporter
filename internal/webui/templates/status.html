@@ -54,21 +54,6 @@
     </div>
   </div>
 
-  <!-- Gone for good once it has been read. The answer lives in the
-       configuration, not in the browser: the interface moves to a random port
-       whenever the configured one is taken, and a different port is a
-       different origin — local storage was thrown away on most restarts. -->
-  {{ if not .Config.RecorderNoticeRead }}
-  <div class="banner warn" id="recorder-notice">
-    <strong>{{ .T "status.recorder.title" }}</strong><br>
-    {{ .T "status.recorder.body" }}
-    <a href="/export#recorder">{{ .T "status.recorder.link" }}</a>
-    <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
-      <button class="ghost" type="submit" name="what" value="recorder">{{ .T "status.recorder.dismiss" }}</button>
-    </form>
-  </div>
-  {{ end }}
-
   <div class="card" id="hardware">
     <div class="cardhead">
       <h2>{{ .T "hardware.title" }}</h2>

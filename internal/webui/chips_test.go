@@ -142,22 +142,31 @@ func TestTheExportBadgesComeBeforeTheSettingChips(t *testing.T) {
 	}
 }
 
-// The hint about the Home Assistant database sits between the two cards and
-// links to the block that fixes it.
-func TestTheRecorderNoticeSitsBetweenTheCards(t *testing.T) {
+// The hint about the Home Assistant database sits under the scope, where the
+// decision it is about is made, and links to the block that fixes it.
+//
+// It used to be on the dashboard, which is the page somebody glances at rather
+// than the page where they choose how much reaches a database.
+func TestTheRecorderNoticeSitsUnderTheScope(t *testing.T) {
 	_, ts := newServer(t, nil)
 
-	_, body := get(t, ts.URL+"/")
+	_, body := get(t, ts.URL+"/measurements")
 
 	notice := strings.Index(body, `id="recorder-notice"`)
 	if notice < 0 {
 		t.Fatal("no notice about the Home Assistant database")
 	}
-	if status, hardware := strings.Index(body, `id="export-badges"`), strings.Index(body, `id="sensor-groups"`); !(status < notice && notice < hardware) {
-		t.Errorf("the notice is not between the status and the hardware card (%d, %d, %d)", status, notice, hardware)
+	scope, picks := strings.Index(body, `id="rung"`), strings.Index(body, `id="picks-form"`)
+	if !(scope < notice && notice < picks) {
+		t.Errorf("the notice is not between the scope and the measurements (%d, %d, %d)", scope, notice, picks)
 	}
 	if !strings.Contains(body, `href="/export#recorder"`) {
 		t.Error("the notice does not link to the recorder block")
+	}
+
+	// And it is gone from the dashboard, or it would be shown twice.
+	if _, status := get(t, ts.URL+"/"); strings.Contains(status, `id="recorder-notice"`) {
+		t.Error("the notice is still on the dashboard as well")
 	}
 }
 
@@ -168,7 +177,7 @@ func TestTheRecorderNoticeSitsBetweenTheCards(t *testing.T) {
 func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
 	server, ts := newServer(t, nil)
 
-	_, body := get(t, ts.URL+"/")
+	_, body := get(t, ts.URL+"/measurements")
 	if !strings.Contains(body, `id="recorder-notice"`) {
 		t.Fatal("the notice is not shown to somebody who has not read it")
 	}
@@ -181,14 +190,14 @@ func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
 		t.Fatal("the configuration does not remember that it was read")
 	}
 
-	_, body = get(t, ts.URL+"/")
+	_, body = get(t, ts.URL+"/measurements")
 	if strings.Contains(body, `id="recorder-notice"`) {
 		t.Error("the notice came back after it was read")
 	}
 
 	// A fresh server over the same configuration is what a restart looks like.
 	_, again := newServer(t, func(c *config.Config) { c.RecorderNoticeRead = true })
-	if _, body := get(t, again.URL+"/"); strings.Contains(body, `id="recorder-notice"`) {
+	if _, body := get(t, again.URL+"/measurements"); strings.Contains(body, `id="recorder-notice"`) {
 		t.Error("the notice came back after a restart")
 	}
 }
