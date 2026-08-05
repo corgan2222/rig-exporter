@@ -81,6 +81,7 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux.HandleFunc("POST /language", s.handleLanguage)
 	mux.HandleFunc("POST /open", s.handleOpen)
 	mux.HandleFunc("POST /dismiss", s.handleDismiss)
+	mux.HandleFunc("POST /update", s.handleUpdate)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
@@ -543,6 +544,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.WebBindAll = r.FormValue("web_bind_all") != ""
 		cfg.Autostart = r.FormValue("autostart") != ""
 		cfg.Debug = r.FormValue("debug") != ""
+		cfg.UpdateCheckEnabled = r.FormValue("update_check_enabled") != ""
 	}
 
 	if err := s.app.ApplyConfig(cfg); err != nil {
@@ -663,6 +665,11 @@ type statusResponse struct {
 	RTSSVersion string `json:"rtss_version"`
 	NoGPU       bool   `json:"no_gpu"`
 
+	// The update box. It comes through the API rather than the template
+	// because a check that finishes a second after the page loaded should put
+	// the box on screen without a reload.
+	Update updateStatus `json:"update"`
+
 	// Groups carries the optional sensor groups, so the page can show GPU,
 	// disk and network readings without the server knowing what they are.
 	Groups  []groupStatus  `json:"groups"`
@@ -767,6 +774,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		EntityCount: len(snap.Entities()),
 		PublishMs:   publishPace(st),
 		Rendering:   snap.Rendering(),
+		Update:      updateStatusOf(st),
 	}
 	for _, e := range st.Exports {
 		resp.Exports = append(resp.Exports, exportStatus{
@@ -798,6 +806,52 @@ func publishPace(st app.Status) int {
 		return st.Config.PublishIntervalMs
 	}
 	return st.Config.IdlePublishIntervalMs
+}
+
+// updateStatus is the update box, flattened for the page.
+type updateStatus struct {
+	// Available drives the box. False while nothing newer exists, while the
+	// check is switched off, and on a build that cannot update itself.
+	Available bool   `json:"available"`
+	Installed string `json:"installed"`
+	Latest    string `json:"latest"`
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	Summary   string `json:"summary"`
+	// InProgress keeps the button from being pressed twice, and says why the
+	// program is about to disappear for a moment.
+	InProgress bool `json:"in_progress"`
+	// Error is the last failure. Shown, because an install that quietly did
+	// nothing is the worst of the three possible outcomes.
+	Error string `json:"error"`
+}
+
+func updateStatusOf(st app.Status) updateStatus {
+	return updateStatus{
+		Available:  st.UpdateAvailable,
+		Installed:  st.Update.InstalledVersion,
+		Latest:     st.Update.LatestVersion,
+		Title:      st.Update.Title,
+		URL:        st.Update.ReleaseURL,
+		Summary:    st.Update.ReleaseSummary,
+		InProgress: st.Update.InProgress,
+		Error:      st.Update.LastError,
+	}
+}
+
+// handleUpdate installs the release the last check found.
+//
+// A POST with nothing in it: the only thing to say is "yes". Which release it
+// installs is whatever the check settled on, and offering the version as a
+// parameter would only invite somebody to ask for one that was never verified.
+func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if err := s.app.RequestUpdateInstall(); err != nil {
+		s.log.Warn("update install refused", "error", err)
+		http.Redirect(w, r, "/?error="+neturl.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	s.log.Info("update install requested from the interface")
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // groupStatuses turns the optional sensor groups into display rows.

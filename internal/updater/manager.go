@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -21,7 +22,11 @@ import (
 )
 
 const (
-	defaultCheckInterval  = 12 * time.Hour
+	// Twice a day was a guess made before anybody had used it. Six hours is
+	// still nothing against a GitHub API that allows sixty unauthenticated
+	// requests an hour, and it means a release published in the morning is
+	// offered the same day rather than the next one.
+	defaultCheckInterval  = 6 * time.Hour
 	defaultCheckTimeout   = 30 * time.Second
 	defaultInstallTimeout = 5 * time.Minute
 	maxReleaseSize        = 50 << 20
@@ -117,7 +122,38 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      sync.WaitGroup
+
+	// checksOff switches the periodic look at GitHub off without tearing the
+	// manager down. Stop is terminal — a stopped manager cannot be started
+	// again — so a setting somebody can toggle twice in a minute needs
+	// something gentler than the lifecycle.
+	checksOff atomic.Bool
 }
+
+// SetCheckEnabled turns the periodic check on or off. On is the default.
+//
+// Switching it off also withdraws any update already found: the box offering
+// it would otherwise stay on screen, offering exactly what the user just said
+// they did not want to hear about. An install already running is not touched —
+// it has been asked for, and abandoning it half way is worse than finishing.
+func (m *Manager) SetCheckEnabled(on bool) {
+	if m.checksOff.Swap(!on) == !on {
+		return // no change
+	}
+	if on {
+		go m.checkWithTimeout()
+		return
+	}
+	m.mu.RLock()
+	inProgress := m.state.InProgress
+	m.mu.RUnlock()
+	if !inProgress {
+		m.setNoUpdate()
+	}
+}
+
+// CheckEnabled reports whether the periodic check is running.
+func (m *Manager) CheckEnabled() bool { return !m.checksOff.Load() }
 
 func newManager(source releaseSource, apply applyPreparer, opts Options) *Manager {
 	if opts.CheckInterval <= 0 {
@@ -415,6 +451,9 @@ func (m *Manager) runChecks() {
 }
 
 func (m *Manager) checkWithTimeout() {
+	if m.checksOff.Load() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(m.ctx, m.opts.CheckTimeout)
 	defer cancel()
 	_ = m.Check(ctx)

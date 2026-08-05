@@ -18,6 +18,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/updater"
 )
 
 // newServer wires a server against a real App with everything that would
@@ -496,4 +497,112 @@ func TestABatteryPanelOnlyExistsWhereThereIsABattery(t *testing.T) {
 			t.Error("the panel is there but says nothing about the failure")
 		}
 	})
+}
+
+// fakeUpdates stands in for the real manager. Its methods are exported, which
+// is what lets a test outside package app satisfy an interface declared there
+// without exporting the interface itself.
+type fakeUpdates struct {
+	state      updater.State
+	installed  int
+	installErr error
+	enabled    bool
+}
+
+func (f *fakeUpdates) State() updater.State                 { return f.state }
+func (f *fakeUpdates) Subscribe(func(updater.State)) func() { return func() {} }
+func (f *fakeUpdates) RequestInstall() error {
+	f.installed++
+	return f.installErr
+}
+func (f *fakeUpdates) Start()                  {}
+func (f *fakeUpdates) Stop()                   {}
+func (f *fakeUpdates) SetCheckEnabled(on bool) { f.enabled = on }
+
+func newServerWithUpdates(t *testing.T, updates *fakeUpdates) (*Server, *httptest.Server) {
+	t.Helper()
+
+	cfg := config.Defaults()
+	cfg.Language = string(i18n.DE)
+	cfg.MQTTEnabled = false
+	cfg.DataServerEnabled = false
+	cfg.NodeID = "corganpc2"
+	cfg.Normalize()
+
+	application := app.New(cfg, t.TempDir()+`\config.json`, applog.Discard(), updates)
+	server, err := New(application, applog.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	httpServer := httptest.NewServer(server.server.Handler)
+	t.Cleanup(httpServer.Close)
+	return server, httpServer
+}
+
+// The box only appears when there is something newer. An exporter that is up
+// to date shows nothing at all rather than a reassuring green nothing.
+func TestTheUpdateBoxOnlyAppearsWhenThereIsSomethingNewer(t *testing.T) {
+	upToDate := &fakeUpdates{state: updater.State{
+		InstalledVersion: config.Version, LatestVersion: config.Version,
+	}}
+	_, ts := newServerWithUpdates(t, upToDate)
+
+	var resp statusResponse
+	_, body := get(t, ts.URL+"/api/status")
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Update.Available {
+		t.Errorf("an update was offered against an identical version: %+v", resp.Update)
+	}
+
+	newer := &fakeUpdates{state: updater.State{
+		InstalledVersion: config.Version,
+		LatestVersion:    "9.9.9",
+		Title:            "v9.9.9",
+		ReleaseURL:       "https://example.invalid/v9.9.9",
+	}}
+	_, ts2 := newServerWithUpdates(t, newer)
+
+	_, body = get(t, ts2.URL+"/api/status")
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.Update.Available {
+		t.Fatalf("no update offered although 9.9.9 exists: %+v", resp.Update)
+	}
+	if resp.Update.Latest != "9.9.9" || resp.Update.URL == "" {
+		t.Errorf("the box has nothing to show: %+v", resp.Update)
+	}
+}
+
+// The button is the whole point of point three: an install that a person asks
+// for, rather than one only Home Assistant can trigger.
+func TestTheInstallButtonAsksTheUpdater(t *testing.T) {
+	updates := &fakeUpdates{state: updater.State{
+		InstalledVersion: config.Version, LatestVersion: "9.9.9",
+	}}
+	_, ts := newServerWithUpdates(t, updates)
+
+	resp := post(t, ts.URL, "/update", url.Values{})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("status = %d, want a redirect back to the page", resp.StatusCode)
+	}
+	if updates.installed != 1 {
+		t.Errorf("the updater was asked %d times, want once", updates.installed)
+	}
+}
+
+// A build without a working updater must refuse rather than panic, and say so
+// where the user can read it.
+func TestTheInstallButtonRefusesWithoutAnUpdater(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	resp := post(t, ts.URL, "/update", url.Values{})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d, want a redirect", resp.StatusCode)
+	}
+	if location := resp.Header.Get("Location"); !strings.Contains(location, "error=") {
+		t.Errorf("redirected to %q without saying what went wrong", location)
+	}
 }

@@ -238,3 +238,65 @@ func TestInstallFailureReturnsToIdleWithoutRequestingRestart(t *testing.T) {
 	default:
 	}
 }
+
+// The check is the one thing this program does that talks to somewhere other
+// than the machine it measures, so switching it off has to mean no request
+// goes out — not a request whose answer is ignored.
+func TestSwitchingChecksOffStopsAskingAtAll(t *testing.T) {
+	source := &fakeReleaseSource{found: true, latest: Release{
+		Version: "1.9.0", Title: "v1.9.0", Size: 1024,
+	}}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+
+	manager.SetCheckEnabled(false)
+	if manager.CheckEnabled() {
+		t.Fatal("the check reports itself as on right after being switched off")
+	}
+	manager.checkWithTimeout()
+
+	if got := manager.State().LatestVersion; got != "1.6.3" {
+		t.Errorf("latest = %q after a check that should not have happened", got)
+	}
+}
+
+// Switching it off while an update is on offer has to take the offer away as
+// well. Leaving the box on screen would keep offering exactly the thing the
+// user just said they did not want to hear about.
+func TestSwitchingChecksOffWithdrawsAnOfferedUpdate(t *testing.T) {
+	source := &fakeReleaseSource{found: true, latest: Release{
+		Version: "1.9.0", Title: "v1.9.0", Size: 1024, URL: "https://example.invalid/v1.9.0",
+	}}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+
+	if err := manager.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if manager.State().LatestVersion != "1.9.0" {
+		t.Fatalf("the update was not offered in the first place: %+v", manager.State())
+	}
+
+	manager.SetCheckEnabled(false)
+
+	state := manager.State()
+	if state.LatestVersion != state.InstalledVersion {
+		t.Errorf("still offering %s after the check was switched off", state.LatestVersion)
+	}
+	if state.ReleaseURL != "" {
+		t.Errorf("the release link survived: %q", state.ReleaseURL)
+	}
+	if manager.available != nil {
+		t.Error("the release is still held for installing")
+	}
+}
+
+// Setting it to what it already was must not set a check going.
+func TestSwitchingChecksToTheSameValueDoesNothing(t *testing.T) {
+	manager := newTestManager(&fakeReleaseSource{}, &fakeApplyPreparer{})
+	if !manager.CheckEnabled() {
+		t.Fatal("checks are off by default; they should be on")
+	}
+	manager.SetCheckEnabled(true)
+	if !manager.CheckEnabled() {
+		t.Error("switching on an already-on check turned it off")
+	}
+}

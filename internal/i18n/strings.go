@@ -53,6 +53,18 @@ var catalogue = map[string]Text{
 	"rtss.alsoInAfterburner":   {DE: "(in Afterburner bereits enthalten)", EN: "(already included with Afterburner)"},
 	"rtss.dismissNoGPU":        {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
 
+	// The update box. Only ever on screen when there is something newer, so
+	// none of these has to cope with "you are up to date".
+	"update.title":     {DE: "Neue Version verfügbar:", EN: "A new version is available:"},
+	"update.installed": {DE: "Installiert ist %s.", EN: "Installed is %s."},
+	"update.notes":     {DE: "Was sich geändert hat", EN: "What changed"},
+	"update.install":   {DE: "Jetzt aktualisieren", EN: "Update now"},
+	"update.running":   {DE: "Wird installiert …", EN: "Installing …"},
+	"update.installHint": {
+		DE: "Wird heruntergeladen, die Signatur geprüft und danach neu gestartet. Dauert ein paar Sekunden.",
+		EN: "Downloaded, signature-checked, then restarted. It takes a few seconds.",
+	},
+
 	// Hardware panels.
 	"hardware.title":    {DE: "Hardware", EN: "Hardware"},
 	"hardware.disabled": {DE: "Abgeschaltet.", EN: "Switched off."},
@@ -334,9 +346,14 @@ var catalogue = map[string]Text{
 			"This page holds every setting including the broker password, and there is no login — " +
 			"switch it on only on a network you trust. Takes effect after a restart.",
 	},
-	"settings.app.autostart": {DE: "Mit Windows starten", EN: "Start with Windows"},
-	"settings.app.debug":     {DE: "Debug-Logging (wirkt nach Neustart)", EN: "Debug logging (takes effect after a restart)"},
-	"settings.app.noGPU":     {DE: "Keine GPU / keine Spieldaten auf diesem Rechner", EN: "No GPU / no game data on this machine"},
+	"settings.app.autostart":   {DE: "Mit Windows starten", EN: "Start with Windows"},
+	"settings.app.debug":       {DE: "Debug-Logging (wirkt nach Neustart)", EN: "Debug logging (takes effect after a restart)"},
+	"settings.app.updateCheck": {DE: "Auf neue Versionen prüfen", EN: "Check for new versions"},
+	"settings.app.updateCheckHint": {
+		DE: "Fragt alle sechs Stunden bei GitHub nach und zeigt einen Hinweis, wenn es etwas Neueres gibt. Installiert wird nur, was Sie anklicken. Abgeschaltet verlässt keine Anfrage den Rechner.",
+		EN: "Asks GitHub every six hours and shows a note when something newer exists. Nothing is installed unless you click it. Switched off, no request leaves the machine.",
+	},
+	"settings.app.noGPU": {DE: "Keine GPU / keine Spieldaten auf diesem Rechner", EN: "No GPU / no game data on this machine"},
 	"settings.app.noGPUHint": {
 		DE: "Blendet auf der Statusseite FPS, Frametime, Spiel und die RTSS-Hinweise aus. Messung und Exporte bleiben unverändert.",
 		EN: "Hides FPS, frame time, game and RTSS notices on the status page. Collection and exports remain unchanged.",
