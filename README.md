@@ -93,6 +93,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Download- und Upload-Rate, empfangene und gesendete Gesamtmenge, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
 | **Akku** | Ladestand, Netzbetrieb, Laden, Restenergie, Lade- bzw. Entladeleistung, Restlaufzeit; im erweiterten Satz Zustand, Ladezyklen, Design- und Ladekapazität, Chemie, Spannung | Windows Power-API + Akkugerät |
+| **Kühlung** | Modell, Flüssigkeitstemperatur, Pumpen- und Lüfterdrehzahl; im erweiterten Satz die Regelung von Pumpe und Lüfter in Prozent | USB-Kühlungssteuerung (HID) |
 | **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
 | **Top-Prozesse** | die Programme mit dem größten CPU- und Speicherbedarf | Windows |
 
@@ -257,6 +258,34 @@ GB heißt hier 2³⁰ Byte, wie überall sonst im Katalog und wie im Windows
 Explorer. Deshalb tragen die beiden bewusst **keine** `device_class`: Home
 Assistant würde `data_size` als 10⁹ lesen und beim Umrechnen von der falschen
 Grundlage ausgehen.
+
+### Spezielle Hardware — AIO-Kühlung
+
+Wasserkühlungen, Pumpen und Lüfter-Hubs hängen als USB-Gerät am Rechner und
+melden sich als HID an. Sie schicken ihren Zustand von sich aus, etwa im
+Sekundentakt — es genügt zuzuhören. Kein Herstellerprogramm, kein Treiber, keine
+Adminrechte, und die Software des Herstellers kann nebenher weiterlaufen.
+
+**Es wird ausschließlich gelesen.** An keiner Pumpenkurve und keinem
+Lüfterprofil wird etwas verstellt; das Programm schreibt nicht ein Byte an ein
+solches Gerät.
+
+Die Quelle heißt in der Oberfläche **Spezielle Hardware** und ist als
+`ALPHA · ungetestet` gekennzeichnet. Das ist wörtlich gemeint: die Protokolle
+sind von keinem Hersteller veröffentlicht, sie stammen aus
+[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/master/LibreHardwareMonitorLib/Hardware/Controller),
+und geprüft wurde bisher **eine** Familie an echter Hardware.
+
+| Gerät | USB-Kennung | Stand |
+|---|---|---|
+| NZXT Kraken Z3 | `1E71:3008` | an echter Hardware geprüft |
+| NZXT Kraken X3 | `1E71:2007`, `1E71:2014` | gleiches Protokoll, ungeprüft |
+| NZXT Kraken 2023 / Elite | `1E71:300C`, `1E71:300E` | gleiches Protokoll, ungeprüft |
+| NZXT Kraken Elite V2 | `1E71:3012` | gleiches Protokoll, ungeprüft |
+
+Findet sich kein passendes Gerät, entsteht keine einzige Entity — wie bei jeder
+anderen Gruppe auch. Auf der Anzeigeseite und in der Messwertauswahl taucht der
+Kasten dann gar nicht erst auf.
 
 ### Der Akku
 

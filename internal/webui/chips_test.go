@@ -120,14 +120,45 @@ func TestEveryChipLinksToItsSetting(t *testing.T) {
 
 	_, body := get(t, ts.URL+"/")
 
-	for _, want := range []struct{ id, href string }{
-		{"c-set", "/capture#sensors"},
-		{"c-decimals", "/capture#capture"},
-		{"c-entities", "/capture#sensors"},
-		{"c-interval", "/capture#capture"},
-	} {
-		if !strings.Contains(body, `id="`+want.id+`" href="`+want.href+`"`) {
-			t.Errorf("chip %s does not link to %s", want.id, want.href)
+	// All four end up on the scope card, because that is where all four are
+	// now decided: the rung, the decimals and both publish intervals sit in
+	// one box. They used to point at the capture page, and two of them at an
+	// anchor that stopped existing when the capture settings moved.
+	for _, id := range []string{"c-set", "c-decimals", "c-entities", "c-interval"} {
+		if !strings.Contains(body, `id="`+id+`" href="/measurements#rung"`) {
+			t.Errorf("chip %s does not link to the scope card", id)
+		}
+	}
+}
+
+// A chip that links to an anchor no longer on the page scrolls nowhere and
+// looks like a broken link. Every target a chip names has to exist.
+func TestEveryChipTargetExistsOnThePageItNames(t *testing.T) {
+	_, ts := newServer(t, nil)
+
+	_, status := get(t, ts.URL+"/")
+	seen := map[string]bool{}
+	for _, chip := range []string{"c-set", "c-decimals", "c-entities", "c-interval"} {
+		at := strings.Index(status, `id="`+chip+`" href="`)
+		if at < 0 {
+			t.Fatalf("chip %s is gone", chip)
+		}
+		rest := status[at+len(`id="`+chip+`" href="`):]
+		seen[rest[:strings.Index(rest, `"`)]] = true
+	}
+
+	for target := range seen {
+		page, anchor, found := strings.Cut(target, "#")
+		if !found {
+			continue
+		}
+		code, body := get(t, ts.URL+page)
+		if code != http.StatusOK {
+			t.Errorf("chip target %s answers %d", target, code)
+			continue
+		}
+		if !strings.Contains(body, `id="`+anchor+`"`) {
+			t.Errorf("chip target %s points at an anchor that is not on that page", target)
 		}
 	}
 }
@@ -142,22 +173,31 @@ func TestTheExportBadgesComeBeforeTheSettingChips(t *testing.T) {
 	}
 }
 
-// The hint about the Home Assistant database sits between the two cards and
-// links to the block that fixes it.
-func TestTheRecorderNoticeSitsBetweenTheCards(t *testing.T) {
+// The hint about the Home Assistant database sits under the scope, where the
+// decision it is about is made, and links to the block that fixes it.
+//
+// It used to be on the dashboard, which is the page somebody glances at rather
+// than the page where they choose how much reaches a database.
+func TestTheRecorderNoticeSitsUnderTheScope(t *testing.T) {
 	_, ts := newServer(t, nil)
 
-	_, body := get(t, ts.URL+"/")
+	_, body := get(t, ts.URL+"/measurements")
 
 	notice := strings.Index(body, `id="recorder-notice"`)
 	if notice < 0 {
 		t.Fatal("no notice about the Home Assistant database")
 	}
-	if status, hardware := strings.Index(body, `id="export-badges"`), strings.Index(body, `id="sensor-groups"`); !(status < notice && notice < hardware) {
-		t.Errorf("the notice is not between the status and the hardware card (%d, %d, %d)", status, notice, hardware)
+	scope, picks := strings.Index(body, `id="rung"`), strings.Index(body, `id="picks-form"`)
+	if !(scope < notice && notice < picks) {
+		t.Errorf("the notice is not between the scope and the measurements (%d, %d, %d)", scope, notice, picks)
 	}
 	if !strings.Contains(body, `href="/export#recorder"`) {
 		t.Error("the notice does not link to the recorder block")
+	}
+
+	// And it is gone from the dashboard, or it would be shown twice.
+	if _, status := get(t, ts.URL+"/"); strings.Contains(status, `id="recorder-notice"`) {
+		t.Error("the notice is still on the dashboard as well")
 	}
 }
 
@@ -168,7 +208,7 @@ func TestTheRecorderNoticeSitsBetweenTheCards(t *testing.T) {
 func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
 	server, ts := newServer(t, nil)
 
-	_, body := get(t, ts.URL+"/")
+	_, body := get(t, ts.URL+"/measurements")
 	if !strings.Contains(body, `id="recorder-notice"`) {
 		t.Fatal("the notice is not shown to somebody who has not read it")
 	}
@@ -181,14 +221,14 @@ func TestTheRecorderNoticeStaysAwayAcrossRestarts(t *testing.T) {
 		t.Fatal("the configuration does not remember that it was read")
 	}
 
-	_, body = get(t, ts.URL+"/")
+	_, body = get(t, ts.URL+"/measurements")
 	if strings.Contains(body, `id="recorder-notice"`) {
 		t.Error("the notice came back after it was read")
 	}
 
 	// A fresh server over the same configuration is what a restart looks like.
 	_, again := newServer(t, func(c *config.Config) { c.RecorderNoticeRead = true })
-	if _, body := get(t, again.URL+"/"); strings.Contains(body, `id="recorder-notice"`) {
+	if _, body := get(t, again.URL+"/measurements"); strings.Contains(body, `id="recorder-notice"`) {
 		t.Error("the notice came back after a restart")
 	}
 }

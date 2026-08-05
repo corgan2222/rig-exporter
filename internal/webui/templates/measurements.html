@@ -80,6 +80,23 @@
     </div>
   </div>
 
+  <!-- The database hint belongs under the scope, not on the dashboard: this is
+       the page where somebody decides how much reaches Home Assistant, and the
+       estimate above has just told them what it costs. Dismissing it is
+       remembered in the configuration rather than in the browser — the
+       interface falls back to a random port when the configured one is taken,
+       and a different port is a different origin (trap 5.8). -->
+  {{ if not .Config.RecorderNoticeRead }}
+  <div class="banner warn" id="recorder-notice">
+    <strong>{{ .T "status.recorder.title" }}</strong><br>
+    {{ .T "status.recorder.body" }}
+    <a href="/export#recorder">{{ .T "status.recorder.link" }}</a>
+    <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
+      <button class="ghost" type="submit" name="what" value="recorder">{{ .T "status.recorder.dismiss" }}</button>
+    </form>
+  </div>
+  {{ end }}
+
   <form method="post" action="/save/measurements" data-block="measurements" id="picks-form">
     <input type="hidden" name="preset" id="picks-preset" value="{{ .Measurements.Preset }}">
     <!-- Selected measurements this machine cannot show a box for. They have to

@@ -156,9 +156,10 @@ func measurementsFor(st app.Status, lang i18n.Lang) measurementsData {
 			continue
 		}
 		// A battery box on a tower is a box that can never be ticked into
-		// anything. The dashboard leaves the panel out for the same reason;
+		// anything, and neither is a cooling box on a machine with an air
+		// cooler. The dashboard leaves those panels out for the same reason;
 		// this is the same rule, so the two pages agree about what exists.
-		if group == metrics.GroupBattery && !batteryIsThere(st) {
+		if optionalGroups[group] && !groupIsThere(st, group) {
 			for _, row := range rows {
 				if row.Selected {
 					unlisted = append(unlisted, row.ID)
@@ -201,14 +202,14 @@ func measurementsFor(st app.Status, lang i18n.Lang) measurementsData {
 	}
 }
 
-// batteryIsThere says whether this machine has a battery worth offering.
+// groupIsThere says whether this machine has the hardware behind an optional
+// group.
 //
-// A pack that answered is one. A pack that failed to answer is one too — that
-// is a fault to show rather than to hide, and hiding it would leave somebody
-// wondering where their battery went.
-func batteryIsThere(st app.Status) bool {
-	return st.Snapshot.HasGroup(metrics.GroupBattery) ||
-		st.Snapshot.SourceErrors[metrics.GroupBattery] != ""
+// A device that answered is there. A device that failed to answer is there too
+// — that is a fault to show rather than to hide, and hiding it would leave
+// somebody wondering where their battery went.
+func groupIsThere(st app.Status, group metrics.Group) bool {
+	return st.Snapshot.HasGroup(group) || st.Snapshot.SourceErrors[group] != ""
 }
 
 // selectionOf is what the stored configuration currently selects.

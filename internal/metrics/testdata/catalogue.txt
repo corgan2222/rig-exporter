@@ -10,6 +10,12 @@ battery_power            W          gauge  prec=1 group=battery panel=battery ca
 battery_remaining        Wh         gauge  prec=1 group=battery panel=battery cat=primary    prom=rig_battery_remaining_watthours
 battery_runtime          min        gauge  prec=0 group=battery panel=battery cat=primary    prom=rig_battery_runtime_minutes
 battery_voltage          V          gauge  prec=2 group=battery panel=battery cat=diagnostic prom=rig_battery_voltage_volts
+cooling_device           -          text   prec=0 group=cooling panel=cooling cat=diagnostic prom=rig_cooling_info
+cooling_fan_duty         %          gauge  prec=0 group=cooling panel=cooling cat=diagnostic prom=rig_cooling_fan_duty_percent
+cooling_fan_speed        rpm        gauge  prec=0 group=cooling panel=cooling cat=primary    prom=rig_cooling_fan_rpm
+cooling_liquid_temperature °C         gauge  prec=1 group=cooling panel=cooling cat=primary    prom=rig_cooling_liquid_temperature_celsius
+cooling_pump_duty        %          gauge  prec=0 group=cooling panel=cooling cat=diagnostic prom=rig_cooling_pump_duty_percent
+cooling_pump_speed       rpm        gauge  prec=0 group=cooling panel=cooling cat=primary    prom=rig_cooling_pump_rpm
 cpu                      %          gauge  prec=1 group=core  panel=cpu   cat=primary    prom=rig_cpu_percent
 cpu_clock                MHz        gauge  prec=0 group=cpu   panel=cpu   cat=primary    prom=rig_cpu_clock_megahertz
 cpu_clock_base           MHz        gauge  prec=0 group=cpu   panel=cpu   cat=diagnostic prom=rig_cpu_clock_base_megahertz

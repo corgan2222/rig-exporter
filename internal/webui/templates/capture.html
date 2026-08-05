@@ -75,6 +75,19 @@
         <span class="help" title="{{ .T "settings.sensors.batteryHint" }}">?</span>
       </div>
 
+      <!-- Reverse-engineered protocols against devices that mostly were never
+           held in a hand here. The badge says so on the line itself rather
+           than in the tooltip: somebody switching this on has to know it
+           before they click, not after. -->
+      <div class="check">
+        <input type="checkbox" name="special_hardware_enabled" id="special_hardware_enabled" value="1"
+               {{ if .Config.SpecialHardwareEnabled }}checked{{ end }}>
+        <label for="special_hardware_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.special" }}</span></label>
+        <span class="badge alpha">{{ .T "settings.sensors.specialAlpha" }}</span>
+        <span class="help" title="{{ .T "settings.sensors.specialHint" }}">?</span>
+        <a class="sidelink" href="{{ .CoolingURL }}" target="_blank" rel="noopener">{{ .T "settings.sensors.specialLink" }}</a>
+      </div>
+
       <div class="check">
         <input type="checkbox" name="ping_enabled" id="ping_enabled" value="1" {{ if .Config.PingEnabled }}checked{{ end }}>
         <label for="ping_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ping" }}</span></label>
