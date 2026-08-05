@@ -6,6 +6,8 @@ import (
 	"testing"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/corgan2222/rig-exporter/internal/hardware/afterburner"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
@@ -128,16 +130,18 @@ func TestMergeWritesEachCardToItsOwnInstance(t *testing.T) {
 func TestDXGIFillsIntegratedGPUInventoryWithoutThirdPartyTools(t *testing.T) {
 	set := &metrics.Set{}
 	cards := map[string]string{}
+	luids := map[string]windows.LUID{}
 	adapters := []dxgiAdapter{{
 		Index:                0,
 		Name:                 "Intel(R) Iris(R) Xe Graphics",
 		VendorID:             0x8086,
 		DriverVersion:        "31.0.101.5590",
+		LUID:                 windows.LUID{HighPart: 0, LowPart: 0x00017F59},
 		DedicatedVideoMemory: 128 * mebibyte,
 		SharedSystemMemory:   8 * 1024 * mebibyte,
 	}}
 
-	if !mergeFromDXGI(set, adapters, cards) {
+	if !mergeFromDXGI(set, adapters, cards, luids) {
 		t.Fatal("mergeFromDXGI reported no readings")
 	}
 
@@ -146,6 +150,11 @@ func TestDXGIFillsIntegratedGPUInventoryWithoutThirdPartyTools(t *testing.T) {
 	assertTextReading(t, set, metrics.GPUDriverVersion, "0", "31.0.101.5590")
 	assertNumberReading(t, set, metrics.GPUDedicatedMemoryTotal, "0", 128)
 	assertNumberReading(t, set, metrics.GPUSharedMemoryTotal, "0", 8192)
+
+	// The identifier that lets the performance counters find this card again.
+	if got := luids["0"]; got.LowPart != 0x00017F59 {
+		t.Errorf("card 0 LUID = %+v, want the one DXGI reported", got)
+	}
 }
 
 func TestDXGIPreservesExistingTelemetryAndFillsItsGaps(t *testing.T) {
@@ -162,7 +171,7 @@ func TestDXGIPreservesExistingTelemetryAndFillsItsGaps(t *testing.T) {
 		VendorID:             0x10de,
 		DedicatedVideoMemory: 16384 * mebibyte,
 		SharedSystemMemory:   32768 * mebibyte,
-	}}, cards)
+	}}, cards, map[string]windows.LUID{})
 
 	assertNumberReading(t, set, metrics.GPUVRAMTotal, "0", 24576)
 	assertNumberReading(t, set, metrics.GPUDedicatedMemoryTotal, "0", 16384)
@@ -180,7 +189,7 @@ func TestDXGIDedicatedMemoryAndNVMLVRAMStayDistinct(t *testing.T) {
 		Name:                 "NVIDIA GeForce RTX 4090",
 		VendorID:             0x10de,
 		DedicatedVideoMemory: 24000 * mebibyte,
-	}}, cards)
+	}}, cards, map[string]windows.LUID{})
 
 	mergeFromNVML(set, []nvmlCard{{
 		Index: 0, Name: "NVIDIA GeForce RTX 4090",
@@ -205,7 +214,7 @@ func TestDXGIMatchesExistingCardsBeforeAssigningNewInstances(t *testing.T) {
 		{Index: 1, Name: "NVIDIA GeForce RTX 4070 Laptop GPU", VendorID: 0x10de},
 	}
 
-	mergeFromDXGI(set, adapters, cards)
+	mergeFromDXGI(set, adapters, cards, map[string]windows.LUID{})
 
 	if got := cards["0"]; got != "NVIDIA GeForce RTX 4070 Laptop GPU" {
 		t.Errorf("card 0 = %q, want the existing NVIDIA card", got)

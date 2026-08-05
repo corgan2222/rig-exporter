@@ -21,6 +21,7 @@ import (
 
 	"github.com/corgan2222/rig-exporter/internal/hardware/afterburner"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/pdh"
 )
 
 // Source collects the CPU group.
@@ -41,7 +42,7 @@ type Source struct {
 
 	// performance reports what the processor is actually clocked at, relative
 	// to its base frequency.
-	performance *perfCounter
+	performance *pdh.Counter
 	// peakMHz is the highest effective clock seen since the process started,
 	// which is the only honest "maximum" available: Windows reports the base
 	// frequency as the maximum and never mentions the boost clock.
@@ -139,7 +140,7 @@ func vendorOf(model string) string {
 func (s *Source) readStatic() {
 	s.logical = int(logicalProcessors())
 	s.physical = physicalCores()
-	s.performance = newPerfCounter(`\Processor Information(_Total)\% Processor Performance`)
+	s.performance = pdh.NewCounter(`\Processor Information(_Total)\% Processor Performance`)
 
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE,
 		`HARDWARE\DESCRIPTION\System\CentralProcessor\0`, registry.QUERY_VALUE)

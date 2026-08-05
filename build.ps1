@@ -40,6 +40,11 @@ if ($Check) {
     # converting a MapViewOfFile address, which vet cannot reason about.
     Write-Host "==> go vet" -ForegroundColor Cyan
     go vet -unsafeptr=false ./...
+    # The same omission that once let a red test suite through: a native
+    # program's exit code does not trip $ErrorActionPreference, so without this
+    # line vet printed its findings and the build carried on regardless. It was
+    # the commit hook, not this script, that caught a copied mutex.
+    if ($LASTEXITCODE -ne 0) { throw "go vet found problems" }
 
     # staticcheck catches a different class than vet: misused standard library,
     # ineffective code, unused declarations, style that has drifted. Which
