@@ -53,6 +53,11 @@ if ($Check) {
 
     Write-Host "==> go test" -ForegroundColor Cyan
     go test ./...
+    # The exit code was not checked here, and every step above it does check.
+    # A failing test therefore left -Check green, the binary was built anyway,
+    # and CI reported success while two tests were red. Whatever this script
+    # runs, it has to be able to say no.
+    if ($LASTEXITCODE -ne 0) { throw "go test failed" }
 }
 
 # The build identifier: how many commits deep, and which one. Derived rather

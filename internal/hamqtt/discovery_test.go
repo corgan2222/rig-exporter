@@ -7,11 +7,17 @@ import (
 	"testing"
 
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
 
 func testConfig() config.Config {
 	cfg := config.Defaults()
+	// Pinned, because Defaults takes the language from Windows and several
+	// assertions below are about translated names. Left to the machine, this
+	// package passes on a German installation and fails on an English one —
+	// which is exactly what happened on the build server.
+	cfg.Language = string(i18n.DE)
 	cfg.NodeID = "corganpc2"
 	cfg.DeviceName = "CorganPC2"
 	cfg.TopicPrefix = config.AppName

@@ -40,4 +40,8 @@ jobs:
         run: .\build.ps1 -Check
 
       - name: Report the build identifier
-        run: .\rig-exporter.exe -version
+        shell: pwsh
+        # Piped rather than called plainly: the binary has no console of its
+        # own, and PowerShell shows nothing for a bare invocation of one. This
+        # line printed an empty log entry for every run until somebody looked.
+        run: .\rig-exporter.exe -version | Out-String | Write-Host

@@ -78,7 +78,22 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          $reported = (.\rig-exporter.exe -version)
+          # Piped into Out-String, not assigned directly. The binary is linked
+          # with -H windowsgui and therefore has no console of its own;
+          # PowerShell hands a plain assignment of such a process no output at
+          # all, and `>` and `2>&1` are just as empty. A pipe forces it to read
+          # the child's stdout, which is the whole difference. Measured: only
+          # the pipe, `cmd /c` and Start-Process -Wait return anything.
+          $reported = (.\rig-exporter.exe -version | Out-String).Trim()
+
+          # Asserted before it is compared, because that is how this went
+          # unnoticed: the earlier check captured nothing, and comparing
+          # nothing against a version silently passed. An empty reading is a
+          # broken check, not a happy one.
+          if ([string]::IsNullOrWhiteSpace($reported)) {
+            throw "the binary printed nothing — the check cannot verify anything"
+          }
+
           Write-Host "reported: $reported"
           $prefix = "rig-exporter $env:RELEASE_VERSION"
           if ($reported -ne $prefix -and -not $reported.StartsWith("$prefix+")) {
