@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The page is already dark. Dark Reader and its kin invert it a second time
+     otherwise, and a double negative looks exactly as bad as it sounds. The
+     lock is what those extensions read to leave a page alone; color-scheme
+     below says the same thing to the browser itself. -->
+<meta name="darkreader-lock">
 <title>{{ .AppName }} &mdash; {{ .T .TitleKey }}</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <style>
@@ -66,7 +71,6 @@
   nav.main a:hover { background: var(--panel-2); color: var(--text); }
   nav.main a.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
   .langs { display: flex; gap: .25rem; align-items: center; }
-  .langs .label { color: var(--muted); font-size: .75rem; margin-right: .25rem; }
   .langs button { background: transparent; color: var(--muted); border: 1px solid var(--line);
                   padding: .22rem .55rem; border-radius: 6px; font: inherit; font-size: .8rem;
                   cursor: pointer; }
@@ -111,8 +115,8 @@
     border: 1px solid var(--line); border-radius: 7px; font: inherit;
   }
   input:focus, select:focus { outline: 2px solid var(--accent-dim); outline-offset: 1px; }
-  .check { display: flex; align-items: flex-start; gap: .55rem; margin-bottom: .9rem; }
-  .check input { margin-top: .3rem; }
+  .check { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
+  .check input { margin: 0; flex: none; }
   .check .name { font-size: .9rem; color: var(--text); }
   .note { color: var(--muted); font-size: .8rem; }
   /* The list of values a source supplies is the long column, so it takes the
@@ -125,6 +129,45 @@
   table.origins th:nth-child(2), table.origins td:nth-child(2) { text-align: right; white-space: nowrap; }
   table.origins td.values { color: var(--muted); width: 100%; overflow-wrap: break-word; }
   .indent { margin: -.5rem 0 1rem 1.7rem; }
+  /* An explanation that used to be a paragraph under its line. Kept reachable
+     rather than removed: the page has to stay readable for somebody who does
+     not already know what MSI Afterburner is. */
+  .help { flex: none; display: inline-flex; align-items: center; justify-content: center;
+          width: 1.1rem; height: 1.1rem; border-radius: 50%;
+          border: 1px solid var(--line); color: var(--muted);
+          font-size: .72rem; line-height: 1; cursor: help; user-select: none; }
+  .help:hover { color: var(--text); border-color: var(--muted); }
+  .check .sidelink, .check .sidenote { font-size: .78rem; }
+  .check .sidelink { color: var(--accent); text-decoration: none; }
+  .check .sidelink:hover { text-decoration: underline; }
+  .check .sidenote { color: var(--muted); }
+  /* A field that belongs to the switch above it: indented, folded away until
+     it holds something, and no wider than its content needs. */
+  details.sub { margin: -.5rem 0 .9rem 1.7rem; }
+  details.sub > summary { cursor: pointer; color: var(--muted); font-size: .8rem;
+                          padding: .15rem 0; width: fit-content; }
+  details.sub > summary:hover { color: var(--text); }
+  details.sub label { margin: .35rem 0 0; }
+  .subrow { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(6rem, max-content);
+            grid-template-rows: auto auto auto; gap: .25rem .9rem;
+            justify-content: start; align-items: center; }
+  /* Each label hands its three parts straight to the grid, so the names sit on
+     one line, the fields on the next and the hints on the third — whatever the
+     length of any single label. */
+  .subrow label { display: contents; }
+  .subrow label > .name { align-self: end; }
+  .subrow label > .hint { align-self: start; }
+  .subrow input { width: 100%; }
+  /* A count and an interval are both short numbers; giving them the same box
+     stops the sub-blocks from looking like a ransom note. */
+  details.sub .subrow input[type=number] { width: 7rem; }
+  .subrow .wide { grid-column: span 1; min-width: 12rem; }
+  label.check.inline { display: flex; align-items: center; gap: .45rem; margin: 0; align-self: center; }
+  label.check.inline .name { font-size: .8rem; color: var(--muted); }
+  /* The capture settings sit under the slider inside the same card, divided
+     from it by a line rather than by a second box. */
+  .capturebox { margin-top: 1.1rem; padding-top: .9rem; border-top: 1px solid var(--line); }
+  .capturebox .name { font-size: .75rem; }
   button.primary { background: var(--accent); color: #05210f; border: 0;
                    padding: .6rem 1.4rem; border-radius: 8px; font: 600 15px/1 inherit; cursor: pointer; }
   button.primary:hover { filter: brightness(1.1); }
@@ -188,7 +231,13 @@
   table.endpoints code { overflow-wrap: anywhere; }
 
   /* Hardware panels */
-  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .9rem; }
+  /* Three columns, each filled top to bottom. Panels differ wildly in height —
+     a machine with six volumes next to one with two lines of memory — and a
+     row-wise grid would align them on a shared row, leaving a hole under every
+     short panel. */
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: .9rem; align-items: start; }
+  .groups .column { display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
   .group { background: var(--panel-2); border-radius: 9px; padding: .8rem .95rem; }
   .group h3 { margin: 0 0 .5rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em;
               display: flex; align-items: center; gap: .45rem; color: var(--text); }
@@ -260,10 +309,12 @@
       <nav class="main">
         <a href="/" {{ if eq .Active "status" }}class="active"{{ end }}>{{ .T "nav.status" }}</a>
         <a href="/capture" {{ if eq .Active "capture" }}class="active"{{ end }}>{{ .T "nav.capture" }}</a>
+        <a href="/measurements" {{ if eq .Active "measurements" }}class="active"{{ end }}>{{ .T "nav.measurements" }}</a>
         <a href="/export" {{ if eq .Active "export" }}class="active"{{ end }}>{{ .T "nav.export" }}</a>
       </nav>
+      <!-- No caption: DE and ENG say what they are in the only two languages
+           that could need the caption explained. -->
       <form class="langs" method="post" action="/language">
-        <span class="label">{{ .T "nav.language" }}</span>
         {{ $lang := .Lang }}
         {{ range .Languages }}
         <button type="submit" name="lang" value="{{ .Code }}" {{ if eq .Code $lang }}class="active"{{ end }}>{{ .Name }}</button>
@@ -292,6 +343,7 @@
     </form>
     <p class="credit">
       <a href="{{ .ProjectURL }}" target="_blank" rel="noopener">{{ .AppName }}</a>
+      v{{ .Version }}
       {{ .T "footer.by" }}
       <a href="{{ .AuthorURL }}" target="_blank" rel="noopener">{{ .AuthorName }}</a>
     </p>
@@ -392,4 +444,16 @@ for (const form of document.querySelectorAll("form[data-block]")) {
 
 </body>
 </html>
+{{ end }}
+
+{{/* The footer under a settings block: one save button, and whether this block
+     has anything unsaved in it. Defined here rather than per page — every page
+     is its own template set, so a copy in two of them meant the third could
+     not use it, which is exactly how it broke. */}}
+{{ define "save" }}
+<div class="cardfoot">
+  <button type="submit">{{ .T "settings.save" }}</button>
+  <span class="state clean">{{ .T "settings.unchanged" }}</span>
+  <span class="state pending">{{ .T "settings.unsaved" }}</span>
+</div>
 {{ end }}

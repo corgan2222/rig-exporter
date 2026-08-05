@@ -18,15 +18,16 @@ import (
 // set without decimals was diagnosed as the extended set with them, which is
 // the one thing a diagnostic must never do.
 func TestProbeAppliesTheSettingsThatReachTheCatalogue(t *testing.T) {
+	everything := metrics.Resolve(metrics.PresetExtended, nil, nil)
 	t.Cleanup(func() {
-		metrics.SetStandardOnly(false)
+		metrics.SetSelection(everything)
 		metrics.SetDecimals(true)
 	})
-	metrics.SetStandardOnly(false)
+	metrics.SetSelection(everything)
 	metrics.SetDecimals(true)
 
 	cfg := config.Defaults()
-	cfg.SensorSet = config.SensorSetStandard
+	cfg.Measurements.Preset = config.PresetMinimal
 	cfg.Decimals = false
 	// Nothing that would touch hardware or a schedule; only the wiring matters.
 	cfg.GPUEnabled, cfg.CPUDetailEnabled, cfg.RAMDetailEnabled = false, false, false
@@ -35,8 +36,10 @@ func TestProbeAppliesTheSettingsThatReachTheCatalogue(t *testing.T) {
 	_, _, stop := Probe(cfg, applog.Discard())
 	defer stop()
 
-	if !metrics.StandardOnly() {
-		t.Error("-probe reported the extended set although the standard one is configured")
+	// The clock is on the extended rung only, so a minimal configuration that
+	// reached the catalogue is one that no longer selects it.
+	if metrics.Selected(metrics.CPUClock.ID) {
+		t.Error("-probe reported the whole catalogue although the minimal rung is configured")
 	}
 	if metrics.Decimals() {
 		t.Error("-probe kept the decimals although they are switched off")

@@ -21,17 +21,17 @@ func testPublisher(t *testing.T) *Publisher {
 // retirement — and without this guard it would re-announce every entity that
 // was just retired, retained, and the switch would appear to do nothing.
 func TestAStaleSnapshotCannotResurrectARetiredEntity(t *testing.T) {
-	t.Cleanup(func() { metrics.SetStandardOnly(false) })
+	t.Cleanup(func() { metrics.SetSelection(metrics.Resolve(metrics.PresetExtended, nil, nil)) })
 
 	stale := metrics.Gauge(metrics.CPUClock, "", 4200) // extended
 	keep := metrics.Gauge(metrics.CPULoad, "", 37)     // standard
 
-	metrics.SetStandardOnly(false)
+	metrics.SetSelection(metrics.Resolve(metrics.PresetExtended, nil, nil))
 	if !announceable(stale) || !announceable(keep) {
-		t.Error("the extended set refused to announce something")
+		t.Error("the extended rung refused to announce something")
 	}
 
-	metrics.SetStandardOnly(true)
+	metrics.SetSelection(metrics.Resolve(metrics.PresetBasic, nil, nil))
 	if announceable(stale) {
 		t.Error("a measurement outside the standard set would still be announced")
 	}
@@ -110,5 +110,43 @@ func TestARetirementTargetsTheAnnouncedTopic(t *testing.T) {
 	}
 	if got := p.cfg.DiscoveryTopic(refs[0].component, refs[0].key); got != announced {
 		t.Errorf("retiring %q but the entity was announced on %q", got, announced)
+	}
+}
+
+// A measurement that had gone quiet still has a retained discovery message on
+// the broker, so Home Assistant still shows its entity. Unticking it has to
+// clear that message even though the last reading no longer mentions it —
+// otherwise the entity stays behind for ever, which is the whole complaint.
+func TestAnAnnouncedEntityIsRetiredEvenWhenTheReadingHasGoneQuiet(t *testing.T) {
+	p := New(config.Defaults(), applog.Discard(), nil, nil)
+
+	// Announced while the card was still answering.
+	for _, r := range []metrics.Reading{
+		metrics.Gauge(metrics.GPUTemperature, "0", 45),
+		metrics.Gauge(metrics.CPULoad, "", 37),
+	} {
+		key := r.Key()
+		p.announced[key] = EntityRef{component: r.Def.Component(), key: key, defID: r.Def.ID}
+	}
+
+	// The card has since gone quiet, so nothing in the current reading names
+	// it. The user unticks it anyway.
+	keep := map[string]bool{metrics.CPULoad.ID: true}
+	p.RetireUnselected(func(defID string) bool { return keep[defID] })
+
+	if _, still := p.announced[metrics.Gauge(metrics.GPUTemperature, "0", 0).Key()]; still {
+		t.Error("the deselected entity is still announced")
+	}
+	if _, gone := p.announced[metrics.Gauge(metrics.CPULoad, "", 0).Key()]; !gone {
+		t.Error("an entity that is still selected was retired with it")
+	}
+
+	// The broker was never up here, so the retirement has to be waiting rather
+	// than lost: somebody who deselects while it is down still means it.
+	if len(p.pendingRetire) != 1 {
+		t.Fatalf("%d retirements queued, want exactly the one", len(p.pendingRetire))
+	}
+	if p.pendingRetire[0].defID != metrics.GPUTemperature.ID {
+		t.Errorf("queued %q, want the deselected measurement", p.pendingRetire[0].defID)
 	}
 }

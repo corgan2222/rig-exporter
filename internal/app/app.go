@@ -47,6 +47,13 @@ type Status struct {
 	// rather than by every reader comparing two version strings.
 	Update          updater.State
 	UpdateAvailable bool
+	// Churn is the share of published entities whose value actually differed
+	// from the previous publish, and how many publishes that was averaged
+	// over. It is what turns a database estimate from a guess into an
+	// arithmetic problem: Home Assistant stores a row on change, not on
+	// publish, and the difference between those two is most of the answer.
+	Churn        float64
+	ChurnSamples int
 }
 
 // Export returns the status of the named target, if it is enabled.
@@ -74,8 +81,13 @@ type App struct {
 	runners   []*runner
 	last      collector.Snapshot
 	updatedAt time.Time
-	paused    bool
-	listeners []func(Status)
+	// What the previous publish carried, and the running share of entities
+	// that differ from one publish to the next. Guarded by mu with the rest.
+	lastPublished map[string]string
+	churn         float64
+	churnSamples  int
+	paused        bool
+	listeners     []func(Status)
 
 	// webURLFn reports where the settings interface is really listening. It
 	// arrives after New, because the web server picks its port later, and it is
@@ -137,7 +149,17 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger, updates updateCont
 // constructor arguments to a dozen hardware sources.
 func applyMetricsOptions(cfg config.Config) {
 	metrics.SetDecimals(cfg.Decimals)
-	metrics.SetStandardOnly(cfg.SensorSet == config.SensorSetStandard)
+	metrics.SetSelection(selectionFor(cfg))
+}
+
+// selectionFor turns the stored rung and the hand-picked exceptions into the
+// set of measurements that is actually collected.
+func selectionFor(cfg config.Config) map[string]bool {
+	return metrics.Resolve(
+		metrics.Preset(cfg.Measurements.Preset),
+		cfg.Measurements.Added,
+		cfg.Measurements.Removed,
+	)
 }
 
 // buildCollector wires the core source together with the optional ones the
@@ -308,9 +330,55 @@ func (a *App) tick(polls uint64) bool {
 		for _, r := range runners {
 			r.export(snap)
 		}
+		a.measureChurn(snap)
 	}
 	a.notify()
 	return due && !paused
+}
+
+// churnSmoothing weights the newest publish against the running average. A
+// tenth: enough that starting a game shows up within a minute, little enough
+// that one noisy sample does not become the estimate.
+const churnSmoothing = 0.1
+
+// measureChurn counts how many published entities carry a different value than
+// they did at the previous publish.
+//
+// Measured rather than assumed, because this is the number the whole database
+// estimate rests on and there is no honest way to guess it: it depends on the
+// hardware, on what the machine is doing, and above all on whether decimals are
+// switched on — a temperature to one decimal changes almost every time, the
+// same temperature rounded to a whole degree changes a few times an hour.
+func (a *App) measureChurn(snap collector.Snapshot) {
+	entities := snap.Entities()
+	if len(entities) == 0 {
+		return
+	}
+
+	current := make(map[string]string, len(entities))
+	for _, r := range entities {
+		current[r.Key()] = fmt.Sprint(r.Value())
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.lastPublished != nil {
+		changed := 0
+		for key, value := range current {
+			if previous, seen := a.lastPublished[key]; !seen || previous != value {
+				changed++
+			}
+		}
+		share := float64(changed) / float64(len(current))
+		if a.churnSamples == 0 {
+			a.churn = share
+		} else {
+			a.churn += (share - a.churn) * churnSmoothing
+		}
+		a.churnSamples++
+	}
+	a.lastPublished = current
 }
 
 // Status returns the latest reading together with every target's state.
@@ -322,6 +390,9 @@ func (a *App) Status() Status {
 		Config:    a.cfg,
 		Paused:    a.paused,
 		UpdatedAt: a.updatedAt,
+
+		Churn:        a.churn,
+		ChurnSamples: a.churnSamples,
 	}
 	a.mu.RUnlock()
 
@@ -470,6 +541,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 		liveRunners := a.runners
 		a.mu.RUnlock()
 		retireDropped(liveRunners, oldCfg, newCfg, lastSnapshot, a.log)
+		retireUnselected(liveRunners, newCfg)
 	}
 
 	if oldCfg.Autostart != newCfg.Autostart {
@@ -511,7 +583,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 // nothing. Narrowing the set is different — it is a statement about what should
 // exist, not about what happened to be readable this second.
 func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collector.Snapshot, log *slog.Logger) {
-	dropped := droppedByStandardSet(oldCfg, newCfg, snap)
+	dropped := droppedBySelection(oldCfg, newCfg, snap)
 	dropped = append(dropped, droppedBySelfUsage(oldCfg, newCfg, snap)...)
 	if len(dropped) == 0 {
 		return
@@ -525,19 +597,38 @@ func retireDropped(runners []*runner, oldCfg, newCfg config.Config, snap collect
 	}
 }
 
-// droppedByStandardSet is the decision on its own: which of the readings taken
+// retireUnselected clears anything still announced that the new selection does
+// not carry.
+//
+// The list above is built from the last reading, which is the right answer for
+// everything the machine was producing at that moment — and blind to an entity
+// whose measurement had gone quiet: a drive that spun down, a card that stopped
+// answering. Home Assistant is still being told those exist, because the
+// discovery message is retained. This asks the publisher what it announced
+// instead, which is exactly the set with a retained message on the broker.
+func retireUnselected(runners []*runner, newCfg config.Config) {
+	selection := selectionFor(newCfg)
+	for _, r := range runners {
+		if publisher, ok := r.target.(*hamqtt.Publisher); ok {
+			publisher.RetireUnselected(func(defID string) bool { return selection[defID] })
+		}
+	}
+}
+
+// droppedBySelection is the decision on its own: which of the readings taken
 // under the old configuration the new one will no longer produce.
 //
-// Nothing at all unless the set actually narrowed. Going the other way only
-// adds measurements, and announceNew picks those up by itself.
-func droppedByStandardSet(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
-	if oldCfg.SensorSet == newCfg.SensorSet || newCfg.SensorSet != config.SensorSetStandard {
-		return nil
-	}
+// Compared set against set rather than rung against rung, because the ladder
+// is no longer the only way to lose a measurement — unticking a single one has
+// to retire its entity just as surely as sliding the whole thing down. Going
+// the other way only adds measurements, and announceNew picks those up by
+// itself.
+func droppedBySelection(oldCfg, newCfg config.Config, snap collector.Snapshot) []metrics.Reading {
+	before, after := selectionFor(oldCfg), selectionFor(newCfg)
 
 	var dropped []metrics.Reading
 	for _, r := range snap.Entities() {
-		if !r.Def.InStandardSet() {
+		if before[r.Def.ID] && !after[r.Def.ID] {
 			dropped = append(dropped, r)
 		}
 	}

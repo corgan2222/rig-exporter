@@ -58,13 +58,13 @@ func TestTheStatusApiCarriesWhatTheChipsShow(t *testing.T) {
 
 	s := apiStatus(t, ts.URL)
 
-	for _, key := range []string{"sensor_set", "decimals", "entity_count", "publish_ms", "rendering"} {
+	for _, key := range []string{"preset", "decimals", "entity_count", "publish_ms", "rendering"} {
 		if _, ok := s[key]; !ok {
 			t.Errorf("the status API does not carry %q", key)
 		}
 	}
-	if s["sensor_set"] != config.SensorSetStandard {
-		t.Errorf("sensor_set = %v, want standard", s["sensor_set"])
+	if s["preset"] != config.PresetBasic {
+		t.Errorf("preset = %v, want basic", s["preset"])
 	}
 	if s["decimals"] != false {
 		t.Errorf("decimals = %v, want false", s["decimals"])

@@ -147,6 +147,7 @@ const L = {
   disabled: {{ .T "hardware.disabled" }},
   noData: {{ .T "hardware.noData" }},
   noGroups: {{ .T "hardware.none" }},
+  setMinimal: {{ .T "settings.sensors.setMinimal" }},
   setStandard: {{ .T "settings.sensors.setStandard" }},
   setExtended: {{ .T "settings.sensors.setExtended" }},
   chipSet: {{ .T "status.chipSet" }},
@@ -166,7 +167,7 @@ function setDot(el, state) {
 // The four chips under the tiles. They carry no dot: none of them is a health
 // state, they say what the exporter is set to do right now.
 function renderChips(s) {
-  const set = s.sensor_set === "standard" ? L.setStandard : L.setExtended;
+  const set = {minimal: L.setMinimal, basic: L.setStandard}[s.preset] || L.setExtended;
   $("c-set").textContent = L.chipSet + " " + set;
   $("c-decimals").textContent =
     L.chipDecimals + " " + (s.decimals ? L.chipDecimalsOn : L.chipDecimalsOff);
@@ -233,6 +234,19 @@ function readings(rows) {
   return out;
 }
 
+// Which column each panel belongs in.
+//
+// Three columns filled top to bottom rather than a row-wise grid: a row-wise
+// one lines the panels up on a shared row height, so one tall panel — a
+// machine with six volumes — tears a hole under every short one beside it.
+// Filling columns instead means each panel ends where its content ends.
+//
+// The pairing is by size, not by kinship: processor and memory are both short,
+// graphics card and network are both middling, drives is the tall one and gets
+// a column of its own. A battery joins it, which is the only panel that is
+// there on some machines and not on others.
+const COLUMNS = [["cpu", "ram"], ["gpu", "net"], ["disk", "battery"]];
+
 function renderGroups(groups) {
   const host = $("sensor-groups");
   if (!groups || groups.length === 0) {
@@ -240,21 +254,32 @@ function renderGroups(groups) {
     return;
   }
 
-  host.innerHTML = groups.map((g) => {
-    let state, body;
-    if (!g.enabled) {
-      state = '<span class="dot"></span>';
-      body = '<p class="note">' + escapeHTML(L.disabled) + "</p>";
-    } else if (!g.available) {
-      state = '<span class="dot warn"></span>';
-      body = '<p class="note">' + escapeHTML(L.noData) +
-        (g.error ? ": " + escapeHTML(g.error) : ".") + "</p>";
-    } else {
-      state = '<span class="dot ok"></span>';
-      body = readings(g.rows);
-    }
-    return '<div class="group"><h3>' + state + escapeHTML(g.label) + "</h3>" + body + "</div>";
-  }).join("");
+  // A panel the plan does not name still has to appear — a later version may
+  // add one, and silently dropping it would be the worst of the options.
+  const placed = new Set(COLUMNS.flat());
+  const columns = COLUMNS.map((keys) => groups.filter((g) => keys.includes(g.key)));
+  columns[columns.length - 1].push(...groups.filter((g) => !placed.has(g.key)));
+
+  host.innerHTML = columns
+    .filter((column) => column.length > 0)
+    .map((column) => '<div class="column">' + column.map(panel).join("") + "</div>")
+    .join("");
+}
+
+function panel(g) {
+  let state, body;
+  if (!g.enabled) {
+    state = '<span class="dot"></span>';
+    body = '<p class="note">' + escapeHTML(L.disabled) + "</p>";
+  } else if (!g.available) {
+    state = '<span class="dot warn"></span>';
+    body = '<p class="note">' + escapeHTML(L.noData) +
+      (g.error ? ": " + escapeHTML(g.error) : ".") + "</p>";
+  } else {
+    state = '<span class="dot ok"></span>';
+    body = readings(g.rows);
+  }
+  return '<div class="group"><h3>' + state + escapeHTML(g.label) + "</h3>" + body + "</div>";
 }
 
 function setGrouping(useDevice) {

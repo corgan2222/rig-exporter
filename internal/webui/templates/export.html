@@ -362,10 +362,3 @@ setInterval(refreshExportStatuses, 3000);
 </script>
 {{ end }}
 
-{{ define "save" }}
-<div class="cardfoot">
-  <button type="submit">{{ .T "settings.save" }}</button>
-  <span class="state clean">{{ .T "settings.unchanged" }}</span>
-  <span class="state pending">{{ .T "settings.unsaved" }}</span>
-</div>
-{{ end }}

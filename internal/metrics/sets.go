@@ -1,24 +1,80 @@
 package metrics
 
-import "sync/atomic"
+import (
+	"sort"
+	"sync/atomic"
+)
 
-// Two sensor sets, because not everybody wants a hundred and thirty entities.
+// Preset is one rung of a ladder with three of them, because "everything" and
+// "not everything" was never enough of a choice.
 //
-// The standard set is what somebody watching their machine actually looks at:
-// how hot it is, how busy, how full, how fast. The extended set adds everything
-// that answers "how is this machine built" or "what exactly happened in that
-// one second" — clock rates, module inventories, per-thread load, the state of
-// RTSS itself.
-//
-// The split is a curated list rather than a rule over the definitions, because
+// The rungs are curated lists rather than a rule over the definitions, because
 // no rule gets it right. Diagnostic-versus-primary is about where Home
 // Assistant files an entity, not about whether anybody wants it: the drive
-// label is diagnostic and belongs in the standard set, while the observed clock
+// label is diagnostic and belongs in the basic rung, while the observed clock
 // peak is primary and does not.
 //
-// standardSet and everything else must together be exactly the catalogue —
-// TestTheTwoSensorSetsPartitionTheCatalogue holds that.
-var standardSet = map[string]bool{
+// They nest: Minimal ⊂ Basic ⊂ Extended, held by
+// TestTheRungsOfTheLadderNest. A slider that could take something away by
+// moving up would not be a slider.
+type Preset string
+
+const (
+	// PresetMinimal is what the dashboard tiles show, and nothing else: how
+	// busy, how hot, how full, how fast. Sixteen measurements for somebody who
+	// wants a machine on a wall panel rather than a diagnosis.
+	PresetMinimal Preset = "minimal"
+	// PresetBasic is what somebody watching their machine actually looks at.
+	PresetBasic Preset = "basic"
+	// PresetExtended is the whole catalogue: inventories, clock rates, per
+	// thread load, wear. Useful while hunting a problem, rarely otherwise.
+	PresetExtended Preset = "extended"
+)
+
+// Presets lists the rungs from fewest measurements to most, which is the
+// order a slider has to offer them in.
+var Presets = []Preset{PresetMinimal, PresetBasic, PresetExtended}
+
+// Valid reports whether a preset is one this program knows.
+func (p Preset) Valid() bool {
+	for _, known := range Presets {
+		if p == known {
+			return true
+		}
+	}
+	return false
+}
+
+// minimalSet is the wall-panel answer: the six tiles at the top of the
+// dashboard, the three temperatures somebody actually worries about, how full
+// the machine is, what the network is doing, and the battery on a laptop.
+//
+// Deliberately without uptime and the process count. Both change on every
+// single reading, which makes them the two cheapest ways to fill a database
+// with nothing.
+var minimalSet = map[string]bool{
+	"fps":                true,
+	"frametime":          true,
+	"game":               true,
+	"game_running":       true,
+	"cpu":                true,
+	"cpu_temperature":    true,
+	"ram":                true,
+	"gpu_load":           true,
+	"gpu_temperature":    true,
+	"disk_overall_usage": true,
+	"disk_overall_free":  true,
+	"net_rx":             true,
+	"net_tx":             true,
+	"battery":            true,
+	"battery_ac":         true,
+	// Which build produced all of the above. It changes once per update and
+	// answers the first question of every bug report.
+	"version": true,
+}
+
+// basicSet was the standard set, and is unchanged.
+var basicSet = map[string]bool{
 	"cpu":               true,
 	"cpu_load_1":        true,
 	"cpu_load_5":        true,
@@ -53,9 +109,9 @@ var standardSet = map[string]bool{
 	"gpu_dedicated_memory_total": true,
 	"gpu_load":                   true,
 	// The engine breakdown answers "what is the card doing", which is the
-	// standard set's question. The copy engine is the exception: it moves
-	// data around and interests somebody chasing a stutter, not somebody
-	// glancing at a dashboard.
+	// basic rung's question. The copy engine is the exception: it moves data
+	// around and interests somebody chasing a stutter, not somebody glancing
+	// at a dashboard.
 	"gpu_engine_3d":     true,
 	"gpu_engine_decode": true,
 	"gpu_engine_encode": true,
@@ -87,7 +143,7 @@ var standardSet = map[string]bool{
 	"ram_used_mb":       true,
 	"uptime":            true,
 	"version":           true,
-	// The two self-usage figures are in the standard set because their own
+	// The two self-usage figures are in the basic rung because their own
 	// sensor group already decides whether they exist at all. Being filtered
 	// out here as well would leave somebody who ticked that box with nothing
 	// to look at, for a reason they never touched.
@@ -99,7 +155,7 @@ var standardSet = map[string]bool{
 	"top_memory": true,
 	// The live half of the battery: how full, whether it is charging, how
 	// long it will last. What the pack is made of and how worn it has become
-	// answers "how is this machine built", which is the extended set's
+	// answers "how is this machine built", which is the extended rung's
 	// question — and on a desktop none of it exists either way.
 	"battery":           true,
 	"battery_ac":        true,
@@ -109,39 +165,134 @@ var standardSet = map[string]bool{
 	"battery_runtime":   true,
 }
 
-// standardOnly drops everything outside the standard set at collection time.
-//
-// Package state for the same reason as decimals: the alternative is threading a
-// configuration through a dozen hardware sources that have no other reason to
-// know it exists. Atomic because the settings page writes it while the
-// collector goroutine reads it.
-var standardOnly atomic.Bool
+// PresetContains reports whether a rung carries a measurement. Extended is
+// every definition there is, so it is answered by the catalogue rather than by
+// a list somebody has to remember to extend.
+func PresetContains(preset Preset, id string) bool {
+	switch preset {
+	case PresetMinimal:
+		return minimalSet[id]
+	case PresetBasic:
+		return basicSet[id]
+	case PresetExtended:
+		return true
+	}
+	return false
+}
 
-// SetStandardOnly restricts collection to the standard set, or lifts the
-// restriction. Off — the extended set — is the default.
-func SetStandardOnly(on bool) { standardOnly.Store(on) }
+// PresetIDs is everything on a rung, in catalogue order.
+func PresetIDs(preset Preset) []string {
+	out := make([]string, 0, len(All))
+	for _, d := range All {
+		if PresetContains(preset, d.ID) {
+			out = append(out, d.ID)
+		}
+	}
+	return out
+}
 
-// StandardOnly reports whether collection is currently restricted.
-func StandardOnly() bool { return standardOnly.Load() }
-
-// InStandardSet reports whether a measurement survives the restriction.
-func (d Definition) InStandardSet() bool { return standardSet[d.ID] }
-
-// StandardDefinitions and ExtendedDefinitions list the two sets in catalogue
-// order, for the settings page to show. Extended means "the ones the extended
-// set adds", not "all of them" — the page puts the two lists side by side, and
-// repeating the standard set in both would say nothing.
-func StandardDefinitions() []Definition { return definitionsIn(true) }
-
-// ExtendedDefinitions lists what the extended set adds to the standard one.
-func ExtendedDefinitions() []Definition { return definitionsIn(false) }
-
-func definitionsIn(standard bool) []Definition {
+// PresetDefinitions is the same, as definitions.
+func PresetDefinitions(preset Preset) []Definition {
 	out := make([]Definition, 0, len(All))
 	for _, d := range All {
-		if d.InStandardSet() == standard {
+		if PresetContains(preset, d.ID) {
 			out = append(out, d)
 		}
 	}
+	return out
+}
+
+// Resolve turns what the user asked for into the set that is actually
+// collected: a rung, plus the individual measurements they added to it or took
+// out of it.
+//
+// The rung is stored rather than the resulting list, and this is the reason: a
+// measurement added to the catalogue by a later version joins the rung it
+// belongs to on its own. A stored list would have left it switched off, and
+// nobody would have gone looking for a value they had never heard of.
+//
+// Ids that no longer exist are ignored rather than rejected. A configuration
+// that mentions a measurement retired two versions ago is not a broken
+// configuration, it is an old one.
+func Resolve(preset Preset, added, removed []string) map[string]bool {
+	if !preset.Valid() {
+		preset = PresetExtended
+	}
+
+	known := make(map[string]bool, len(All))
+	for _, d := range All {
+		known[d.ID] = true
+	}
+
+	selected := make(map[string]bool, len(All))
+	for _, d := range All {
+		if PresetContains(preset, d.ID) {
+			selected[d.ID] = true
+		}
+	}
+	for _, id := range added {
+		if known[id] {
+			selected[id] = true
+		}
+	}
+	// Removal last: somebody who both added and removed the same measurement
+	// meant the second thing, whatever order the file happens to list them in.
+	for _, id := range removed {
+		delete(selected, id)
+	}
+	return selected
+}
+
+// selection is what survives collection, and it is package state for the same
+// reason as decimals: the alternative is threading a configuration through a
+// dozen hardware sources that have no other reason to know it exists. Atomic
+// because the settings page writes it while the collector goroutine reads it.
+//
+// A nil pointer means nothing has been selected yet, which is read as
+// everything — a collector running before the configuration was applied should
+// report too much rather than nothing.
+var selection atomic.Pointer[map[string]bool]
+
+// SetSelection replaces the set of measurements that are collected at all.
+func SetSelection(ids map[string]bool) {
+	copied := make(map[string]bool, len(ids))
+	for id, on := range ids {
+		if on {
+			copied[id] = true
+		}
+	}
+	selection.Store(&copied)
+}
+
+// Selected reports whether a measurement survives the current selection.
+func Selected(id string) bool {
+	current := selection.Load()
+	if current == nil {
+		return true
+	}
+	return (*current)[id]
+}
+
+// SelectedCount is how many of the catalogue's measurements are switched on,
+// for the interface to show next to the slider.
+func SelectedCount() int {
+	count := 0
+	for _, d := range All {
+		if Selected(d.ID) {
+			count++
+		}
+	}
+	return count
+}
+
+// SelectedIDs lists them, sorted, for a configuration file and for tests.
+func SelectedIDs() []string {
+	out := []string{}
+	for _, d := range All {
+		if Selected(d.ID) {
+			out = append(out, d.ID)
+		}
+	}
+	sort.Strings(out)
 	return out
 }

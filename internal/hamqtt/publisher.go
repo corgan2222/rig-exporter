@@ -100,6 +100,10 @@ type Publisher struct {
 type EntityRef struct {
 	component string
 	key       string
+	// defID names the measurement behind the entity, so a retirement can be
+	// decided from the selection rather than from a reading that may no longer
+	// be taken.
+	defID string
 }
 
 // New builds a publisher for cfg. Nothing happens until Start is called.
@@ -390,7 +394,7 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 		}
 
 		p.mu.Lock()
-		p.announced[key] = EntityRef{component: reading.Def.Component(), key: key}
+		p.announced[key] = EntityRef{component: reading.Def.Component(), key: key, defID: reading.Def.ID}
 		p.mu.Unlock()
 
 		p.log.Debug("entity announced", "topic", topic)
@@ -654,7 +658,7 @@ func (p *Publisher) onUpdateCommand(_ mqtt.Client, message mqtt.Message) {
 // Deliberately not read from p.cfg: that copy is frozen when the publisher is
 // built and is not refreshed when a configuration change does not rebuild it.
 func announceable(r metrics.Reading) bool {
-	return !metrics.StandardOnly() || r.Def.InStandardSet()
+	return metrics.Selected(r.Def.ID)
 }
 
 // Retire removes named entities from Home Assistant by emptying their retained
@@ -689,6 +693,28 @@ func (p *Publisher) Retire(refs []EntityRef) {
 	p.mu.Unlock()
 
 	p.retire(client, refs)
+}
+
+// RetireUnselected withdraws every entity this publisher has announced whose
+// measurement is no longer selected.
+//
+// The announcement list rather than the last reading, because those are two
+// different questions. A reading says what the machine produced a second ago; a
+// retained discovery message says what Home Assistant is still being told
+// exists. A drive that spun down, a card that stopped answering, a value that
+// happened to be missing from one pass — all of them leave an entity behind
+// that the reading cannot see and that nothing else would ever clear.
+func (p *Publisher) RetireUnselected(selected func(defID string) bool) {
+	p.mu.RLock()
+	var refs []EntityRef
+	for _, ref := range p.announced {
+		if ref.defID != "" && !selected(ref.defID) {
+			refs = append(refs, ref)
+		}
+	}
+	p.mu.RUnlock()
+
+	p.Retire(refs)
 }
 
 // EntityRefs turns readings into what Retire needs. It lives here because the

@@ -3,55 +3,24 @@
   {{ if .Saved }}<div class="banner ok">{{ .T "settings.saved" }}</div>{{ end }}
   {{ if .Error }}<div class="banner err">{{ .T "settings.failed" }}: {{ .Error }}</div>{{ end }}
 
-  <div class="jump">
-    <span class="label">{{ .T "settings.jumpTo" }}</span>
-    <a href="#sensors">{{ .T "settings.sensors.nav" }}</a>
-    <a href="#capture">{{ .T "settings.capture.nav" }}</a>
-  </div>
-
   <form method="post" action="/save/sensors" data-block="sensors">
     <div class="card" id="sensors">
       <h2>{{ .T "settings.sensors.title" }}</h2>
       <p class="note" style="margin-top:0">
         {{ .T "settings.sensors.intro" }}
-        {{ .T "settings.sensors.entityCount" }}: <strong>{{ .EntityCount }}</strong> {{ .T "settings.sensors.entities" }}.
+        <a href="/measurements">{{ .T "settings.sensors.toMeasurements" }}</a>
       </p>
 
-      <label>
-        <span class="name">{{ .T "settings.sensors.set" }}</span>
-        <select name="sensor_set">
-          <option value="extended" {{ if eq .Config.SensorSet "extended" }}selected{{ end }}>{{ .T "settings.sensors.setExtended" }}</option>
-          <option value="standard" {{ if eq .Config.SensorSet "standard" }}selected{{ end }}>{{ .T "settings.sensors.setStandard" }}</option>
-        </select>
-        <span class="hint">{{ .T "settings.sensors.setHint" }}</span>
-      </label>
-
-      <!-- The lists come from the catalogue itself. An example typed out by
-           hand would be wrong the first time somebody adds a measurement. -->
-      <details class="sets">
-        <summary>{{ .T "settings.sensors.setWhat" }}</summary>
-        <div class="setlists">
-          <div>
-            <h3>{{ .T "settings.sensors.setStandard" }} <span class="count">{{ len .StandardSet }}</span></h3>
-            <p class="note">{{ .T "settings.sensors.setStandardWhat" }}</p>
-            <ul>{{ range .StandardSet }}<li><code>{{ .ID }}</code> <span>{{ .Label }}</span></li>{{ end }}</ul>
-          </div>
-          <div>
-            <h3>{{ .T "settings.sensors.setExtendedAdds" }} <span class="count">{{ len .ExtendedSet }}</span></h3>
-            <p class="note">{{ .T "settings.sensors.setExtendedWhat" }}</p>
-            <ul>{{ range .ExtendedSet }}<li><code>{{ .ID }}</code> <span>{{ .Label }}</span></li>{{ end }}</ul>
-          </div>
-        </div>
-      </details>
-
+      <!-- One line per source. What each one is good for hangs behind the
+           question mark rather than under the line: with the explanations
+           spelled out this page was three screens long and impossible to
+           take in. -->
       <div class="check">
         <input type="checkbox" name="gpu_enabled" id="gpu_enabled" value="1" {{ if .Config.GPUEnabled }}checked{{ end }}>
         <label for="gpu_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.gpu" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.gpuHint" }}">?</span>
+        <a class="sidelink" href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "settings.sensors.gpuLink" }}</a>
       </div>
-      <p class="note indent">
-        {{ .T "settings.sensors.gpuHint" }}
-        <a href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "settings.sensors.gpuLink" }}</a>
-      </p>
 
       <div class="check">
         <input type="checkbox" name="cpu_detail_enabled" id="cpu_detail_enabled" value="1" {{ if .Config.CPUDetailEnabled }}checked{{ end }}>
@@ -65,24 +34,30 @@
       <div class="check">
         <input type="checkbox" name="ram_detail_enabled" id="ram_detail_enabled" value="1" {{ if .Config.RAMDetailEnabled }}checked{{ end }}>
         <label for="ram_detail_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ram" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.ramHint" }}">?</span>
       </div>
-      <p class="note indent">{{ .T "settings.sensors.ramHint" }}</p>
 
       <div class="check">
         <input type="checkbox" name="pawnio_enabled" id="pawnio_enabled" value="1" {{ if .Config.PawnIOEnabled }}checked{{ end }}>
         <label for="pawnio_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.pawnio" }}</span></label>
+        <span class="help" title="{{ .PawnIOStatus }}">?</span>
+        <a class="sidelink" href="{{ .PawnIOURL }}" target="_blank" rel="noopener">PawnIO</a>
       </div>
-      <p class="note indent">{{ .PawnIOStatus }}</p>
 
       <div class="check">
         <input type="checkbox" name="disk_enabled" id="disk_enabled" value="1" {{ if .Config.DiskEnabled }}checked{{ end }}>
         <label for="disk_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.disk" }}</span></label>
       </div>
-      <label>
-        <span class="name">{{ .T "settings.sensors.diskOnly" }}</span>
-        <input type="text" name="disk_include" value="{{ .DiskInclude }}" placeholder="{{ .T "settings.sensors.diskAll" }}">
-        <span class="hint">{{ .H "settings.sensors.diskHint" }}</span>
-      </label>
+      <details class="sub">
+        <summary>{{ .T "settings.sensors.details" }}</summary>
+        <div class="subrow">
+          <label>
+            <span class="name">{{ .T "settings.sensors.diskOnly" }}</span>
+            <input type="text" name="disk_include" value="{{ .DiskInclude }}" placeholder="{{ .T "settings.sensors.diskAll" }}">
+            <span class="hint">{{ .H "settings.sensors.diskHint" }}</span>
+          </label>
+        </div>
+      </details>
 
       <div class="check">
         <input type="checkbox" name="net_enabled" id="net_enabled" value="1" {{ if .Config.NetEnabled }}checked{{ end }}>
@@ -91,109 +66,70 @@
       <div class="check">
         <input type="checkbox" name="net_all_adapters" id="net_all_adapters" value="1" {{ if .Config.NetAllAdapters }}checked{{ end }}>
         <label for="net_all_adapters" style="margin:0"><span class="name">{{ .T "settings.sensors.netAll" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.netHint" }}">?</span>
       </div>
-      <p class="note indent">{{ .T "settings.sensors.netHint" }}</p>
 
       <div class="check">
         <input type="checkbox" name="battery_enabled" id="battery_enabled" value="1" {{ if .Config.BatteryEnabled }}checked{{ end }}>
         <label for="battery_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.battery" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.batteryHint" }}">?</span>
       </div>
-      <p class="note indent">{{ .T "settings.sensors.batteryHint" }}</p>
 
       <div class="check">
         <input type="checkbox" name="ping_enabled" id="ping_enabled" value="1" {{ if .Config.PingEnabled }}checked{{ end }}>
         <label for="ping_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.ping" }}</span></label>
       </div>
-      <div class="row">
-        <label>
-          <span class="name">{{ .T "settings.sensors.pingTarget" }}</span>
-          <input type="text" name="ping_target" value="{{ .Config.PingTarget }}" placeholder="{{ .T "settings.sensors.pingGateway" }}">
-          <span class="hint">{{ .H "settings.sensors.pingHint" }}</span>
-        </label>
-        <label>
-          <span class="name">{{ .T "settings.sensors.pingCount" }}</span>
-          <input type="number" name="ping_count" value="{{ .Config.PingCount }}" min="1" max="10">
-        </label>
-      </div>
-      <label>
-        <span class="name">{{ .T "settings.sensors.pingInterval" }}</span>
-        <input type="number" name="ping_interval_ms" value="{{ .Config.PingIntervalMs }}" min="2000" max="600000" step="1000">
-        <span class="hint">{{ .T "settings.sensors.pingIntervalHint" }}</span>
-      </label>
+      <details class="sub">
+        <summary>{{ .T "settings.sensors.details" }}</summary>
+        <div class="subrow">
+          <label>
+            <span class="name">{{ .T "settings.sensors.pingTarget" }}</span>
+            <input type="text" name="ping_target" value="{{ .Config.PingTarget }}" placeholder="{{ .T "settings.sensors.pingGateway" }}">
+            <span class="hint">{{ .H "settings.sensors.pingHint" }}</span>
+          </label>
+          <label class="narrow">
+            <span class="name">{{ .T "settings.sensors.pingCount" }}</span>
+            <input type="number" name="ping_count" value="{{ .Config.PingCount }}" min="1" max="10">
+            <span class="hint"></span>
+          </label>
+          <label class="narrow">
+            <span class="name">{{ .T "settings.sensors.pingInterval" }}</span>
+            <input type="number" name="ping_interval_ms" value="{{ .Config.PingIntervalMs }}" min="2000" max="600000" step="1000">
+            <span class="hint"></span>
+          </label>
+        </div>
+      </details>
 
       <div class="check">
         <input type="checkbox" name="self_usage_enabled" id="self_usage_enabled" value="1" {{ if .Config.SelfUsageEnabled }}checked{{ end }}>
         <label for="self_usage_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.selfUsage" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.selfUsageHint" }}">?</span>
       </div>
-      <p class="note indent">{{ .T "settings.sensors.selfUsageHint" }}</p>
 
       <div class="check">
         <input type="checkbox" name="top_processes_enabled" id="top_processes_enabled" value="1" {{ if .Config.TopProcessesEnabled }}checked{{ end }}>
         <label for="top_processes_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.topProcs" }}</span></label>
+        <span class="help" title="{{ .T "settings.sensors.topProcsHint" }}">?</span>
       </div>
-      <p class="note indent">{{ .T "settings.sensors.topProcsHint" }}</p>
-      <div class="row">
-        <label>
-          <span class="name">{{ .T "settings.sensors.topProcsCount" }}</span>
-          <input type="number" name="top_processes_count" value="{{ .Config.TopProcessesCount }}" min="3" max="10">
-        </label>
-        <label>
-          <span class="name">{{ .T "settings.sensors.topProcsInterval" }}</span>
-          <input type="number" name="top_processes_interval_ms" value="{{ .Config.TopProcessesIntervalMs }}" min="2000" max="600000" step="1000">
-          <span class="hint">{{ .T "settings.sensors.topProcsIntervalHint" }}</span>
-        </label>
-      </div>
+      <details class="sub">
+        <summary>{{ .T "settings.sensors.details" }}</summary>
+        <div class="subrow">
+          <label class="narrow">
+            <span class="name">{{ .T "settings.sensors.topProcsCount" }}</span>
+            <input type="number" name="top_processes_count" value="{{ .Config.TopProcessesCount }}" min="3" max="10">
+            <span class="hint"></span>
+          </label>
+          <label class="narrow">
+            <span class="name">{{ .T "settings.sensors.topProcsInterval" }}</span>
+            <input type="number" name="top_processes_interval_ms" value="{{ .Config.TopProcessesIntervalMs }}"
+                   min="2000" max="600000" step="1000">
+            <span class="hint"></span>
+          </label>
+        </div>
+      </details>
 
       {{ template "save" . }}
     </div>
   </form>
 
-  <form method="post" action="/save/capture" data-block="capture">
-    <div class="card" id="capture">
-      <h2>{{ .T "settings.capture.title" }}</h2>
-      <div class="row">
-        <label>
-          <span class="name">{{ .T "settings.capture.poll" }}</span>
-          <input type="number" name="poll_interval_ms" value="{{ .Config.PollIntervalMs }}"
-                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
-          <span class="hint">{{ .T "settings.capture.pollHint" }} ({{ .MinIntervalMs }}&ndash;{{ .MaxIntervalMs }} ms)</span>
-        </label>
-        <label>
-          <span class="name">{{ .T "settings.capture.publish" }}</span>
-          <input type="number" name="interval_ms" value="{{ .Config.PublishIntervalMs }}"
-                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
-          <span class="hint">{{ .T "settings.capture.publishHint" }}</span>
-        </label>
-        <label>
-          <span class="name">{{ .T "settings.capture.publishIdle" }}</span>
-          <input type="number" name="idle_interval_ms" value="{{ .Config.IdlePublishIntervalMs }}"
-                 min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
-          <span class="hint">{{ .T "settings.capture.publishIdleHint" }}</span>
-        </label>
-      </div>
-      <label>
-        <span class="name">{{ .T "settings.capture.idle" }}</span>
-        <input type="number" name="idle_timeout_ms" value="{{ .Config.IdleTimeoutMs }}"
-               min="{{ .MinIdleMs }}" max="{{ .MaxIdleMs }}" step="500">
-        <span class="hint">{{ .T "settings.capture.idleHint" }}</span>
-      </label>
-
-      <div class="check">
-        <input type="checkbox" name="decimals" id="decimals" value="1" {{ if .Config.Decimals }}checked{{ end }}>
-        <label for="decimals" style="margin:0"><span class="name">{{ .T "settings.capture.decimals" }}</span></label>
-      </div>
-      <p class="note indent">{{ .T "settings.capture.decimalsHint" }}</p>
-
-      {{ template "save" . }}
-    </div>
-  </form>
-{{ end }}
-
-{{ define "save" }}
-<div class="cardfoot">
-  <button type="submit">{{ .T "settings.save" }}</button>
-
-  <span class="state clean">{{ .T "settings.unchanged" }}</span>
-  <span class="state pending">{{ .T "settings.unsaved" }}</span>
-</div>
 {{ end }}

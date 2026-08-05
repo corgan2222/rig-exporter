@@ -11,6 +11,7 @@ import (
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/corgan2222/rig-exporter/internal/i18n"
@@ -28,7 +29,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.8.3"
+	Version = "1.8.6"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -38,6 +39,10 @@ const (
 	RTSSDownloadURL = "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"
 	// AfterburnerURL is shown when no graphics telemetry source is available.
 	AfterburnerURL = "https://www.msi.com/Landing/afterburner/graphics-cards"
+	// PawnIOURL is where the kernel driver behind CPU power comes from. Named
+	// on the source line rather than hidden in a tooltip: it is the one source
+	// this program cannot install for you.
+	PawnIOURL = "https://pawnio.eu/"
 
 	// ProjectURL and AuthorURL are where the interface points when somebody
 	// clicks the name in the header or the credit in the footer.
@@ -111,6 +116,9 @@ type Config struct {
 	// switches below rather than replacing them — the groups say which
 	// hardware is read at all, this says how much of it is worth an entity.
 	SensorSet string `json:"sensor_set"`
+
+	// Measurements is the same decision made one measurement at a time.
+	Measurements Measurements `json:"measurements"`
 
 	// Sensor groups. Each is collected only when switched on, and drops out
 	// silently when the machine cannot supply it.
@@ -228,12 +236,106 @@ type Config struct {
 
 // The two sensor sets. Which measurement is in which is decided in
 // internal/metrics; these are only the names the configuration stores.
+//
+// Superseded by Measurements below and kept because a configuration written by
+// an older version still carries it, and because writing it back keeps a
+// downgrade sane. Normalize holds the two in step.
 const (
 	// SensorSetStandard reports what somebody watching their machine looks at.
 	SensorSetStandard = "standard"
 	// SensorSetExtended adds the inventory and the fine detail on top.
 	SensorSetExtended = "extended"
 )
+
+// The rungs of the measurement ladder, from fewest to most. The names match
+// metrics.Preset; the strings live here because this is what lands in the file.
+const (
+	PresetMinimal  = "minimal"
+	PresetBasic    = "basic"
+	PresetExtended = "extended"
+)
+
+// Measurements says which measurements are collected: a rung of the ladder,
+// plus what the user added to it or took out of it by hand.
+//
+// The rung is stored rather than the resulting list of identifiers, and that is
+// the whole point of the shape. A measurement added to the catalogue by a later
+// version joins the rung it belongs to on its own; a stored list would have
+// left it switched off, and nobody goes looking for a value they never heard
+// of. The two lists then hold exactly what the user decided against the rung,
+// which is also the only part worth reading in the file.
+type Measurements struct {
+	Preset  string   `json:"preset"`
+	Added   []string `json:"added,omitempty"`
+	Removed []string `json:"removed,omitempty"`
+}
+
+// normalizeMeasurements settles the rung and keeps the old field in step.
+//
+// Defaults deliberately leaves the rung empty. Load unmarshals into Defaults,
+// so a prefilled rung would have looked exactly like a chosen one, and a file
+// written before the ladder existed would have been read as "extended" no
+// matter what its sensor_set said — silently reporting the whole catalogue to
+// somebody who had asked for half of it.
+//
+// An empty rung means this file was written before the ladder existed, so the
+// old two-way switch decides — that is the migration, and it happens once,
+// silently, without anybody losing what they had chosen. From then on the rung
+// leads and sensor_set follows it, so the file never says two things at once.
+func (c *Config) normalizeMeasurements() {
+	switch c.Measurements.Preset {
+	case PresetMinimal, PresetBasic, PresetExtended:
+	case "":
+		c.Measurements.Preset = PresetForSensorSet(c.SensorSet)
+	default:
+		c.Measurements.Preset = PresetExtended
+	}
+	c.SensorSet = sensorSetForPreset(c.Measurements.Preset)
+
+	c.Measurements.Added = cleanIDs(c.Measurements.Added)
+	c.Measurements.Removed = cleanIDs(c.Measurements.Removed)
+}
+
+// cleanIDs trims, drops blanks and duplicates, and sorts. A hand-edited list
+// should come back readable rather than exactly as it was typed.
+func cleanIDs(ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(ids))
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
+}
+
+// PresetForSensorSet migrates the old two-way switch onto the ladder. Also
+// what the settings page uses while its control still offers the old two.
+func PresetForSensorSet(sensorSet string) string {
+	if sensorSet == SensorSetStandard {
+		return PresetBasic
+	}
+	return PresetExtended
+}
+
+// sensorSetForPreset is the way back, for the field an older version reads.
+// Minimal has no equivalent there; standard is the closer of the two.
+func sensorSetForPreset(preset string) string {
+	if preset == PresetExtended {
+		return SensorSetExtended
+	}
+	return SensorSetStandard
+}
 
 // Bounds applied by Normalize. Exported so the web UI can label its inputs.
 const (
@@ -557,6 +659,7 @@ func (c *Config) normalizeSensors() {
 	if c.SensorSet != SensorSetStandard {
 		c.SensorSet = SensorSetExtended
 	}
+	c.normalizeMeasurements()
 
 	c.PingTarget = strings.TrimSpace(c.PingTarget)
 	c.PingCount = clampInt(c.PingCount, 1, 10, Defaults().PingCount)

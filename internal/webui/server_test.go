@@ -138,78 +138,177 @@ func TestSavingOneBlockLeavesTheOthersAlone(t *testing.T) {
 }
 
 // The two publish rates are separate fields on the same card, and the decimals
-// box travels with them.
+// box travels with them. They live on the measurement page now, because all
+// but one of them decide how much of the selection reaches a database.
 func TestTheCaptureBlockCarriesBothPublishRatesAndTheDecimals(t *testing.T) {
 	server, ts := newServer(t, func(c *config.Config) { c.Decimals = true })
 
-	resp := post(t, ts.URL, "/save/capture", url.Values{
+	post(t, ts.URL, "/save/capture", url.Values{
 		"poll_interval_ms": {"500"},
 		"interval_ms":      {"2000"},
-		"idle_interval_ms": {"10000"},
-		"idle_timeout_ms":  {"3000"},
-		// "decimals" absent: an unticked box submits nothing at all.
+		"idle_interval_ms": {"20000"},
+		"idle_timeout_ms":  {"5000"},
 	})
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("status = %d, want 303", resp.StatusCode)
-	}
 
 	cfg := server.app.Config()
-	if cfg.PublishIntervalMs != 2000 || cfg.IdlePublishIntervalMs != 10000 {
-		t.Errorf("rates = %d/%d, want 2000 in game and 10000 idle",
+	if cfg.PublishIntervalMs != 2000 || cfg.IdlePublishIntervalMs != 20000 {
+		t.Errorf("publish rates = %d / %d, want 2000 / 20000",
 			cfg.PublishIntervalMs, cfg.IdlePublishIntervalMs)
 	}
+	// The box was left out of the form, which within its own block means off.
 	if cfg.Decimals {
-		t.Error("decimals stayed on although the box was not submitted")
+		t.Error("the decimals survived a save that did not mention them")
 	}
 }
 
-// The sensor set is the first control on the sensors card, and the box below
-// it lists both sets out of the catalogue rather than out of a typed-up
-// example.
-func TestTheSensorSetIsOfferedWithBothListings(t *testing.T) {
+// The measurement page carries the whole choice now: a rung to slide between
+// and a tick per measurement, generated from the catalogue rather than from a
+// typed-up example.
+func TestTheMeasurementPageOffersTheRungAndTheTree(t *testing.T) {
 	_, ts := newServer(t, nil)
 
-	code, body := get(t, ts.URL+"/capture")
+	code, body := get(t, ts.URL+"/measurements")
 	if code != http.StatusOK {
-		t.Fatalf("GET /capture = %d", code)
+		t.Fatalf("GET /measurements = %d", code)
 	}
-	if !strings.Contains(body, `name="sensor_set"`) {
-		t.Fatal("no way to choose the sensor set")
+	if !strings.Contains(body, `id="rung-slider"`) {
+		t.Error("there is no slider")
 	}
-	// Extended is the default, so it must come up selected.
-	if !strings.Contains(body, `<option value="extended" selected>`) {
-		t.Error("extended is not preselected")
-	}
-	// The listing is generated: a measurement from each set has to appear.
-	for _, want := range []string{"<details", "<code>fps</code>", "<code>cpu_clock</code>"} {
+	// One tick per measurement, out of the catalogue.
+	for _, want := range []string{`value="fps"`, `value="cpu_clock"`, `value="gpu_engine_3d"`} {
 		if !strings.Contains(body, want) {
-			t.Errorf("the listing does not contain %q", want)
+			t.Errorf("the tree does not offer %q", want)
 		}
 	}
-	// It is the first control, ahead of the group checkboxes.
-	if strings.Index(body, `name="sensor_set"`) > strings.Index(body, `name="gpu_enabled"`) {
-		t.Error("the sensor set is not the first control on the card")
+	// One tick per measurement this machine can have. The test fixture has no
+	// battery, so the battery group is not offered — a box that can never be
+	// ticked into anything is worse than no box.
+	//
+	// Counted on the attribute pair, not on the name alone: the script below
+	// selects the same boxes and would otherwise be counted as three more.
+	offered, hidden := 0, 0
+	for _, d := range metrics.All {
+		if d.PanelGroup() == metrics.GroupBattery {
+			hidden++
+		} else {
+			offered++
+		}
+	}
+	if got := strings.Count(body, `type="checkbox" name="measurement" value=`); got != offered {
+		t.Errorf("%d ticks for %d measurements", got, offered)
+	}
+	// The rest are on the page too, as hidden fields, or the first save would
+	// throw them away.
+	if got := strings.Count(body, `type="hidden" name="measurement" value=`); got != hidden {
+		t.Errorf("%d hidden measurements, want %d", got, hidden)
+	}
+	// The estimate needs its inputs, and the assumptions have to be on the
+	// page rather than buried in the number.
+	for _, want := range []string{`id="est-entities"`, `id="est-rows"`, `id="est-size"`, `id="est-basis"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the estimate is missing %q", want)
+		}
+	}
+	// The capture settings moved here, because all but one of them decide how
+	// much of the selection reaches a database.
+	if !strings.Contains(body, `name="interval_ms"`) || !strings.Contains(body, `name="decimals"`) {
+		t.Error("the capture settings did not come along")
+	}
+	// And they are gone from where they used to be.
+	if _, capture := get(t, ts.URL+"/capture"); strings.Contains(capture, `name="sensor_set"`) {
+		t.Error("the old sensor-set control is still on the capture page")
 	}
 }
 
-func TestSavingTheSensorSetKeepsIt(t *testing.T) {
+// The form that carries the ticks has to carry the rung with them.
+//
+// Without it the rung arrives empty, saveMeasurements falls back to extended,
+// and ticking a single box on the minimal rung quietly switches every
+// measurement on. That is what it did.
+func TestTheTickFormCarriesTheRungItIsMeasuredAgainst(t *testing.T) {
+	_, ts := newServer(t, func(c *config.Config) {
+		c.Measurements.Preset = config.PresetMinimal
+	})
+
+	_, body := get(t, ts.URL+"/measurements")
+	want := `<input type="hidden" name="preset" id="picks-preset" value="` + config.PresetMinimal + `">`
+	if !strings.Contains(body, want) {
+		t.Error("the tick form does not say which rung the ticks are exceptions to")
+	}
+}
+
+// Every change on that page is applied where it is made, so the page posts in
+// the background and has no use for the redirect a form submit gets.
+func TestAQuietSaveAnswersWithoutARedirect(t *testing.T) {
 	server, ts := newServer(t, nil)
 
-	post(t, ts.URL, "/save/sensors", url.Values{
-		"sensor_set":  {"standard"},
-		"gpu_enabled": {"1"},
-	})
-	if got := server.app.Config().SensorSet; got != config.SensorSetStandard {
-		t.Errorf("sensor set = %q, want standard", got)
+	form := url.Values{"preset": {config.PresetMinimal}}
+	request, err := http.NewRequest(http.MethodPost, ts.URL+"/save/measurements", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
 	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("X-Quiet", "1")
 
-	// And back, because a one-way switch would be a trap.
-	post(t, ts.URL, "/save/sensors", url.Values{
-		"sensor_set":  {"extended"},
-		"gpu_enabled": {"1"},
+	response, err := ts.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode != http.StatusNoContent {
+		t.Errorf("quiet save = %d, want 204", response.StatusCode)
+	}
+	if got := server.app.Config().Measurements.Preset; got != config.PresetMinimal {
+		t.Errorf("rung = %q, want minimal — the save did not take", got)
+	}
+}
+
+// Sliding the rung is a different statement from ticking a box: it means
+// "forget what I picked and give me this".
+func TestSlidingTheRungReplacesTheHandPickedChoice(t *testing.T) {
+	server, ts := newServer(t, func(c *config.Config) {
+		c.Measurements.Preset = config.PresetExtended
+		c.Measurements.Added = []string{"cpu_clock"}
+		c.Measurements.Removed = []string{"fps"}
 	})
-	if got := server.app.Config().SensorSet; got != config.SensorSetExtended {
-		t.Errorf("sensor set = %q, want extended", got)
+
+	post(t, ts.URL, "/rung", url.Values{"preset": {config.PresetMinimal}})
+
+	got := server.app.Config().Measurements
+	if got.Preset != config.PresetMinimal {
+		t.Errorf("rung = %q, want minimal", got.Preset)
+	}
+	if len(got.Added) != 0 || len(got.Removed) != 0 {
+		t.Errorf("the exceptions survived the slider: %+v", got)
+	}
+}
+
+// Ticking boxes stores the difference from the rung, not the list of ticks —
+// so a measurement the catalogue gains later joins the rung by itself.
+func TestTickingBoxesStoresTheDifferenceFromTheRung(t *testing.T) {
+	server, ts := newServer(t, nil)
+
+	// Everything the minimal rung carries, minus fps, plus cpu_clock.
+	form := url.Values{"preset": {config.PresetMinimal}}
+	for _, id := range metrics.PresetIDs(metrics.PresetMinimal) {
+		if id != metrics.FPS.ID {
+			form.Add("measurement", id)
+		}
+	}
+	form.Add("measurement", metrics.CPUClock.ID)
+
+	post(t, ts.URL, "/save/measurements", form)
+
+	got := server.app.Config().Measurements
+	if got.Preset != config.PresetMinimal {
+		t.Fatalf("rung = %q, want minimal", got.Preset)
+	}
+	if len(got.Added) != 1 || got.Added[0] != metrics.CPUClock.ID {
+		t.Errorf("added = %v, want just the clock", got.Added)
+	}
+	if len(got.Removed) != 1 || got.Removed[0] != metrics.FPS.ID {
+		t.Errorf("removed = %v, want just fps", got.Removed)
 	}
 }
 
@@ -497,6 +596,52 @@ func TestABatteryPanelOnlyExistsWhereThereIsABattery(t *testing.T) {
 			t.Error("the panel is there but says nothing about the failure")
 		}
 	})
+}
+
+// The measurement page follows the same rule as the dashboard: a machine
+// without a battery is not offered a battery card. The two pages have to agree
+// about what exists, or one of them is lying.
+func TestTheMeasurementTreeLeavesTheBatteryOutOnADesktop(t *testing.T) {
+	battery := func(st app.Status) (measurementGroup, bool) {
+		for _, group := range measurementsFor(st, i18n.DE).Groups {
+			if group.Key == string(metrics.GroupBattery) {
+				return group, true
+			}
+		}
+		return measurementGroup{}, false
+	}
+
+	desktop := app.Status{
+		Config:   config.Defaults(),
+		Snapshot: collector.Snapshot{SourceErrors: map[metrics.Group]string{}},
+	}
+	if group, found := battery(desktop); found {
+		t.Errorf("a tower was offered battery measurements: %+v", group.Key)
+	}
+
+	laptop := desktop
+	laptop.Snapshot.Set.Add(metrics.Gauge(metrics.BatteryCharge, "", 87))
+	if _, found := battery(laptop); !found {
+		t.Error("a laptop was not offered its battery measurements")
+	}
+
+	// What is not shown still has to come back with the form. Saving reads an
+	// absent box as "switched off", so without this the first save on a tower
+	// would strike the battery out of the configuration for good — and the same
+	// file carried to a laptop would come back short.
+	unlisted := measurementsFor(desktop, i18n.DE).Unlisted
+	if len(unlisted) == 0 {
+		t.Fatal("the hidden battery measurements do not ride along")
+	}
+	fromBattery := map[string]bool{}
+	for _, d := range metrics.All {
+		fromBattery[d.ID] = d.PanelGroup() == metrics.GroupBattery
+	}
+	for _, id := range unlisted {
+		if !fromBattery[id] {
+			t.Errorf("%q is not a battery measurement but was hidden", id)
+		}
+	}
 }
 
 // fakeUpdates stands in for the real manager. Its methods are exported, which
