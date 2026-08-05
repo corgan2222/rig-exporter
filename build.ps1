@@ -4,20 +4,32 @@
 # tray application; -s -w strips the symbol table to keep the binary small.
 #
 #   .\build.ps1            # build
-#   .\build.ps1 -Check     # regenerate the icon, vet, test, then build
+#   .\build.ps1 -Check     # gofmt, vet, staticcheck, test, then build
+#   .\build.ps1 -Icon      # draw internal/assets/icon.ico again as well
 
 param(
     [switch]$Check,
+    [switch]$Icon,
     [string]$Output = "rig-exporter.exe"
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-if ($Check) {
+# Behind a switch of its own rather than part of -Check, and not because it is
+# slow. `go run` links a fresh, unsigned executable into the build cache and
+# runs it from there, which is the exact shape Microsoft Defender's machine
+# learning classifier calls Trojan:Win32/Sabsik. Every check build earned a
+# severe-threat popup for a program that draws a picture out of the standard
+# library. The icon is committed and changes about once a year, so regenerating
+# it belongs where it is asked for.
+if ($Icon) {
     Write-Host "==> generating icon" -ForegroundColor Cyan
     go run ./tools/genicon
+    if ($LASTEXITCODE -ne 0) { throw "genicon failed" }
+}
 
+if ($Check) {
     Write-Host "==> gofmt" -ForegroundColor Cyan
     $unformatted = gofmt -l .
     if ($unformatted) {

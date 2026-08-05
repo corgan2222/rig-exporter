@@ -3,7 +3,8 @@
 Telemetrie eines Gaming-PCs für Home Assistant, Prometheus und InfluxDB.
 
 Liest die FPS aus dem RivaTuner Statistics Server, erkennt das laufende Spiel
-und meldet dazu Grafikkarte, Prozessor, Laufwerke, Netzwerk und Latenz — per
+und meldet dazu Grafikkarte, Prozessor, Laufwerke, Netzwerk, Latenz und, wo
+einer da ist, den Akku — per
 MQTT-Autodiscovery, über einen eigenen HTTP-Datenserver, als
 Prometheus-Exporter oder als InfluxDB Line Protocol. Alle vier gleichzeitig,
 wenn man will.
@@ -27,11 +28,11 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 62 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 68 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
-* **Erweitert** (Voreinstellung) — die übrigen 35 dazu: Taktraten, Speicher­riegel,
-  Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen eines
-  Problems, im Alltag selten.
+* **Erweitert** (Voreinstellung) — die übrigen 41 dazu: Taktraten, Speicher­riegel,
+  Last je Thread, Anzeigemodus, Zustand von RTSS, Akkuverschleiß. Nützlich beim
+  Suchen eines Problems, im Alltag selten.
 
 Wie viele Entities daraus auf einem bestimmten Rechner werden, sagt die
 Einstellungsseite oben an — sie zählt, was dieser PC tatsächlich hergibt.
@@ -68,6 +69,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
 | **Netzwerk** | Adapter, Link-Speed, Download- und Upload-Rate, empfangene und gesendete Gesamtmenge, Fehler, verworfene Pakete, WLAN-Signal, Ping und Paketverlust | Windows + ICMP |
+| **Akku** | Ladestand, Netzbetrieb, Laden, Restenergie, Lade- bzw. Entladeleistung, Restlaufzeit; im erweiterten Satz Zustand, Ladezyklen, Design- und Ladekapazität, Chemie, Spannung | Windows Power-API + Akkugerät |
 | **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
 | **Top-Prozesse** | die Programme mit dem größten CPU- und Speicherbedarf | Windows |
 
@@ -202,6 +204,49 @@ GB heißt hier 2³⁰ Byte, wie überall sonst im Katalog und wie im Windows
 Explorer. Deshalb tragen die beiden bewusst **keine** `device_class`: Home
 Assistant würde `data_size` als 10⁹ lesen und beim Umrechnen von der falschen
 Grundlage ausgehen.
+
+### Der Akku
+
+Die Akkugruppe ist die einzige, die auf den meisten Rechnern leer bleibt, und
+das ist Absicht: ein Desktop erzeugt hier **keine einzige Entity**. Eine Anzeige,
+die dauerhaft „0 %" behauptet, wäre die schlechtere Antwort als gar keine.
+
+Zwei Quellen speisen sie, und sie beantworten verschiedene Fragen. Die
+Energieschnittstelle von Windows sagt, wie es dem Akku **gerade** geht — wie
+voll, am Netz oder nicht, ladend oder entladend, wie lange er noch reicht. Das
+Akkugerät selbst, über SetupAPI und die Akku-IOCTLs, sagt, **was** der Akku ist:
+wie groß er neu war, wie viele Ladezyklen er hinter sich hat, woraus er besteht.
+Nur der zweite Weg kann etwas über Verschleiß sagen, und nur der erste ist
+billig genug, ihn alle paar Sekunden zu gehen — die Gerätewerte werden deshalb
+alle fünf Minuten neu geholt.
+
+Keiner der beiden Wege braucht Administratorrechte, WMI oder einen fremden
+Treiber.
+
+Der **Zustand** (`battery_health`) ist die Ladekapazität von heute geteilt durch
+die Designkapazität — herum gesagt, dass ein frischer Akku bei 100 steht und
+nach unten wandert; das zeichnet sich in Home Assistant besser als der
+Kehrwert. Design- und Ladekapazität stehen daneben, damit die Zahl nachrechenbar
+ist statt geglaubt.
+
+Die **Leistung** (`battery_power`) ist vorzeichenbehaftet: positiv, während der
+Akku Ladung aufnimmt, negativ, während er sie abgibt. Eine Reihe zeigt damit das
+ganze Bild statt zwei, von denen nie beide gleichzeitig interessant sind.
+
+Weggelassen wird, was der Akku nicht hergibt, und das ist mehr, als man denkt.
+Viele Controller zählen **keine Ladezyklen** und melden dauerhaft 0 — daraus
+entsteht keine Entity, denn „0 Zyklen" liest sich wie ein fabrikneuer Akku.
+Die Restlaufzeit gibt es nur beim Entladen. Meldet ein Controller seine
+Kapazitäten in eigenen Einheiten statt in Milliwattstunden, entfallen alle
+Wh-Werte; Ladestand, Zustand und Zyklen bleiben, weil sie davon nicht abhängen.
+
+Serien- und Herstellernummer des Akkus wären über denselben Weg zu haben und
+werden bewusst **nicht** gemeldet: identifizierend, ohne irgendetwas über den
+Zustand der Maschine zu sagen.
+
+Ein Gerät mit zwei Akkus meldet trotzdem einen: Windows fasst die Livewerte
+ohnehin zusammen, die Kapazitäten werden addiert, und als Zyklenzahl gilt die
+höhere der beiden — die müdere Zelle ist die Antwort, auf die es ankommt.
 
 ---
 
@@ -398,9 +443,16 @@ NVIDIA-Karten, amd64. Was bekannt ist:
 .\build.ps1 -Check
 ```
 
-`-Check` erzeugt das Icon neu, prüft Formatierung, führt `go vet` und die Tests
-aus und baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
+`-Check` prüft Formatierung, führt `go vet`, `staticcheck` und die Tests aus und
+baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 `rig-exporter.exe` (~11 MB) ohne weitere Dateien.
+
+Das Tray-Icon wird mit `-Icon` neu gezeichnet und liegt sonst fertig im
+Repository. Eigener Schalter, weil `go run` dafür ein frisches, unsigniertes
+Binary in den Build-Cache linkt und von dort startet — genau das Muster, das
+Microsoft Defender heuristisch als `Trojan:Win32/Sabsik` meldet. Ein
+Warnhinweis bei jedem Prüflauf, für ein Programm, das aus der
+Standardbibliothek ein Bild malt, ist den Schreck nicht wert.
 
 Das Skript prägt dabei eine Build-Kennung ein, die hinter der Version steht:
 
@@ -1181,6 +1233,7 @@ internal/hardware/cpu            CPU-Gruppe
 internal/hardware/ram            Speichergruppe, inklusive SMBIOS-Parser
 internal/hardware/disk           Laufwerksgruppe
 internal/hardware/net            Netzwerkgruppe und Latenzmessung
+internal/hardware/battery        Akkugruppe: Livezustand und Verschleiß
 internal/hardware/pawnio         PawnIO: Erkennung, Module, AMD-Dekodierung
 internal/config                  Konfiguration, Grenzwerte, Entity-Kennungen
 internal/export                  gemeinsame Schnittstelle der Exportziele

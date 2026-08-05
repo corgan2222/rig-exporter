@@ -234,6 +234,11 @@ var catalogue = map[string]Text{
 		DE: "Standardmäßig wird nur der Adapter gemeldet, über den die Default-Route läuft. Sonst tauchen Hyper-V, WSL, VPN- und Capture-Adapter alle einzeln auf.",
 		EN: "By default only the adapter carrying the default route is reported. Otherwise Hyper-V, WSL, VPN and capture adapters all show up separately.",
 	},
+	"settings.sensors.battery": {DE: "Akku — Ladestand, Netzbetrieb, Restlaufzeit, Verschleiß", EN: "Battery — charge, mains, runtime left, wear"},
+	"settings.sensors.batteryHint": {
+		DE: "Nur auf Geräten mit Akku. Ein Desktop meldet hier nichts, statt eine Anzeige zu erzeugen, die immer auf null steht. Verschleiß, Ladezyklen und Chemie stehen im erweiterten Messwertsatz und nur, wenn der Akku sie meldet.",
+		EN: "Laptops only. A desktop reports nothing here rather than producing a gauge that sits at zero forever. Wear, charge cycles and chemistry are in the extended sensor set, and only appear when the battery reports them.",
+	},
 	"settings.sensors.ping":         {DE: "Latenzmessung — Ping und Paketverlust", EN: "Latency probe — ping and packet loss"},
 	"settings.sensors.pingTarget":   {DE: "Ping-Ziel", EN: "Ping target"},
 	"settings.sensors.pingGateway":  {DE: "leer = Standard-Gateway", EN: "blank = default gateway"},

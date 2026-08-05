@@ -21,9 +21,15 @@ Go 1.26.5 or newer, windows/amd64, no CGO. Then:
 .\build.ps1 -Check
 ```
 
-That regenerates the icon, checks `gofmt`, runs `go vet -unsafeptr=false`,
-`staticcheck` and the whole test suite, and only then builds with
-`-H windowsgui -s -w`. If it is green, your change is ready.
+That checks `gofmt`, runs `go vet -unsafeptr=false`, `staticcheck` and the whole
+test suite, and only then builds with `-H windowsgui -s -w`. If it is green,
+your change is ready.
+
+The tray icon is committed and is only redrawn on request, with `-Icon`. It has
+a switch of its own because `go run` links an unsigned executable into the build
+cache and runs it from there, which Microsoft Defender's heuristics report as
+`Trojan:Win32/Sabsik` — a false positive, but not one worth triggering on every
+check build.
 
 `staticcheck` is not optional and must be from 2022 or newer — older releases
 predate generics and produce pages of noise about the standard library instead

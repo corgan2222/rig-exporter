@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.7.0"
+	Version = "1.7.1"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -124,6 +124,12 @@ type Config struct {
 	// NetAllAdapters reports every connected interface instead of only the
 	// one carrying the default route.
 	NetAllAdapters bool `json:"net_all_adapters"`
+	// BatteryEnabled reports the battery pack: charge, mains, wear.
+	//
+	// On by default like the other hardware groups, and costing nothing on a
+	// machine that has no battery — the source asks Windows once and reports
+	// nothing when the answer is that there is no pack.
+	BatteryEnabled bool `json:"battery_enabled"`
 
 	// Latency probe, part of the network group.
 	PingEnabled    bool   `json:"ping_enabled"`
@@ -255,6 +261,7 @@ func Defaults() Config {
 		PawnIOEnabled:    false, // needs elevation; the user has to choose it
 		DiskEnabled:      true,
 		NetEnabled:       true,
+		BatteryEnabled:   true,
 		PingEnabled:      true,
 		PingTarget:       "", // empty means the default gateway
 		PingCount:        3,
