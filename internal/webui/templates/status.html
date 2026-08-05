@@ -4,6 +4,8 @@
     <strong>{{ .T "rtss.bannerTitle" }}</strong>
     <span id="rtss-detail"></span><br>
     {{ .T "rtss.bannerBody" }}
+    <a href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAfterburner" }}</a>
+    &middot;
     <a href="{{ .RTSSDownloadURL }}" target="_blank" rel="noopener">{{ .T "rtss.download" }}</a>
     {{ .T "rtss.alsoInAfterburner" }}
     <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">

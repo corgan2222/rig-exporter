@@ -829,6 +829,13 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 			Available: snap.HasGroup(group),
 			Error:     snap.SourceErrors[group],
 		}
+		// A missing graphics card or an unreachable adapter is worth a panel
+		// saying so: the user probably expected one. A missing battery is not.
+		// Most machines are desktops, and a permanently empty box telling
+		// somebody their tower has no battery is noise on every page load.
+		if group == metrics.GroupBattery && !status.Available && status.Error == "" {
+			continue
+		}
 		if status.Enabled && status.Available {
 			status.Rows = rowsFor(snap, group, lang)
 		}

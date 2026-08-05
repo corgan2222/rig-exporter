@@ -239,7 +239,10 @@ Grundlage ausgehen.
 
 Die Akkugruppe ist die einzige, die auf den meisten Rechnern leer bleibt, und
 das ist Absicht: ein Desktop erzeugt hier **keine einzige Entity**. Eine Anzeige,
-die dauerhaft „0 %" behauptet, wäre die schlechtere Antwort als gar keine.
+die dauerhaft „0 %" behauptet, wäre die schlechtere Antwort als gar keine. Auf
+der Anzeigeseite fehlt dort auch der Kasten — eine fehlende Grafikkarte ist eine
+Meldung wert, ein fehlender Akku in einem Tower nicht. Ein Akku, der da ist und
+nicht antwortet, wird dagegen gemeldet.
 
 Zwei Quellen speisen sie, und sie beantworten verschiedene Fragen. Die
 Energieschnittstelle von Windows sagt, wie es dem Akku **gerade** geht — wie

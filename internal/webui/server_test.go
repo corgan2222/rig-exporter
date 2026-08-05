@@ -14,6 +14,7 @@ import (
 
 	"github.com/corgan2222/rig-exporter/internal/app"
 	"github.com/corgan2222/rig-exporter/internal/applog"
+	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -415,14 +416,84 @@ func TestStatusAPIIsWellFormed(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	// Every optional group appears, whether or not it has data: the page
-	// needs to say "switched off" as much as it needs to show readings.
-	if len(resp.Groups) != len(metrics.Groups)-1 {
-		t.Errorf("got %d groups, want one per optional group", len(resp.Groups))
-	}
+	// Every optional group appears, whether or not it has data: the page needs
+	// to say "switched off" as much as it needs to show readings. Two do not.
+	// The core group has its own tiles, and the battery is left out where
+	// there is none — this server has no collection loop, so there is none.
+	present := map[string]bool{}
 	for _, g := range resp.Groups {
 		if g.Key == "" || g.Label == "" {
 			t.Errorf("group %+v is missing its key or label", g)
 		}
+		present[g.Key] = true
 	}
+	for _, group := range metrics.Groups {
+		want := group != metrics.GroupCore && group != metrics.GroupBattery
+		if got := present[string(group)]; got != want {
+			t.Errorf("group %q present = %v, want %v", group, got, want)
+		}
+	}
+}
+
+// A missing battery is not a fault to report. Most machines are desktops, and a
+// permanently empty panel saying so would be noise on every page load — the
+// screenshot that prompted this showed "BATTERY — No data." on a tower.
+func TestABatteryPanelOnlyExistsWhereThereIsABattery(t *testing.T) {
+	status := func(fill func(*collector.Snapshot)) app.Status {
+		snap := collector.Snapshot{SourceErrors: map[metrics.Group]string{}}
+		if fill != nil {
+			fill(&snap)
+		}
+		return app.Status{Config: config.Defaults(), Snapshot: snap}
+	}
+	hasBattery := func(groups []groupStatus) (groupStatus, bool) {
+		for _, group := range groups {
+			if group.Key == string(metrics.GroupBattery) {
+				return group, true
+			}
+		}
+		return groupStatus{}, false
+	}
+
+	t.Run("a desktop gets no panel", func(t *testing.T) {
+		groups := groupStatuses(status(nil), i18n.DE)
+		if group, found := hasBattery(groups); found {
+			t.Errorf("a machine without a battery got a panel: %+v", group)
+		}
+		// The other groups still report their absence, which is the behaviour
+		// this exception is carved out of.
+		if len(groups) == 0 {
+			t.Fatal("every group disappeared, not just the battery")
+		}
+	})
+
+	t.Run("a laptop gets one", func(t *testing.T) {
+		groups := groupStatuses(status(func(snap *collector.Snapshot) {
+			snap.Set.Add(metrics.Gauge(metrics.BatteryCharge, "", 87))
+		}), i18n.DE)
+
+		group, found := hasBattery(groups)
+		if !found {
+			t.Fatal("a machine with a battery got no panel")
+		}
+		if !group.Available || len(group.Rows) == 0 {
+			t.Errorf("the panel is there but empty: %+v", group)
+		}
+	})
+
+	// A battery that is present but unreadable is a real failure, and hiding it
+	// would leave somebody with a laptop wondering where the readings went.
+	t.Run("a failure is still shown", func(t *testing.T) {
+		groups := groupStatuses(status(func(snap *collector.Snapshot) {
+			snap.SourceErrors[metrics.GroupBattery] = "the battery device would not answer"
+		}), i18n.DE)
+
+		group, found := hasBattery(groups)
+		if !found {
+			t.Fatal("a battery source that failed was hidden")
+		}
+		if group.Error == "" {
+			t.Error("the panel is there but says nothing about the failure")
+		}
+	})
 }
