@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="78%"><stop offset="0%" stop-color="#2d2d34"></stop><stop offset="62%" stop-color="#1a1a1f"></stop><stop offset="100%" stop-color="#111114"></stop></radialGradient>
+    <linearGradient id="red" x1="59" y1="180" x2="59" y2="76" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#ff3b3b"></stop><stop offset="100%" stop-color="#ff6b2c"></stop></linearGradient>
+    <linearGradient id="amb" x1="76" y1="59" x2="180" y2="59" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#ff9e1b"></stop><stop offset="100%" stop-color="#ffd23f"></stop></linearGradient>
+    <linearGradient id="grn" x1="197" y1="76" x2="197" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#b3e934"></stop><stop offset="100%" stop-color="#22c55e"></stop></linearGradient>
+    <filter id="blur" x="-45%" y="-45%" width="190%" height="190%"><feGaussianBlur stdDeviation="7"></feGaussianBlur></filter>
+    <filter id="blurN" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.5"></feGaussianBlur></filter>
+  </defs>
+  <circle cx="128" cy="128" r="124" fill="url(#bg)"></circle>
+  <circle cx="128" cy="128" r="122.5" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="1.5"></circle>
+  <g stroke="rgba(255,255,255,0.25)" stroke-width="3" stroke-linecap="round">
+    <line x1="55.9" y1="200.1" x2="48.8" y2="207.2"></line><line x1="26" y1="128" x2="16" y2="128"></line><line x1="55.9" y1="55.9" x2="48.8" y2="48.8"></line><line x1="128" y1="26" x2="128" y2="16"></line><line x1="200.1" y1="55.9" x2="207.2" y2="48.8"></line><line x1="230" y1="128" x2="240" y2="128"></line><line x1="200.1" y1="200.1" x2="207.2" y2="207.2"></line>
+  </g>
+  <g filter="url(#blur)" opacity="0.55" fill="none" stroke-width="20" stroke-linecap="round">
+    <path d="M 59.3 179.8 A 86 86 0 0 1 59.3 76.2" stroke="url(#red)"></path>
+    <path d="M 76.2 59.3 A 86 86 0 0 1 179.8 59.3" stroke="url(#amb)"></path>
+    <path d="M 196.7 76.2 A 86 86 0 0 1 196.7 179.8" stroke="url(#grn)"></path>
+  </g>
+  <g fill="none" stroke-width="20" stroke-linecap="round">
+    <path d="M 59.3 179.8 A 86 86 0 0 1 59.3 76.2" stroke="url(#red)"></path>
+    <path d="M 76.2 59.3 A 86 86 0 0 1 179.8 59.3" stroke="url(#amb)"></path>
+    <path d="M 196.7 76.2 A 86 86 0 0 1 196.7 179.8" stroke="url(#grn)"></path>
+  </g>
+  <polygon points="115.4,131 116.9,121.2 193.2,138.4" fill="#ffffff" opacity="0.5" filter="url(#blurN)"></polygon>
+  <polygon points="115.4,131 116.9,121.2 193.2,138.4" fill="#f6f6f8"></polygon>
+  <circle cx="128" cy="128" r="11.5" fill="#151519" stroke="#4a4a52" stroke-width="2"></circle>
+  <circle cx="128" cy="128" r="4.5" fill="#4ade80" filter="url(#blurN)"></circle>
+  <circle cx="128" cy="128" r="4" fill="#86efac"></circle>
+</svg>
