@@ -202,7 +202,11 @@ func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discovery
 
 func updateDiscoveryFor(cfg config.Config, webURL string) updateDiscoveryPayload {
 	return updateDiscoveryPayload{
-		Name:            "Software",
+		// The application name, not "Software". A device page can carry update
+		// entities from several sources, and "corgan_pc3 Software" says nothing
+		// about which program the row is offering to update. The identifiers
+		// below stay as they are, so no entity is orphaned by the rename.
+		Name:            config.AppName,
 		DefaultEntityID: "update." + cfg.ObjectID(updateKey),
 		ObjectID:        cfg.ObjectID(updateKey),
 		UniqueID:        cfg.UniqueID(updateKey),

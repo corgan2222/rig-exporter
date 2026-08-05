@@ -447,3 +447,18 @@ func TestTheUpdateEntityCarriesAnIconForWhenThereIsNoPicture(t *testing.T) {
 		t.Errorf("icon = %q, want mdi:speedometer", payload.Icon)
 	}
 }
+
+// The row on the device page says which program is offering the update. It read
+// "corgan_pc3 Software", which is true of every update entity ever published.
+// The identifiers are not part of the rename — they would orphan the entity.
+func TestTheUpdateEntityIsNamedAfterTheProgram(t *testing.T) {
+	cfg := config.Defaults()
+	payload := updateDiscoveryFor(cfg, "http://127.0.0.1:8787")
+
+	if payload.Name != config.AppName {
+		t.Errorf("name = %q, want %q", payload.Name, config.AppName)
+	}
+	if payload.UniqueID != cfg.UniqueID(updateKey) || payload.ObjectID != cfg.ObjectID(updateKey) {
+		t.Errorf("the rename moved an identifier: %+v", payload)
+	}
+}
