@@ -59,7 +59,7 @@ type Server struct {
 // New parses the templates and prepares the HTTP handlers.
 func New(application *app.App, log *slog.Logger) (*Server, error) {
 	pages := map[string]*template.Template{}
-	for _, page := range []string{"status", "capture", "export"} {
+	for _, page := range []string{"status", "capture", "measurements", "export"} {
 		tmpl, err := template.ParseFS(templateFS, "templates/layout.html", "templates/"+page+".html")
 		if err != nil {
 			return nil, fmt.Errorf("parse %s page: %w", page, err)
@@ -72,6 +72,7 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleStatus)
 	mux.HandleFunc("GET /capture", s.handleCapture)
+	mux.HandleFunc("GET /measurements", s.handleMeasurements)
 	mux.HandleFunc("GET /export", s.handleExport)
 	// One endpoint per block, so a page can never switch off a setting it does
 	// not show: an unchecked box and an absent field look identical in a form
@@ -82,6 +83,9 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux.HandleFunc("POST /open", s.handleOpen)
 	mux.HandleFunc("POST /dismiss", s.handleDismiss)
 	mux.HandleFunc("POST /update", s.handleUpdate)
+	// Moving the slider is its own thing: it takes a rung and forgets the
+	// exceptions, which the form full of ticks cannot express.
+	mux.HandleFunc("POST /rung", s.handleRung)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
@@ -217,6 +221,8 @@ type pageData struct {
 	// RecorderYAML is the ready-to-paste Home Assistant recorder block for
 	// exactly the entities this machine publishes.
 	RecorderYAML string
+	// Measurements is the tree, the slider and the estimate.
+	Measurements measurementsData
 	// The two sensor sets, for the box that says what each one contains.
 	// ExtendedSet holds what the extended set adds, not the whole of it.
 	StandardSet []setEntry
@@ -361,6 +367,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		DiskInclude:     strings.Join(cfg.DiskInclude, ", "),
 		EntityCount:     len(status.Snapshot.Entities()),
 		RecorderYAML:    recorderSnippet(cfg, status.Snapshot),
+		Measurements:    measurementsFor(status, lang),
 		StandardSet:     setEntries(metrics.PresetDefinitions(metrics.PresetBasic), lang),
 		ExtendedSet:     setEntries(addedByExtended(), lang),
 	}
@@ -440,13 +447,14 @@ func endpointsFor(cfg config.Config, lang i18n.Lang) []endpoint {
 // blockPages maps each settings block onto the page it lives on, which is
 // where a save returns to.
 var blockPages = map[string]string{
-	"sensors": "/capture",
-	"capture": "/capture",
-	"mqtt":    "/export",
-	"ha":      "/export",
-	"data":    "/export",
-	"influx":  "/export",
-	"app":     "/export",
+	"sensors":      "/capture",
+	"capture":      "/measurements",
+	"measurements": "/measurements",
+	"mqtt":         "/export",
+	"ha":           "/export",
+	"data":         "/export",
+	"influx":       "/export",
+	"app":          "/export",
 }
 
 // localAddress is the machine's own IPv4 address on the interface that carries
@@ -524,10 +532,6 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.InfluxToken = updateSecret(r, "influx_token", "clear_influx_token", cfg.InfluxToken)
 
 	case "sensors":
-		// The control still offers the old two; the rung is what is stored and
-		// what everything downstream reads. Normalize keeps sensor_set in step.
-		cfg.SensorSet = r.FormValue("sensor_set")
-		cfg.Measurements.Preset = config.PresetForSensorSet(cfg.SensorSet)
 		cfg.GPUEnabled = r.FormValue("gpu_enabled") != ""
 		cfg.CPUDetailEnabled = r.FormValue("cpu_detail_enabled") != ""
 		cfg.CPUPerCore = r.FormValue("cpu_per_core") != ""
@@ -547,6 +551,9 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.TopProcessesCount = formInt(r, "top_processes_count", cfg.TopProcessesCount)
 		cfg.TopProcessesIntervalMs = formInt(r, "top_processes_interval_ms", cfg.TopProcessesIntervalMs)
 
+	case "measurements":
+		saveMeasurements(&cfg, r)
+
 	case "capture":
 		cfg.PollIntervalMs = formInt(r, "poll_interval_ms", cfg.PollIntervalMs)
 		cfg.PublishIntervalMs = formInt(r, "interval_ms", cfg.PublishIntervalMs)
@@ -564,12 +571,33 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.UpdateCheckEnabled = r.FormValue("update_check_enabled") != ""
 	}
 
-	if err := s.app.ApplyConfig(cfg); err != nil {
+	err := s.app.ApplyConfig(cfg)
+	if err != nil {
 		s.log.Error("apply config", "block", block, "error", err)
-		http.Redirect(w, r, page+"?error="+neturl.QueryEscape(err.Error())+"#"+block, http.StatusSeeOther)
+	}
+	respondSave(w, r, page, "#"+block, err)
+}
+
+// respondSave answers a save.
+//
+// A page that applies every change as it is made posts in the background and
+// has no use for a redirect — following one would fetch the whole page again
+// for every keystroke. It says so with a header, and gets an empty answer.
+// An ordinary form submit still wants the redirect it has always got.
+func respondSave(w http.ResponseWriter, r *http.Request, page, anchor string, err error) {
+	if r.Header.Get("X-Quiet") == "1" {
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	http.Redirect(w, r, page+"?saved=1#"+block, http.StatusSeeOther)
+	if err != nil {
+		http.Redirect(w, r, page+"?error="+neturl.QueryEscape(err.Error())+anchor, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, page+"?saved=1"+anchor, http.StatusSeeOther)
 }
 
 // openTargets maps the footer buttons onto what they open.

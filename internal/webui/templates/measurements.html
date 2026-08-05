@@ -1,0 +1,306 @@
+{{ define "content" }}
+
+  {{ if .Error }}<div class="banner err">{{ .T "settings.failed" }}: {{ .Error }}</div>{{ end }}
+
+  <div class="card" id="rung">
+    <div class="cardhead tight">
+      <h2>{{ .T "measurements.title" }}</h2>
+      <span class="note applied" id="applied" hidden>✓ {{ .T "measurements.applied" }}</span>
+    </div>
+
+    <div class="rungrow">
+      <div class="rungside">
+        <form method="post" action="/rung" id="rung-form">
+          <input type="hidden" name="preset" id="rung-preset" value="{{ .Measurements.Preset }}">
+          <input type="range" id="rung-slider" min="0" max="2" step="1"
+                 value="{{ .Measurements.RungAt }}" list="rung-marks"
+                 aria-label="{{ .T "measurements.title" }}">
+          <datalist id="rung-marks">
+            {{ range $i, $r := .Measurements.Rungs }}<option value="{{ $i }}"></option>{{ end }}
+          </datalist>
+          <div class="rungnames">
+            <span>{{ .T "settings.sensors.setMinimal" }}</span>
+            <span>{{ .T "settings.sensors.setStandard" }}</span>
+            <span>{{ .T "settings.sensors.setExtended" }}</span>
+          </div>
+          <p class="note" id="rung-note"></p>
+        </form>
+
+        <!-- The capture settings live here rather than on their own page
+             because all but one of them decide how much of the above reaches a
+             database. The estimate beside them reacts as they are typed. -->
+        <form method="post" action="/save/capture" data-block="capture" class="capturebox" id="capture-form">
+          <div class="subrow">
+            <label>
+              <span class="name">{{ .T "settings.capture.publish" }}</span>
+              <input type="number" name="interval_ms" id="f-publish" value="{{ .Config.PublishIntervalMs }}"
+                     min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+              <span class="hint"></span>
+            </label>
+            <label>
+              <span class="name">{{ .T "settings.capture.publishIdle" }}</span>
+              <input type="number" name="idle_interval_ms" id="f-idle" value="{{ .Config.IdlePublishIntervalMs }}"
+                     min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+              <span class="hint"></span>
+            </label>
+            <label>
+              <span class="name">{{ .T "settings.capture.poll" }}
+                <span class="help" title="{{ .T "measurements.pollNote" }}">?</span></span>
+              <input type="number" name="poll_interval_ms" value="{{ .Config.PollIntervalMs }}"
+                     min="{{ .MinIntervalMs }}" max="{{ .MaxIntervalMs }}" step="50">
+              <span class="hint"></span>
+            </label>
+            <label>
+              <span class="name">{{ .T "settings.capture.idle" }}
+                <span class="help" title="{{ .T "measurements.pollNote" }}">?</span></span>
+              <input type="number" name="idle_timeout_ms" value="{{ .Config.IdleTimeoutMs }}"
+                     min="{{ .MinIdleMs }}" max="{{ .MaxIdleMs }}" step="500">
+              <span class="hint"></span>
+            </label>
+          </div>
+          <label class="check">
+            <input type="checkbox" name="decimals" id="f-decimals" value="1" {{ if .Config.Decimals }}checked{{ end }}>
+            <span class="name">{{ .T "settings.capture.decimals" }}</span>
+            <span class="help" title="{{ .T "settings.capture.decimalsHint" }}">?</span>
+          </label>
+          <p class="note" id="decimals-warning" hidden></p>
+        </form>
+      </div>
+
+      <div class="estimate" id="estimate">
+        <div class="figure"><span id="est-entities">&ndash;</span> <span class="unit">{{ .T "measurements.entities" }}</span></div>
+        <div class="figure"><span id="est-rows">&ndash;</span> <span class="unit">{{ .T "measurements.rowsPerDay" }}</span></div>
+        <div class="figure big"><span id="est-size">&ndash;</span> <span class="unit">{{ .T "measurements.dbSize" }}</span></div>
+        <p class="note" id="est-basis"></p>
+        <p class="note keepout">
+          {{ .T "measurements.keepOut" }}
+          <a href="/export#recorder">{{ .T "status.recorder.link" }}</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" action="/save/measurements" data-block="measurements" id="picks-form">
+    <input type="hidden" name="preset" id="picks-preset" value="{{ .Measurements.Preset }}">
+    {{ range .Measurements.Groups }}
+    <div class="card" id="node-{{ .Key }}">
+      <div class="cardhead tight">
+        <h2>{{ .Label }}</h2>
+        <span class="note" id="count-{{ .Key }}"></span>
+        <button type="button" class="ghost small" data-all="{{ .Key }}">{{ $.T "measurements.all" }}</button>
+        <button type="button" class="ghost small" data-none="{{ .Key }}">{{ $.T "measurements.none" }}</button>
+      </div>
+      <div class="picks">
+        {{ range .Rows }}
+        <label class="pick">
+          <input type="checkbox" name="measurement" value="{{ .ID }}"
+                 data-instances="{{ .Instances }}" data-rung="{{ .Rung }}"
+                 {{ if .Selected }}checked{{ end }}>
+          <span class="what">{{ .Name }}</span>
+          <span class="live">{{ .Value }}</span>
+        </label>
+        {{ end }}
+      </div>
+    </div>
+    {{ end }}
+  </form>
+
+<style>
+  /* The slider, the four numbers that multiply it and the result of that
+     multiplication, side by side: everything on the left is a cause and the
+     box on the right is the effect. */
+  .rungrow { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(15rem, 21rem);
+             gap: 1.5rem; align-items: start; }
+  .rungside { min-width: 0; }
+  #rung-form { margin-bottom: 1.1rem; }
+  #rung-slider { width: 100%; accent-color: var(--accent); margin: 0; }
+  .rungnames { display: flex; justify-content: space-between; color: var(--muted);
+               font-size: .8rem; margin-top: .25rem; }
+  #rung-note { margin: .5rem 0 0; }
+  .capturebox { border-top: 1px solid var(--line); padding-top: .9rem; }
+  .capturebox .subrow { grid-auto-columns: minmax(5.5rem, 1fr); width: 100%; }
+  .capturebox .check { margin: .8rem 0 0; }
+  /* The estimate reads as one block of arithmetic, with its assumptions
+     underneath rather than hidden behind a tooltip. */
+  .estimate { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+              padding: .8rem 1rem; }
+  .estimate .figure { font-variant-numeric: tabular-nums; }
+  .estimate .figure.big { font-size: 1.35rem; margin-top: .5rem; line-height: 1.3; }
+  .estimate .unit { color: var(--muted); font-size: .8rem; }
+  /* The long label under the big number rather than beside it: beside it, it
+     wrapped and left a hole where the number should have been. */
+  .estimate .figure.big .unit { display: block; line-height: 1.35; }
+  .estimate .note { margin: .6rem 0 0; font-size: .72rem; line-height: 1.45; }
+  .estimate .keepout { border-top: 1px solid var(--line); padding-top: .6rem; }
+  .applied { color: var(--accent); font-size: .78rem; }
+  /* Two columns of ticks while there is room. Name on the left, what it reads
+     right now on the right — the name says which measurement this is, the
+     reading says whether it is worth keeping. */
+  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: .1rem 1.4rem; }
+  .pick { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
+          gap: .5rem; margin: 0; padding: .18rem 0; }
+  .pick .what { font-size: .87rem; }
+  .pick .live { color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums;
+                text-align: right; white-space: nowrap; }
+  .cardhead.tight { gap: .7rem; }
+  .cardhead.tight .note { font-size: .78rem; }
+  @media (max-width: 780px) {
+    .rungrow { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+const E = {{ .Measurements.Estimate }};
+const RUNGS = {{ .Measurements.Rungs }};
+const L = {
+  basis: {{ .T "measurements.basis" }},
+  measured: {{ .T "measurements.measured" }},
+  assumed: {{ .T "measurements.assumed" }},
+  rungNote: {{ .T "measurements.rungNote" }},
+  selectedOf: {{ .T "measurements.selectedOf" }},
+  decimalsChanged: {{ .T "measurements.decimalsChanged" }},
+};
+
+const ticks = () => [...document.querySelectorAll('input[name="measurement"]')];
+
+// Entities rather than measurements: one measurement becomes one entity per
+// graphics card, per volume, per adapter, and that is what reaches a database.
+function selectedEntities() {
+  return ticks().filter(t => t.checked)
+                .reduce((sum, t) => sum + Number(t.dataset.instances || 1), 0);
+}
+
+function publishMs() {
+  // The pace in force right now — the idle one unless a game is running, and
+  // that is what the exporter reported when the page was built.
+  const field = E.rendering ? document.getElementById("f-publish")
+                            : document.getElementById("f-idle");
+  const typed = Number(field && field.value);
+  return typed > 0 ? typed : E.publish_ms;
+}
+
+function renderEstimate() {
+  const entities = selectedEntities();
+  const churn = E.samples > 0 ? E.churn : E.fallback_rate;
+  const ms = publishMs();
+  const perDay = 86400000 / Math.max(ms, 1);
+  const rows = Math.round(entities * churn * perDay);
+  const bytes = rows * E.bytes_per_row * E.keep_days;
+
+  document.getElementById("est-entities").textContent = entities.toLocaleString();
+  document.getElementById("est-rows").textContent = rows.toLocaleString();
+  document.getElementById("est-size").textContent = formatBytes(bytes);
+
+  const how = E.samples > 0
+    ? L.measured.replace("%1", (churn * 100).toFixed(0)).replace("%2", E.samples)
+    : L.assumed.replace("%1", (churn * 100).toFixed(0));
+  document.getElementById("est-basis").textContent = L.basis
+    .replace("%1", how)
+    .replace("%2", (ms / 1000).toFixed(0))
+    .replace("%3", E.bytes_per_row)
+    .replace("%4", E.keep_days);
+
+  for (const group of document.querySelectorAll("[id^=node-]")) {
+    const key = group.id.slice("node-".length);
+    const boxes = [...group.querySelectorAll('input[name="measurement"]')];
+    const on = boxes.filter(b => b.checked).length;
+    document.getElementById("count-" + key).textContent =
+      L.selectedOf.replace("%1", on).replace("%2", boxes.length);
+  }
+}
+
+function formatBytes(bytes) {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes, i = 0;
+  while (value >= 1024 && i < units.length - 1) { value /= 1024; i++; }
+  return value.toFixed(value >= 100 || i === 0 ? 0 : 1) + " " + units[i];
+}
+
+// Everything on this page takes effect where it is made: no save button, and
+// no reload either. The header says so once the answer is in, because a change
+// that vanishes without a word is indistinguishable from one that was lost.
+let flash;
+function applied() {
+  const mark = document.getElementById("applied");
+  mark.hidden = false;
+  clearTimeout(flash);
+  flash = setTimeout(() => { mark.hidden = true; }, 1600);
+}
+
+const pending = {};
+function save(form, delay) {
+  clearTimeout(pending[form.id]);
+  pending[form.id] = setTimeout(() => {
+    fetch(form.action, {
+      method: "POST",
+      headers: {"X-Quiet": "1"},
+      body: new URLSearchParams(new FormData(form)),
+    }).then(response => { if (response.ok) applied(); });
+  }, delay === undefined ? 400 : delay);
+}
+
+const picks = document.getElementById("picks-form");
+const capture = document.querySelector('form[data-block="capture"]');
+
+// Enter in a number field would otherwise submit the form the old way and
+// reload the page — the one thing this page is built not to do.
+for (const form of [picks, capture, document.getElementById("rung-form")]) {
+  form.addEventListener("submit", event => { event.preventDefault(); save(form, 0); });
+}
+
+// The slider re-ticks the list as it is dragged, so the estimate moves with the
+// hand. Only letting go writes anything: it throws the hand-picked exceptions
+// away, and doing that sixty times during one drag would be sixty writes.
+const slider = document.getElementById("rung-slider");
+slider.max = RUNGS.length - 1;
+slider.addEventListener("input", () => {
+  const at = Number(slider.value);
+  document.getElementById("rung-note").textContent = L.rungNote.replace("%1", RUNGS[at]);
+  for (const box of ticks()) box.checked = Number(box.dataset.rung) <= at;
+  renderEstimate();
+});
+slider.addEventListener("change", () => {
+  const preset = RUNGS[slider.value];
+  document.getElementById("rung-preset").value = preset;
+  document.getElementById("picks-preset").value = preset;
+  save(document.getElementById("rung-form"), 0);
+});
+
+for (const button of document.querySelectorAll("[data-all], [data-none]")) {
+  button.addEventListener("click", () => {
+    const key = button.dataset.all || button.dataset.none;
+    const wanted = button.hasAttribute("data-all");
+    for (const box of document.querySelectorAll("#node-" + key + ' input[name="measurement"]')) {
+      box.checked = wanted;
+    }
+    renderEstimate();
+    save(picks);
+  });
+}
+
+for (const box of ticks()) {
+  box.addEventListener("change", () => { renderEstimate(); save(picks); });
+}
+
+// The two intervals move the estimate as they are typed. The decimals cannot:
+// the change rate above was measured with the setting as it stands, and
+// guessing a factor for the other case would turn a measurement back into an
+// invention. Saying so is the honest half of that.
+for (const field of capture.querySelectorAll("input")) {
+  field.addEventListener("input", () => { renderEstimate(); save(capture, 800); });
+}
+const decimals = document.getElementById("f-decimals");
+if (decimals) {
+  const asMeasured = decimals.checked;
+  decimals.addEventListener("change", () => {
+    const warning = document.getElementById("decimals-warning");
+    warning.hidden = decimals.checked === asMeasured;
+    warning.textContent = L.decimalsChanged;
+  });
+}
+
+document.getElementById("rung-note").textContent =
+  L.rungNote.replace("%1", RUNGS[slider.value]);
+renderEstimate();
+</script>
+{{ end }}

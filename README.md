@@ -32,24 +32,40 @@ Es wird nur gemeldet, was der Rechner tatsächlich liefert. Fehlt die Quelle
 einer Gruppe, entstehen dafür gar keine Entities — und sie erscheinen von
 selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 
-Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
-Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
+Quer über alle Gruppen liegt der **Umfang**. Die Gruppen sagen, welche Hardware
+gelesen wird; der Umfang sagt, wie ausführlich. Ein Schieberegler auf der Seite
+**Messwerte** kennt drei Stufen:
 
+* **Minimal** — 16 Messwerte: die Kacheln der Anzeigeseite. Drei Temperaturen,
+  Gesamtbelegung, Durchsatz, Akku. Bewusst ohne Laufzeit und Prozessanzahl,
+  denn die ändern sich bei jeder Messung und füllen eine Datenbank mit nichts.
 * **Standard** — 72 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
-* **Erweitert** (Voreinstellung) — die übrigen 42 dazu: Taktraten, Speicher­riegel,
+* **Erweitert** (Voreinstellung) — alle 114: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS, Akkuverschleiß. Nützlich beim
   Suchen eines Problems, im Alltag selten.
 
-Wie viele Entities daraus auf einem bestimmten Rechner werden, sagt die
-Einstellungsseite oben an — sie zählt, was dieser PC tatsächlich hergibt.
-Welcher Messwert in welchem Satz steckt, listet sie ausklappbar auf — erzeugt
-aus dem Katalog, nicht abgetippt. Die Auswahl wirkt überall gleich: was der Standard­satz
-nicht enthält, entsteht gar nicht erst und fehlt deshalb in MQTT, JSON,
-Prometheus, InfluxDB **und** auf der eigenen Anzeigeseite. Ein Wert, den das
-Dashboard zeigt und Home Assistant nie bekommt, wäre die schlechtere Einstellung.
+Der Regler setzt nur die Grundstellung. Darunter steht **jeder Messwert einzeln
+zum Abhaken**, nach Knoten sortiert, mit dem Wert, den er gerade liest — man
+sieht also, was man einschaltet, bevor man es einschaltet. Gespeichert wird die
+Stufe plus die Abweichungen davon, nicht die Liste: ein Messwert, den eine
+spätere Version dazubaut, kommt dadurch von selbst mit.
 
-Beim Wechsel auf den Standardsatz werden die abgewählten Entities in Home
+Daneben steht eine **Überschlagsrechnung**: wie viele Entities die Auswahl auf
+diesem PC ergibt, wie viele Datenbankzeilen das pro Tag sind und wie groß die
+Datenbank damit wird. Sie rechnet nicht mit geratenen Zahlen — der Anteil
+tatsächlich wechselnder Werte wird laufend gemessen, und die zwei angenommenen
+Größen (300 Byte je Zeile, 10 Tage Aufbewahrung) stehen daneben. Die Sende­takte
+liegen mit auf derselben Seite, weil sie die Zeilenzahl genauso bestimmen wie
+die Auswahl; die Anzeige bewegt sich beim Tippen mit. Nichts davon braucht einen
+Speichern-Knopf: jede Änderung wirkt sofort.
+
+Die Auswahl wirkt überall gleich: was nicht angehakt ist, entsteht gar nicht
+erst und fehlt deshalb in MQTT, JSON, Prometheus, InfluxDB **und** auf der
+eigenen Anzeigeseite. Ein Wert, den das Dashboard zeigt und Home Assistant nie
+bekommt, wäre die schlechtere Einstellung.
+
+Beim Abwählen werden die abgewählten Entities in Home
 Assistant **entfernt**, nicht bloß nicht mehr beliefert: für jede geht eine leere
 retained Nachricht auf ihr Discovery-Topic, und genau das ist der Löschbefehl.
 Der Weg zurück kündigt sie wieder an. Home Assistant behält dabei einen
@@ -184,7 +200,7 @@ Laufwerk.
 „Wie voll ist dieser Rechner" ist die Frage, die vor jeder Frage nach einem
 einzelnen Laufwerk kommt, und sie aus vier Entities in einem Template
 zusammenzurechnen ist Arbeit, die niemand zweimal machen will. Die Summen
-gehören deshalb zum **Standardsatz**.
+gehören deshalb schon zur Stufe **Standard**.
 
 Summiert wird genau das, was auch gemeldet wird: ein über **Nur diese
 Laufwerke** ausgeschlossenes Volume zählt nicht mit, und eines, das sich nicht
@@ -570,13 +586,13 @@ Drei Seiten, erreichbar über die Kopfzeile:
   Auslese-Intervall.
 
   Unter den Kacheln sagen vier Chips, was gerade eingestellt ist: welcher
-  Messwertsatz, ob mit Nachkommastellen, wie viele Entities entstehen, und in
+  Umfang, ob mit Nachkommastellen, wie viele Entities entstehen, und in
   welchem Takt gesendet wird — dabei der Takt, der **gerade** gilt, mit dem
   Zusatz „im Spiel" oder „Leerlauf". Eine Zahl ohne diesen Zusatz wäre wertlos,
   weil es zwei davon gibt. Jeder Chip führt auf die Einstellung, die ihn
   bestimmt; einen Wert zu lesen und ihn zu ändern soll nicht zwei Suchen sein.
-  Kacheln für Werte, die der gewählte Satz gar nicht misst, werden ausgeblendet
-  statt leer angezeigt.
+  Kacheln für Werte, die der gewählte Umfang gar nicht misst, werden
+  ausgeblendet statt leer angezeigt.
 
   Fehlt auf einem Rechner die GPU beziehungsweise werden dort bewusst keine
   Spieldaten genutzt, lässt sich der RTSS-Hinweis mit **„Keine GPU vorhanden —
@@ -590,8 +606,9 @@ Drei Seiten, erreichbar über die Kopfzeile:
   Home-Assistant-Datenbank samt Verweis auf den fertigen `recorder:`-Abschnitt.
   „Gelesen, nicht wieder anzeigen" räumt ihn dauerhaft weg — in der
   Konfiguration gemerkt, anders als die Sortierung der Hardware-Panels.
-* **Datengewinnung** — welcher Messwertsatz, welche Sensorgruppen gelesen
-  werden und wie oft.
+* **Datengewinnung** — welche Sensorquellen gelesen werden.
+* **Messwerte** — der Umfang, jeder Messwert einzeln, die Sendetakte und die
+  Überschlagsrechnung zur Datenbankgröße.
 * **Export & Anzeige** — wohin die Werte gehen (MQTT, Home Assistant,
   Speicherung, Datenserver, InfluxDB) und wie sich die Anwendung selbst
   verhält. Unter den aktiven MQTT- und InfluxDB-Push-Zielen folgt eine
@@ -927,7 +944,7 @@ Protocol. Der schnellste Weg zu sehen, welche Quellen greifen und was bei Home
 Assistant ankäme.
 
 Auf einem Laptop ohne Afterburner oder NVIDIA-Treiber muss der Abschnitt
-**Grafikkarte** im erweiterten Messwertsatz mindestens Name, Hersteller,
+**Grafikkarte** im erweiterten Umfang mindestens Name, Hersteller,
 Treiberversion, dedizierten und gemeinsam nutzbaren GPU-Speicher sowie
 `Windows DXGI` als Datenquelle enthalten. Auslastung, Temperatur und Takt fehlen
 in diesem Fall absichtlich, solange keine Live-Quelle sie wirklich misst.

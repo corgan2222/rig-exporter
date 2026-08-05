@@ -4,14 +4,54 @@ package i18n
 // the string appears, so a key read in a template says where to find it.
 var catalogue = map[string]Text{
 	// Navigation and page chrome.
-	"nav.status":   {DE: "Anzeige", EN: "Dashboard"},
-	"nav.capture":  {DE: "Datengewinnung", EN: "Data capture"},
-	"nav.export":   {DE: "Export & Anzeige", EN: "Export & display"},
-	"nav.settings": {DE: "Einstellungen", EN: "Settings"},
-	"nav.language": {DE: "Sprache", EN: "Language"},
-	"page.status":  {DE: "Anzeige", EN: "Dashboard"},
-	"page.capture": {DE: "Datengewinnung", EN: "Data capture"},
-	"page.export":  {DE: "Export & Anzeige", EN: "Export & display"},
+	"nav.status":        {DE: "Anzeige", EN: "Dashboard"},
+	"nav.capture":       {DE: "Datengewinnung", EN: "Data capture"},
+	"nav.export":        {DE: "Export & Anzeige", EN: "Export & display"},
+	"nav.settings":      {DE: "Einstellungen", EN: "Settings"},
+	"nav.language":      {DE: "Sprache", EN: "Language"},
+	"page.status":       {DE: "Anzeige", EN: "Dashboard"},
+	"page.capture":      {DE: "Datengewinnung", EN: "Data capture"},
+	"nav.measurements":  {DE: "Messwerte", EN: "Measurements"},
+	"page.measurements": {DE: "Messwerte", EN: "Measurements"},
+
+	// The measurement selection page.
+	"measurements.title":      {DE: "Umfang", EN: "Scope"},
+	"measurements.all":        {DE: "alle", EN: "all"},
+	"measurements.none":       {DE: "keine", EN: "none"},
+	"measurements.selectedOf": {DE: "%1 von %2", EN: "%1 of %2"},
+	"measurements.entities":   {DE: "Entities", EN: "entities"},
+	"measurements.pollNote":   {DE: "ohne Einfluss auf die Menge", EN: "does not change the amount"},
+	"measurements.applied":    {DE: "übernommen", EN: "applied"},
+	"measurements.keepOut": {
+		DE: "Ein Messwert muss nicht in der Datenbank landen. Der Recorder kann eine Entity zeigen, ohne ihren Verlauf aufzuzeichnen — das kostet keine Zeile.",
+		EN: "A measurement need not reach the database. The recorder can show an entity without keeping its history, and that costs no rows at all.",
+	},
+	"measurements.decimalsChanged": {
+		DE: "Die Änderungsrate oben wurde mit der bisherigen Einstellung gemessen. Nach dem Speichern misst der Exporter neu — die Schätzung stimmt bis dahin nicht.",
+		EN: "The change rate above was measured with the previous setting. The exporter measures again once this is saved; until then the estimate does not apply.",
+	},
+	"measurements.rowsPerDay": {DE: "DB-Einträge pro Tag", EN: "database rows per day"},
+	"measurements.dbSize":     {DE: "Datenbank nach der Aufbewahrungszeit", EN: "database after the retention period"},
+	"measurements.rungNote": {
+		DE: "Loslassen wählt die Stufe %1 und verwirft die einzeln gesetzten Haken.",
+		EN: "Releasing picks the %1 rung and discards the individually ticked boxes.",
+	},
+	// The assumptions belong next to the number, not behind a tooltip: the
+	// result is worth nothing without them, and somebody has to be able to see
+	// which one is wrong on their machine.
+	"measurements.basis": {
+		DE: "Grob überschlagen: %1, alle %2 s gesendet, 300 Byte je Zeile angenommen, %4 Tage Aufbewahrung. Home Assistant speichert bei Änderung, nicht beim Senden — die Nachkommastellen sind hier der größte Hebel.",
+		EN: "Roughly estimated: %1, published every %2 s, 300 bytes per row assumed, %4 days of retention. Home Assistant stores on change, not on publish — the decimals are the biggest lever here.",
+	},
+	"measurements.measured": {
+		DE: "%1 % der Werte ändern sich je Sendung (gemessen über %2 Sendungen)",
+		EN: "%1 % of the values change per publish (measured over %2 publishes)",
+	},
+	"measurements.assumed": {
+		DE: "%1 % der Werte ändern sich je Sendung (angenommen, noch nichts gemessen)",
+		EN: "%1 % of the values change per publish (assumed, nothing measured yet)",
+	},
+	"page.export": {DE: "Export & Anzeige", EN: "Export & display"},
 
 	"footer.by":      {DE: "von", EN: "by"},
 	"footer.project": {DE: "Projektseite auf GitHub", EN: "Project page on GitHub"},
@@ -229,15 +269,16 @@ var catalogue = map[string]Text{
 	},
 
 	// Settings, sensor groups.
-	"settings.sensors.title": {DE: "Sensorgruppen", EN: "Sensor groups"},
+	"settings.sensors.title": {DE: "Sensorquellen", EN: "Sensor sources"},
 	"settings.sensors.nav":   {DE: "Sensoren", EN: "Sensors"},
 	"settings.sensors.intro": {
-		DE: "Es wird nur gemeldet, was der Rechner auch liefert. Fehlt die Datenquelle einer Gruppe, entstehen in Home Assistant gar keine Entities dafür — und sie tauchen automatisch auf, sobald die Quelle da ist.",
-		EN: "Only what the machine actually supplies is reported. A group whose source is missing creates no entities at all — and they appear by themselves once the source is there.",
+		DE: "Welche Hardware überhaupt gelesen wird. Fehlt die Datenquelle, entstehen dafür gar keine Entities — und sie tauchen von selbst auf, sobald die Quelle da ist. Welche einzelnen Werte davon gesendet werden, steht unter",
+		EN: "Which hardware is read at all. Where the source is missing, no entities are created — and they appear by themselves once it is there. Which individual values are sent is decided under",
 	},
-	"settings.sensors.entityCount": {DE: "Aktuell", EN: "Currently"},
-	"settings.sensors.entities":    {DE: "Entities", EN: "entities"},
-	"settings.sensors.gpu":         {DE: "Grafikkarte — Temperatur, Takt, VRAM, Auslastung, Lüfter, Leistung", EN: "Graphics card — temperature, clocks, VRAM, load, fan, power"},
+	"settings.sensors.toMeasurements": {DE: "Messwerte", EN: "Measurements"},
+	"settings.sensors.entityCount":    {DE: "Aktuell", EN: "Currently"},
+	"settings.sensors.entities":       {DE: "Entities", EN: "entities"},
+	"settings.sensors.gpu":            {DE: "Grafikkarte — Temperatur, Takt, VRAM, Auslastung, Lüfter, Leistung", EN: "Graphics card — temperature, clocks, VRAM, load, fan, power"},
 	"settings.sensors.gpuHint": {
 		DE: "Quelle ist MSI Afterburner (NVIDIA, AMD, Intel), ersatzweise NVML aus dem NVIDIA-Treiber. Ohne beides gibt es keine GPU-Werte — Windows selbst liefert weder Temperatur noch Takt.",
 		EN: "The source is MSI Afterburner (NVIDIA, AMD, Intel), or failing that NVML from the NVIDIA driver. Without either there are no GPU values: Windows itself exposes neither temperature nor clocks.",
@@ -251,6 +292,7 @@ var catalogue = map[string]Text{
 		EN: "Clock, type and population come from the firmware's SMBIOS tables; usage and free memory come straight from Windows.",
 	},
 	"settings.sensors.disk":     {DE: "Laufwerke — Typ, Kapazität, Belegung, Durchsatz", EN: "Drives — type, capacity, usage, throughput"},
+	"settings.sensors.details":  {DE: "Detaileinstellungen", EN: "Detailed config"},
 	"settings.sensors.diskOnly": {DE: "Nur diese Laufwerke", EN: "Only these drives"},
 	"settings.sensors.diskHint": {DE: "Laufwerksbuchstaben, kommagetrennt, z. B. <code>C, D</code>.", EN: "Drive letters, comma separated, e.g. <code>C, D</code>."},
 	"settings.sensors.diskAll":  {DE: "leer = alle festen Laufwerke", EN: "blank = every fixed drive"},
