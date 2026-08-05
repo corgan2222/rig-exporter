@@ -35,27 +35,37 @@
   .topbar { position: sticky; top: 0; z-index: 10; background: rgba(11,17,32,.92);
             backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
             margin: 0 -1rem 1.5rem; padding: .7rem 1rem; }
-  .topbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center;
-                  gap: 1rem; flex-wrap: wrap; }
+  /* Two rows: who and what on top, where to go underneath. The navigation is
+     about to gain a fourth entry, and one row would have had it fighting the
+     name, the author and the language switch for the same width. */
+  .topbar-inner { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column;
+                  gap: .55rem; }
+  .topline, .menuline { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  /* Each row keeps its right-hand item against the right edge. */
+  .topline .by, .menuline .langs { margin-left: auto; }
   /* The mark sits in the baseline of the name rather than above it: 1em tall,
      so it grows and shrinks with the type instead of being a picture the text
      has to make room for. */
-  .brand { display: inline-flex; align-items: center; gap: .45rem;
-           font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em;
+  .brand { display: inline-flex; align-items: baseline; gap: .45rem;
+           font-weight: 700; font-size: 1.25rem; letter-spacing: -.01em;
            text-decoration: none; color: var(--text); }
-  .brand img { width: 1em; height: 1em; display: block; flex: none; }
-  .brand span { color: var(--muted); font-weight: 400; font-size: .8rem; }
+  /* Baseline-aligned with the name and 1em tall, so the mark grows with the
+     type instead of being a picture the type has to make room for. */
+  .brand img { width: 1em; height: 1em; flex: none; align-self: center; }
+  /* The version sits inside the link, right behind the name: it says which
+     rig-exporter this is, which is part of reading the name. */
+  .brand .version { color: var(--muted); font-weight: 400; font-size: .72em; }
   .brand:hover .name { text-decoration: underline; text-underline-offset: 3px; }
   /* The author credit is a link but must not look like navigation. */
   .by { color: var(--muted); font-weight: 400; font-size: .8rem; }
   .by a { color: var(--muted); text-decoration: none; }
   .by a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
-  nav.main { display: flex; gap: .3rem; }
-  nav.main a { color: var(--muted); text-decoration: none; padding: .32rem .75rem;
-               border-radius: 7px; font-size: .9rem; }
+  nav.main { display: flex; gap: .3rem; flex-wrap: wrap; }
+  nav.main a { color: var(--muted); text-decoration: none; padding: .38rem .85rem;
+               border-radius: 7px; font-size: 1rem; }
   nav.main a:hover { background: var(--panel-2); color: var(--text); }
   nav.main a.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
-  .langs { margin-left: auto; display: flex; gap: .25rem; align-items: center; }
+  .langs { display: flex; gap: .25rem; align-items: center; }
   .langs .label { color: var(--muted); font-size: .75rem; margin-right: .25rem; }
   .langs button { background: transparent; color: var(--muted); border: 1px solid var(--line);
                   padding: .22rem .55rem; border-radius: 6px; font: inherit; font-size: .8rem;
@@ -67,6 +77,25 @@
   h2 { font-size: 1rem; margin: 0 0 1rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
           padding: 1.25rem 1.5rem 1.5rem; margin-bottom: 1.25rem; scroll-margin-top: 4.5rem; }
+
+  /* Collapsing a card hides everything but its heading. Done with a rule
+     rather than by moving nodes into a wrapper: the contents keep their
+     place in the document, so nothing that writes into a card from the
+     status poll has to know the card can be shut. */
+  .card.collapsed { padding-bottom: 1.15rem; }
+  .card.collapsed > *:not(h2):not(.cardhead) { display: none; }
+  .card.collapsed > h2, .card.collapsed > .cardhead { margin-bottom: 0; }
+  /* The heading is the control. It reads as one — pointer, hover, focus ring —
+     without becoming a button, which would put a second tab stop in front of
+     every card. */
+  h2.toggle { cursor: pointer; user-select: none; display: flex; align-items: center; gap: .5rem; }
+  h2.toggle:hover { color: var(--text); }
+  h2.toggle:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 4px; border-radius: 4px; }
+  /* Bigger than the heading it sits in. The heading is small caps with wide
+     letter spacing, and a caret scaled to it reads as a speck rather than as
+     something to press. */
+  h2.toggle .caret { flex: none; font-size: 1.15em; line-height: 1; transition: transform .15s ease; }
+  .card.collapsed h2.toggle .caret { transform: rotate(-90deg); }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; }
   .tile { background: var(--panel-2); border-radius: 9px; padding: .7rem .9rem; }
   .tile .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
@@ -218,26 +247,29 @@
   footer .credit a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 </style>
 </head>
-<body>
+<body data-page="{{ .Active }}">
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="{{ .ProjectURL }}" target="_blank" rel="noopener"
-       title="{{ .T "footer.project" }}"><img src="/icon.png" alt=""><span class="name">{{ .AppName }}</span></a>
-    <span class="by">{{ .T "footer.by" }} <a href="{{ .AuthorURL }}" target="_blank" rel="noopener">{{ .AuthorName }}</a></span>
-    <span class="by">v{{ .Version }} &middot; {{ .Config.DeviceName }}</span>
-    <nav class="main">
-      <a href="/" {{ if eq .Active "status" }}class="active"{{ end }}>{{ .T "nav.status" }}</a>
-      <a href="/capture" {{ if eq .Active "capture" }}class="active"{{ end }}>{{ .T "nav.capture" }}</a>
-      <a href="/export" {{ if eq .Active "export" }}class="active"{{ end }}>{{ .T "nav.export" }}</a>
-    </nav>
-    <form class="langs" method="post" action="/language">
-      <span class="label">{{ .T "nav.language" }}</span>
-      {{ $lang := .Lang }}
-      {{ range .Languages }}
-      <button type="submit" name="lang" value="{{ .Code }}" {{ if eq .Code $lang }}class="active"{{ end }}>{{ .Name }}</button>
-      {{ end }}
-    </form>
+    <div class="topline">
+      <a class="brand" href="{{ .ProjectURL }}" target="_blank" rel="noopener"
+         title="{{ .T "footer.project" }}"><img src="/icon.png" alt=""><span class="name">{{ .AppName }}</span><span class="version">v{{ .Version }} &middot; {{ .Config.DeviceName }}</span></a>
+      <span class="by">{{ .T "footer.by" }} <a href="{{ .AuthorURL }}" target="_blank" rel="noopener">{{ .AuthorName }}</a></span>
+    </div>
+    <div class="menuline">
+      <nav class="main">
+        <a href="/" {{ if eq .Active "status" }}class="active"{{ end }}>{{ .T "nav.status" }}</a>
+        <a href="/capture" {{ if eq .Active "capture" }}class="active"{{ end }}>{{ .T "nav.capture" }}</a>
+        <a href="/export" {{ if eq .Active "export" }}class="active"{{ end }}>{{ .T "nav.export" }}</a>
+      </nav>
+      <form class="langs" method="post" action="/language">
+        <span class="label">{{ .T "nav.language" }}</span>
+        {{ $lang := .Lang }}
+        {{ range .Languages }}
+        <button type="submit" name="lang" value="{{ .Code }}" {{ if eq .Code $lang }}class="active"{{ end }}>{{ .Name }}</button>
+        {{ end }}
+      </form>
+    </div>
   </div>
 </div>
 
@@ -267,6 +299,88 @@
 </div>
 
 <script>
+// Every card folds away by clicking its heading, and remembers whether it was
+// left open.
+//
+// The state lives in localStorage, and that is deliberate even though this
+// interface has no fixed origin — a busy port sends it to a random one, and a
+// different port throws the whole store away. What must survive that goes into
+// the configuration; a view preference may be lost. Somebody who finds a card
+// open again after the port moved has lost nothing they answered.
+const COLLAPSED_KEY = "rig.collapsed";
+
+function collapsedCards() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || "[]"));
+  } catch {
+    return new Set(); // a store somebody edited by hand is not worth a broken page
+  }
+}
+
+function rememberCollapsed(set) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...set]));
+  } catch {
+    // Private browsing, a full quota: the fold still works for this visit.
+  }
+}
+
+(function foldableCards() {
+  const collapsed = collapsedCards();
+  const page = document.body.dataset.page || "";
+
+  document.querySelectorAll(".card").forEach((card, index) => {
+    const heading = card.querySelector(":scope > h2, :scope > .cardhead > h2");
+    if (!heading) return;
+
+    // The id where there is one, so the memory survives a card moving; the
+    // position only where there is nothing better.
+    const key = card.id ? card.id : page + ":" + index;
+
+    const caret = document.createElement("span");
+    caret.className = "caret";
+    caret.textContent = "▾";
+    heading.prepend(caret);
+    heading.classList.add("toggle");
+    heading.tabIndex = 0;
+    heading.setAttribute("role", "button");
+
+    const apply = (shut) => {
+      card.classList.toggle("collapsed", shut);
+      heading.setAttribute("aria-expanded", String(!shut));
+    };
+    apply(collapsed.has(key));
+
+    const toggle = () => {
+      const shut = !card.classList.contains("collapsed");
+      apply(shut);
+      const now = collapsedCards();
+      shut ? now.add(key) : now.delete(key);
+      rememberCollapsed(now);
+    };
+
+    heading.addEventListener("click", toggle);
+    heading.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  });
+
+  // A link from elsewhere on the page points at a card that may be shut, and
+  // scrolling to a closed heading looks like the link is broken.
+  const openTarget = () => {
+    if (!location.hash) return;
+    const target = document.getElementById(location.hash.slice(1));
+    if (target && target.classList.contains("collapsed")) {
+      target.querySelector("h2.toggle").click();
+    }
+  };
+  openTarget();
+  window.addEventListener("hashchange", openTarget);
+})();
+
 // Mark a settings block as unsaved as soon as anything inside it changes, so
 // its save button is the only one that lights up.
 for (const form of document.querySelectorAll("form[data-block]")) {
