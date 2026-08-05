@@ -78,7 +78,6 @@ func TestCheckPublishesANewerReleaseWithABriefChangelog(t *testing.T) {
 	notes := strings.Repeat("Verbesserte GPU-Erkennung und MQTT-Status. ", 20)
 	source := &fakeReleaseSource{found: true, latest: Release{
 		Version: "1.6.4",
-		Title:   "rig-exporter 1.6.4",
 		Notes:   notes,
 		URL:     "https://github.com/corgan2222/rig-exporter/releases/tag/v1.6.4",
 		Size:    12 << 20,
@@ -97,7 +96,7 @@ func TestCheckPublishesANewerReleaseWithABriefChangelog(t *testing.T) {
 	if state.InstalledVersion != "1.6.3" || state.LatestVersion != "1.6.4" {
 		t.Fatalf("versions = %q -> %q", state.InstalledVersion, state.LatestVersion)
 	}
-	if state.ReleaseURL != source.latest.URL || state.Title != source.latest.Title {
+	if state.ReleaseURL != source.latest.URL || state.Title != softwareTitle {
 		t.Errorf("release metadata = %#v", state)
 	}
 	if len([]rune(state.ReleaseSummary)) > 255 {
@@ -114,7 +113,6 @@ func TestCheckPublishesANewerReleaseWithABriefChangelog(t *testing.T) {
 func TestCheckNeverOffersADowngrade(t *testing.T) {
 	manager := newTestManager(&fakeReleaseSource{found: true, latest: Release{
 		Version: "1.6.2",
-		Title:   "older",
 	}}, &fakeApplyPreparer{})
 
 	if err := manager.Check(context.Background()); err != nil {
@@ -244,7 +242,7 @@ func TestInstallFailureReturnsToIdleWithoutRequestingRestart(t *testing.T) {
 // goes out — not a request whose answer is ignored.
 func TestSwitchingChecksOffStopsAskingAtAll(t *testing.T) {
 	source := &fakeReleaseSource{found: true, latest: Release{
-		Version: "1.9.0", Title: "v1.9.0", Size: 1024,
+		Version: "1.9.0", Size: 1024,
 	}}
 	manager := newTestManager(source, &fakeApplyPreparer{})
 
@@ -264,7 +262,7 @@ func TestSwitchingChecksOffStopsAskingAtAll(t *testing.T) {
 // user just said they did not want to hear about.
 func TestSwitchingChecksOffWithdrawsAnOfferedUpdate(t *testing.T) {
 	source := &fakeReleaseSource{found: true, latest: Release{
-		Version: "1.9.0", Title: "v1.9.0", Size: 1024, URL: "https://example.invalid/v1.9.0",
+		Version: "1.9.0", Size: 1024, URL: "https://example.invalid/v1.9.0",
 	}}
 	manager := newTestManager(source, &fakeApplyPreparer{})
 
@@ -298,5 +296,56 @@ func TestSwitchingChecksToTheSameValueDoesNothing(t *testing.T) {
 	manager.SetCheckEnabled(true)
 	if !manager.CheckEnabled() {
 		t.Error("switching on an already-on check turned it off")
+	}
+}
+
+// Home Assistant means the name of the *software* by "title", not the name of
+// the release. The GitHub release name went in here, and since GitHub names
+// every release after its version, the update card never mentioned
+// rig-exporter and the overview row read "v1.7.1 1.7.1".
+func TestTheUpdateTitleNamesTheSoftwareAndNotTheRelease(t *testing.T) {
+	source := &fakeReleaseSource{found: true, latest: Release{
+		Version: "1.9.0", Size: 1024, URL: "https://example.invalid/v1.9.0",
+	}}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+
+	// Before any check, and after one that finds something.
+	if got := manager.State().Title; got != "rig-exporter" {
+		t.Errorf("title before the first check = %q", got)
+	}
+	if err := manager.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+
+	state := manager.State()
+	if state.Title != "rig-exporter" {
+		t.Errorf("title = %q, want the name of the software", state.Title)
+	}
+	if state.Title == state.LatestVersion || strings.Contains(state.Title, "1.9.0") {
+		t.Errorf("title %q repeats the version %q", state.Title, state.LatestVersion)
+	}
+}
+
+// The release notes carry install instructions that are worth reading on the
+// release page and worthless in a card with 255 characters to spend.
+func TestTheSummaryDropsTheInstallInstructions(t *testing.T) {
+	notes := "## New\n\n- Something worth knowing (#42)\n\n" +
+		"## Installing\n\nDownload `rig-exporter.exe` below and run it. " +
+		"No installer, no runtime, no administrator rights.\n"
+	source := &fakeReleaseSource{found: true, latest: Release{
+		Version: "1.9.0", Size: 1024, Notes: notes,
+	}}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+
+	if err := manager.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+
+	summary := manager.State().ReleaseSummary
+	if !strings.Contains(summary, "Something worth knowing") {
+		t.Errorf("the summary lost what actually changed: %q", summary)
+	}
+	if strings.Contains(summary, "Installing") || strings.Contains(summary, "administrator rights") {
+		t.Errorf("the summary still carries the install instructions: %q", summary)
 	}
 }
