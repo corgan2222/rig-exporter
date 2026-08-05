@@ -9,6 +9,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/hardware/battery"
+	"github.com/corgan2222/rig-exporter/internal/hardware/cooling"
 	"github.com/corgan2222/rig-exporter/internal/hardware/cpu"
 	"github.com/corgan2222/rig-exporter/internal/hardware/disk"
 	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
@@ -66,6 +67,9 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 	if cfg.BatteryEnabled {
 		s.sources = append(s.sources, battery.New(log))
 	}
+	if cfg.SpecialHardwareEnabled {
+		s.sources = append(s.sources, cooling.New(log))
+	}
 	// Last, because it is the only source that reads the whole machine rather
 	// than one piece of it, and its own ticker means the order here decides
 	// nothing but where its rows land in the output.
@@ -122,11 +126,18 @@ func Probe(cfg config.Config, log *slog.Logger) (c *collector.Collector, start, 
 }
 
 // sensorsChanged reports whether the optional sources need rebuilding.
+//
+// Every switch buildSensors reads has to be listed here. One that is missing
+// does not fail loudly: the setting is saved, the interface shows it as taken,
+// and the source list keeps whatever it had until the next restart.
+// PawnIOEnabled was missing for exactly that reason.
 func sensorsChanged(a, b config.Config) bool {
 	if a.GPUEnabled != b.GPUEnabled ||
 		a.CPUDetailEnabled != b.CPUDetailEnabled ||
 		a.CPUPerCore != b.CPUPerCore ||
 		a.RAMDetailEnabled != b.RAMDetailEnabled ||
+		a.PawnIOEnabled != b.PawnIOEnabled ||
+		a.SpecialHardwareEnabled != b.SpecialHardwareEnabled ||
 		a.DiskEnabled != b.DiskEnabled ||
 		a.NetEnabled != b.NetEnabled ||
 		a.NetAllAdapters != b.NetAllAdapters ||

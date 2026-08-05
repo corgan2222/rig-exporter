@@ -61,14 +61,18 @@ const (
 	GroupDisk Group = "disk"
 	// GroupNet covers network adapters and the latency probe.
 	GroupNet Group = "net"
+	// GroupCooling covers USB-attached cooling controllers: all-in-one water
+	// coolers, pumps and fan hubs. Empty on any machine without one, which is
+	// most of them.
+	GroupCooling Group = "cooling"
 	// GroupBattery covers the battery pack, and stays empty on any machine
 	// that does not have one.
 	GroupBattery Group = "battery"
 )
 
-// Groups lists every group in presentation order. Battery comes last because
-// it is the only one that most machines will never fill.
-var Groups = []Group{GroupCore, GroupGPU, GroupCPU, GroupRAM, GroupDisk, GroupNet, GroupBattery}
+// Groups lists every group in presentation order. Cooling and battery come
+// last because they are the two that most machines will never fill.
+var Groups = []Group{GroupCore, GroupGPU, GroupCPU, GroupRAM, GroupDisk, GroupNet, GroupCooling, GroupBattery}
 
 // groupLabels names the groups for the settings page, the tray and -probe.
 var groupLabels = map[Group]i18n.Text{
@@ -78,6 +82,7 @@ var groupLabels = map[Group]i18n.Text{
 	GroupRAM:     {DE: "Arbeitsspeicher", EN: "Memory"},
 	GroupDisk:    {DE: "Laufwerke", EN: "Drives"},
 	GroupNet:     {DE: "Netzwerk", EN: "Network"},
+	GroupCooling: {DE: "Kühlung", EN: "Cooling"},
 	GroupBattery: {DE: "Akku", EN: "Battery"},
 }
 

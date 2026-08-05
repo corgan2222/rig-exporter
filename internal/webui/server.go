@@ -191,6 +191,7 @@ type pageData struct {
 	RTSSDownloadURL string
 	AfterburnerURL  string
 	PawnIOURL       string
+	CoolingURL      string
 	// Where the name in the header and the credit in the footer point.
 	ProjectURL string
 	AuthorURL  string
@@ -352,6 +353,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
 		PawnIOURL:       config.PawnIOURL,
+		CoolingURL:      config.CoolingURL,
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,
@@ -539,6 +541,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.CPUPerCore = r.FormValue("cpu_per_core") != ""
 		cfg.RAMDetailEnabled = r.FormValue("ram_detail_enabled") != ""
 		cfg.PawnIOEnabled = r.FormValue("pawnio_enabled") != ""
+		cfg.SpecialHardwareEnabled = r.FormValue("special_hardware_enabled") != ""
 		cfg.DiskEnabled = r.FormValue("disk_enabled") != ""
 		cfg.DiskInclude = splitList(r.FormValue("disk_include"))
 		cfg.NetEnabled = r.FormValue("net_enabled") != ""
@@ -926,6 +929,7 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 		metrics.GroupRAM:     st.Config.RAMDetailEnabled,
 		metrics.GroupDisk:    st.Config.DiskEnabled,
 		metrics.GroupNet:     st.Config.NetEnabled,
+		metrics.GroupCooling: st.Config.SpecialHardwareEnabled,
 		metrics.GroupBattery: st.Config.BatteryEnabled,
 	}
 
@@ -945,8 +949,10 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 		// A missing graphics card or an unreachable adapter is worth a panel
 		// saying so: the user probably expected one. A missing battery is not.
 		// Most machines are desktops, and a permanently empty box telling
-		// somebody their tower has no battery is noise on every page load.
-		if group == metrics.GroupBattery && !status.Available && status.Error == "" {
+		// somebody their tower has no battery is noise on every page load. The
+		// same is true of a cooling controller: most machines have none, and
+		// the ones that do have a cooler nobody here can read.
+		if optionalGroups[group] && !status.Available && status.Error == "" {
 			continue
 		}
 		if status.Enabled && status.Available {
@@ -955,6 +961,17 @@ func groupStatuses(st app.Status, lang i18n.Lang) []groupStatus {
 		out = append(out, status)
 	}
 	return out
+}
+
+// optionalGroups are the two whose absence is not news.
+//
+// Every other group belongs to hardware the machine certainly has, so a panel
+// saying "no data" is an answer worth showing. A battery in a tower and a
+// water cooler on a machine with an air cooler are not missing — they were
+// never there.
+var optionalGroups = map[metrics.Group]bool{
+	metrics.GroupBattery: true,
+	metrics.GroupCooling: true,
 }
 
 // originRow is one supplier and what it currently provides.

@@ -46,6 +46,45 @@ func TestProbeAppliesTheSettingsThatReachTheCatalogue(t *testing.T) {
 	}
 }
 
+// Every switch that decides which sources exist has to make sensorsChanged say
+// yes. One that does not is the quietest kind of broken: the setting is saved,
+// the interface shows it as taken, and the source list keeps whatever it had
+// until the program is restarted. PawnIO was in exactly that state.
+func TestEverySourceSwitchRebuildsTheSources(t *testing.T) {
+	switches := map[string]func(*config.Config, bool){
+		"gpu_enabled":           func(c *config.Config, on bool) { c.GPUEnabled = on },
+		"cpu_detail_enabled":    func(c *config.Config, on bool) { c.CPUDetailEnabled = on },
+		"cpu_per_core":          func(c *config.Config, on bool) { c.CPUPerCore = on },
+		"pawnio_enabled":        func(c *config.Config, on bool) { c.PawnIOEnabled = on },
+		"special_hardware":      func(c *config.Config, on bool) { c.SpecialHardwareEnabled = on },
+		"ram_detail_enabled":    func(c *config.Config, on bool) { c.RAMDetailEnabled = on },
+		"disk_enabled":          func(c *config.Config, on bool) { c.DiskEnabled = on },
+		"net_enabled":           func(c *config.Config, on bool) { c.NetEnabled = on },
+		"net_all_adapters":      func(c *config.Config, on bool) { c.NetAllAdapters = on },
+		"battery_enabled":       func(c *config.Config, on bool) { c.BatteryEnabled = on },
+		"ping_enabled":          func(c *config.Config, on bool) { c.PingEnabled = on },
+		"self_usage_enabled":    func(c *config.Config, on bool) { c.SelfUsageEnabled = on },
+		"top_processes_enabled": func(c *config.Config, on bool) { c.TopProcessesEnabled = on },
+	}
+
+	for name, set := range switches {
+		t.Run(name, func(t *testing.T) {
+			base := config.Defaults()
+			// PawnIO only reaches a source alongside the processor detail.
+			base.CPUDetailEnabled = true
+			set(&base, false)
+
+			changed := base
+			set(&changed, true)
+
+			if !sensorsChanged(base, changed) {
+				t.Error("flipping this switch does not rebuild the sources, so the " +
+					"setting is saved and then ignored until a restart")
+			}
+		})
+	}
+}
+
 // closingSource stands in for the processor source, which holds a PDH query
 // open for as long as the set exists.
 type closingSource struct{ closed int }

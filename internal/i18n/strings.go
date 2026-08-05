@@ -306,6 +306,26 @@ var catalogue = map[string]Text{
 		DE: "Nur auf Geräten mit Akku. Ein Desktop meldet hier nichts, statt eine Anzeige zu erzeugen, die immer auf null steht. Verschleiß, Ladezyklen und Chemie stehen im erweiterten Messwertsatz und nur, wenn der Akku sie meldet.",
 		EN: "Laptops only. A desktop reports nothing here rather than producing a gauge that sits at zero forever. Wear, charge cycles and chemistry are in the extended sensor set, and only appear when the battery reports them.",
 	},
+	"settings.sensors.special": {
+		DE: "Spezielle Hardware — AIO-Wasserkühlung, Pumpe, Lüfter-Hub",
+		EN: "Special hardware — AIO water cooling, pump, fan hub",
+	},
+	// The badge is not decoration. This source reads protocols nobody
+	// published, against devices that mostly were never held in a hand here.
+	"settings.sensors.specialAlpha": {DE: "ALPHA · ungetestet", EN: "ALPHA · untested"},
+	"settings.sensors.specialHint": {
+		DE: "Liest USB-Kühlungssteuerungen direkt: Flüssigkeitstemperatur, Pumpen- und Lüfterdrehzahl. " +
+			"Es wird ausschließlich gelesen — an keiner Pumpe wird etwas verstellt. " +
+			"Die Protokolle stammen aus LibreHardwareMonitor und sind nicht vom Hersteller dokumentiert. " +
+			"Geprüft ist bisher nur die NZXT Kraken Z3; alles andere kann schweigen. " +
+			"Findet sich kein Gerät, entsteht keine einzige Entity.",
+		EN: "Reads USB cooling controllers directly: coolant temperature, pump and fan speed. " +
+			"Reading only — nothing here changes a pump setting. " +
+			"The protocols come from LibreHardwareMonitor and are not documented by their makers. " +
+			"Only the NZXT Kraken Z3 has been verified against hardware; anything else may stay silent. " +
+			"With no device present, not a single entity is created.",
+	},
+	"settings.sensors.specialLink":  {DE: "unterstützte Geräte", EN: "supported devices"},
 	"settings.sensors.ping":         {DE: "Latenzmessung — Ping und Paketverlust", EN: "Latency probe — ping and packet loss"},
 	"settings.sensors.pingTarget":   {DE: "Ping-Ziel", EN: "Ping target"},
 	"settings.sensors.pingGateway":  {DE: "leer = Standard-Gateway", EN: "blank = default gateway"},

@@ -118,6 +118,11 @@
   .check { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
   .check input { margin: 0; flex: none; }
   .check .name { font-size: .9rem; color: var(--text); }
+  /* A warning worn on the line itself: this source reads protocols nobody
+     published, and the label has to be visible before the click, not after. */
+  .badge.alpha { flex: none; font-size: .66rem; letter-spacing: .05em; text-transform: uppercase;
+                 color: var(--warn); border: 1px solid var(--warn); border-radius: 5px;
+                 padding: .05rem .35rem; line-height: 1.35; white-space: nowrap; }
   .note { color: var(--muted); font-size: .8rem; }
   /* The list of values a source supplies is the long column, so it takes the
      remaining width and wraps; the other two stay as narrow as their content. */

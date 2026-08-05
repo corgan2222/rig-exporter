@@ -29,7 +29,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.8.6"
+	Version = "1.9.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -43,6 +43,9 @@ const (
 	// on the source line rather than hidden in a tooltip: it is the one source
 	// this program cannot install for you.
 	PawnIOURL = "https://pawnio.eu/"
+	// CoolingURL points at the protocols the cooling source is decoded from.
+	// Credit where it is due, and the only list of what might work.
+	CoolingURL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/master/LibreHardwareMonitorLib/Hardware/Controller"
 
 	// ProjectURL and AuthorURL are where the interface points when somebody
 	// clicks the name in the header or the credit in the footer.
@@ -132,10 +135,19 @@ type Config struct {
 	// administrators, so switching this on means running rig-exporter elevated.
 	// That is a decision about the machine, not a setting, and nobody should
 	// arrive at it by accident.
-	PawnIOEnabled bool     `json:"pawnio_enabled"`
-	DiskEnabled   bool     `json:"disk_enabled"`
-	DiskInclude   []string `json:"disk_include"`
-	NetEnabled    bool     `json:"net_enabled"`
+	PawnIOEnabled bool `json:"pawnio_enabled"`
+	// SpecialHardwareEnabled opts in to the USB cooling controllers: all-in-one
+	// water coolers, pumps and fan hubs.
+	//
+	// Off by default, and marked as untested in the interface, because the
+	// protocols are reverse-engineered and only one device family has ever been
+	// held against real hardware. Reading is all it does — nothing here writes
+	// to a pump — so the worst case is a measurement that does not appear, not
+	// a cooler that stops working.
+	SpecialHardwareEnabled bool     `json:"special_hardware_enabled"`
+	DiskEnabled            bool     `json:"disk_enabled"`
+	DiskInclude            []string `json:"disk_include"`
+	NetEnabled             bool     `json:"net_enabled"`
 	// NetAllAdapters reports every connected interface instead of only the
 	// one carrying the default route.
 	NetAllAdapters bool `json:"net_all_adapters"`
@@ -381,9 +393,12 @@ func Defaults() Config {
 		CPUPerCore:       false, // one entity per thread is a lot for a 16-core CPU
 		RAMDetailEnabled: true,
 		PawnIOEnabled:    false, // needs elevation; the user has to choose it
-		DiskEnabled:      true,
-		NetEnabled:       true,
-		BatteryEnabled:   true,
+		// Reverse-engineered protocols against hardware nobody here owns most
+		// of. Whoever switches it on should have decided to.
+		SpecialHardwareEnabled: false,
+		DiskEnabled:            true,
+		NetEnabled:             true,
+		BatteryEnabled:         true,
 
 		// On by default: a telemetry exporter that quietly runs an old build
 		// with a fixed bug in it helps nobody. Nothing installs itself.

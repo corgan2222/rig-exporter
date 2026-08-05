@@ -918,6 +918,50 @@ var (
 		Prom: "rig_battery_voltage_volts", Help: "Battery terminal voltage",
 		DeviceClass: "voltage", StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:flash",
 	}
+
+	// The cooling loop, read from the controller itself over USB.
+	//
+	// One instance per controller, keyed on the product id: a machine can have
+	// a pump and a separate fan hub, and they must not land on one entity. The
+	// key never translates and survives a firmware update, which is why it is
+	// the product id and not the model name.
+	CoolingDevice = Definition{
+		ID: "cooling_device", Name: i18n.Text{DE: "Modell", EN: "Model"},
+		Kind: KindText, Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_info", PromLabel: "device", Help: "Cooling controller model",
+		EntityCategory: "diagnostic", Icon: "mdi:snowflake",
+	}
+	CoolingLiquidTemperature = Definition{
+		ID: "cooling_liquid_temperature", Name: i18n.Text{DE: "Flüssigkeit", EN: "Liquid"},
+		Unit: "°C", Kind: KindGauge, Precision: 1,
+		Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_liquid_temperature_celsius", Help: "Coolant temperature in the loop",
+		DeviceClass: "temperature", StateClass: "measurement", Icon: "mdi:thermometer-water",
+	}
+	CoolingPumpSpeed = Definition{
+		ID: "cooling_pump_speed", Name: i18n.Text{DE: "Pumpe", EN: "Pump"},
+		Unit: "rpm", Kind: KindGauge, Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_pump_rpm", Help: "Pump speed",
+		StateClass: "measurement", Icon: "mdi:pump",
+	}
+	CoolingPumpDuty = Definition{
+		ID: "cooling_pump_duty", Name: i18n.Text{DE: "Pumpe Regelung", EN: "Pump duty"},
+		Unit: "%", Kind: KindGauge, Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_pump_duty_percent", Help: "Pump duty cycle the controller is driving",
+		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:pump",
+	}
+	CoolingFanSpeed = Definition{
+		ID: "cooling_fan_speed", Name: i18n.Text{DE: "Lüfter", EN: "Fan"},
+		Unit: "rpm", Kind: KindGauge, Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_fan_rpm", Help: "Radiator fan speed",
+		StateClass: "measurement", Icon: "mdi:fan",
+	}
+	CoolingFanDuty = Definition{
+		ID: "cooling_fan_duty", Name: i18n.Text{DE: "Lüfter Regelung", EN: "Fan duty"},
+		Unit: "%", Kind: KindGauge, Group: GroupCooling, InstanceLabel: "cooler",
+		Prom: "rig_cooling_fan_duty_percent", Help: "Fan duty cycle the controller is driving",
+		StateClass: "measurement", EntityCategory: "diagnostic", Icon: "mdi:fan",
+	}
 )
 
 // All is every definition, used to validate the catalogue in tests and to
@@ -950,6 +994,9 @@ var All = []Definition{
 	BatteryCharge, BatteryCharging, BatteryAC, BatteryRemaining, BatteryPower, BatteryRuntime,
 	BatteryHealth, BatteryCycles, BatteryCapacityFull, BatteryCapacityDesign,
 	BatteryChemistry, BatteryVoltage,
+
+	CoolingDevice, CoolingLiquidTemperature, CoolingPumpSpeed, CoolingPumpDuty,
+	CoolingFanSpeed, CoolingFanDuty,
 }
 
 // ByGroup returns every definition in one group.

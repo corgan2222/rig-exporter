@@ -275,7 +275,7 @@ func BatteryDevices() ([]BatteryInfo, error) {
 
 	var out []BatteryInfo
 	for index := 0; ; index++ {
-		path, ok := batteryDevicePath(set, index)
+		path, ok := interfacePath(set, &batteryDeviceGUID, index)
 		if !ok {
 			break
 		}
@@ -289,15 +289,19 @@ func BatteryDevices() ([]BatteryInfo, error) {
 	return out, nil
 }
 
-// batteryDevicePath returns the device path of the index'th battery interface,
-// and false once the enumeration has run out.
-func batteryDevicePath(set windows.DevInfo, index int) (string, bool) {
+// interfacePath returns the device path of the index'th interface of the given
+// class, and false once the enumeration has run out.
+//
+// Written once for every device class rather than per class: the batteries and
+// the HID controllers are found the same way, and the two-call dance for the
+// buffer size is the part that is easy to get subtly wrong.
+func interfacePath(set windows.DevInfo, guid *windows.GUID, index int) (string, bool) {
 	data := spDeviceInterfaceData{}
 	data.Size = uint32(unsafe.Sizeof(data))
 
 	ret, _, _ := procSetupDiEnumDeviceInterfaces.Call(
 		uintptr(set), 0,
-		uintptr(unsafe.Pointer(&batteryDeviceGUID)),
+		uintptr(unsafe.Pointer(guid)),
 		uintptr(index),
 		uintptr(unsafe.Pointer(&data)),
 	)

@@ -180,15 +180,15 @@ func TestTheMeasurementPageOffersTheRungAndTheTree(t *testing.T) {
 			t.Errorf("the tree does not offer %q", want)
 		}
 	}
-	// One tick per measurement this machine can have. The test fixture has no
-	// battery, so the battery group is not offered — a box that can never be
-	// ticked into anything is worse than no box.
+	// One tick per measurement this machine can have. The test fixture has
+	// neither a battery nor a cooling controller, so neither group is offered
+	// — a box that can never be ticked into anything is worse than no box.
 	//
 	// Counted on the attribute pair, not on the name alone: the script below
 	// selects the same boxes and would otherwise be counted as three more.
 	offered, hidden := 0, 0
 	for _, d := range metrics.All {
-		if d.PanelGroup() == metrics.GroupBattery {
+		if optionalGroups[d.PanelGroup()] {
 			hidden++
 		} else {
 			offered++
@@ -517,9 +517,10 @@ func TestStatusAPIIsWellFormed(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 	// Every optional group appears, whether or not it has data: the page needs
-	// to say "switched off" as much as it needs to show readings. Two do not.
-	// The core group has its own tiles, and the battery is left out where
-	// there is none — this server has no collection loop, so there is none.
+	// to say "switched off" as much as it needs to show readings. The core
+	// group does not — it has its own tiles — and neither do the groups whose
+	// hardware is simply absent. This server has no collection loop, so the
+	// battery and the cooling controller are both absent.
 	present := map[string]bool{}
 	for _, g := range resp.Groups {
 		if g.Key == "" || g.Label == "" {
@@ -528,7 +529,7 @@ func TestStatusAPIIsWellFormed(t *testing.T) {
 		present[g.Key] = true
 	}
 	for _, group := range metrics.Groups {
-		want := group != metrics.GroupCore && group != metrics.GroupBattery
+		want := group != metrics.GroupCore && !optionalGroups[group]
 		if got := present[string(group)]; got != want {
 			t.Errorf("group %q present = %v, want %v", group, got, want)
 		}
@@ -633,13 +634,13 @@ func TestTheMeasurementTreeLeavesTheBatteryOutOnADesktop(t *testing.T) {
 	if len(unlisted) == 0 {
 		t.Fatal("the hidden battery measurements do not ride along")
 	}
-	fromBattery := map[string]bool{}
+	optional := map[string]bool{}
 	for _, d := range metrics.All {
-		fromBattery[d.ID] = d.PanelGroup() == metrics.GroupBattery
+		optional[d.ID] = optionalGroups[d.PanelGroup()]
 	}
 	for _, id := range unlisted {
-		if !fromBattery[id] {
-			t.Errorf("%q is not a battery measurement but was hidden", id)
+		if !optional[id] {
+			t.Errorf("%q belongs to hardware this machine has, but was hidden", id)
 		}
 	}
 }
