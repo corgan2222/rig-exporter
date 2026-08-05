@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/corgan2222/rig-exporter/internal/hardware/afterburner"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 )
@@ -22,10 +24,22 @@ type Source struct {
 	// lastSource records which backends produced the most recent readings,
 	// for the diagnostic entity and the settings page.
 	lastSource string
+	// engines reads the WDDM performance counters, on a slower schedule of
+	// its own.
+	engines *engineSampler
 }
 
 // New builds the GPU source.
-func New() *Source { return &Source{} }
+func New() *Source { return &Source{engines: newEngineSampler()} }
+
+// Close releases the performance counters the engine sampler holds open. A
+// configuration change throws the whole source away and builds a new one, so
+// without this every save would leak two PDH queries.
+func (s *Source) Close() {
+	if s.engines != nil {
+		s.engines.close()
+	}
+}
 
 // Group identifies this source.
 func (s *Source) Group() metrics.Group { return metrics.GroupGPU }
@@ -38,10 +52,11 @@ func (s *Source) Group() metrics.Group { return metrics.GroupGPU }
 // adapter at all is a normal state, not a failure of the exporter.
 func (s *Source) Collect(set *metrics.Set) error {
 	var sources []string
-	cards := map[string]string{} // instance -> card name
+	cards := map[string]string{}       // instance -> card name
+	luids := map[string]windows.LUID{} // instance -> adapter identifier
 
 	if adapters, err := dxgiAdapters(); err == nil {
-		if mergeFromDXGI(set, adapters, cards) {
+		if mergeFromDXGI(set, adapters, cards, luids) {
 			sources = append(sources, "Windows DXGI")
 		}
 	}
@@ -56,6 +71,13 @@ func (s *Source) Collect(set *metrics.Set) error {
 		if mergeFromNVML(set, nvmlCards, cards) {
 			sources = append(sources, "NVIDIA NVML")
 		}
+	}
+
+	// Last, so the overall utilisation only fills a gap the vendor sources
+	// left. The engine breakdown and the memory figure are its own and are
+	// added whatever else ran.
+	if s.engines != nil && s.engines.merge(set, luids) {
+		sources = append(sources, "Windows GPU counters")
 	}
 
 	if len(sources) == 0 {
@@ -181,7 +203,7 @@ func collectFromAfterburner(set *metrics.Set, snap afterburner.Snapshot, cards m
 // mergeFromDXGI adds the adapter facts Windows exposes without a vendor tool.
 // It deliberately contributes only inventory: DXGI does not report the live
 // temperature, clocks or utilisation that Afterburner and NVML provide.
-func mergeFromDXGI(set *metrics.Set, adapters []dxgiAdapter, cards map[string]string) bool {
+func mergeFromDXGI(set *metrics.Set, adapters []dxgiAdapter, cards map[string]string, luids map[string]windows.LUID) bool {
 	added := false
 
 	previous := set.Origin
@@ -197,6 +219,9 @@ func mergeFromDXGI(set *metrics.Set, adapters []dxgiAdapter, cards map[string]st
 	for i, adapter := range adapters {
 		instance := instances[i]
 		cards[instance] = adapter.Name
+		// Recorded even when nothing else about this adapter is worth adding:
+		// it is what maps the performance counters onto this card.
+		luids[instance] = adapter.LUID
 
 		addText := func(def metrics.Definition, value string) {
 			if value == "" {

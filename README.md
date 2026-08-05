@@ -28,9 +28,9 @@ selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 Quer über alle Gruppen liegt die Wahl zwischen zwei **Messwertsätzen**. Die
 Gruppen sagen, welche Hardware gelesen wird; der Satz sagt, wie ausführlich:
 
-* **Standard** — 68 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 72 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
-* **Erweitert** (Voreinstellung) — die übrigen 41 dazu: Taktraten, Speicher­riegel,
+* **Erweitert** (Voreinstellung) — die übrigen 42 dazu: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS, Akkuverschleiß. Nützlich beim
   Suchen eines Problems, im Alltag selten.
 
@@ -64,7 +64,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
-| **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI und Plug and Play, MSI Afterburner und NVML |
+| **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung und ihre Aufteilung auf 3D, Videodekodierung, Videokodierung und Kopier-Engine, belegter Grafikspeicher, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI, Plug and Play und die WDDM-Leistungsindikatoren, MSI Afterburner und NVML |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
@@ -90,17 +90,46 @@ Windows kennt jede Grafikkarte selbst: DXGI liefert Modell, PCI-Hersteller,
 dedizierten Grafikspeicher und die Obergrenze des gemeinsam nutzbaren
 Systemspeichers; Plug and Play ergänzt die installierte Treiberversion.
 Temperatur, Takt und Leistung gehören dagegen nicht zu diesen Schnittstellen.
-Deshalb greifen drei Quellen ineinander:
+Deshalb greifen vier Quellen ineinander:
 
 1. **Windows DXGI** (`CreateDXGIFactory1` / `EnumAdapters1`) bildet das Inventar.
    Es braucht weder Zusatzsoftware noch Administratorrechte und erkennt damit
    auch eine integrierte Intel Iris auf einem normalen Laptop.
-2. **MSI Afterburner** (`MAHMSharedMemory`) liefert die Live-Werte: deckt NVIDIA,
+2. **Die WDDM-Leistungsindikatoren** (`GPU Engine`, `GPU Adapter Memory`) liefern
+   Auslastung und belegten Grafikspeicher — dieselben Zahlen, die der
+   Task-Manager auf seiner GPU-Seite zeichnet. Sie kommen aus dem
+   Windows-Grafikkern, nicht aus einem Herstellertreiber, brauchen keine
+   Rechte und funktionieren auf Intel, AMD und NVIDIA gleich.
+3. **MSI Afterburner** (`MAHMSharedMemory`) liefert die Live-Werte: deckt NVIDIA,
    AMD und Intel ab, liefert Lüfter, Spannung und Hotspot. RTSS gehört ohnehin
    dazu, ein für den FPS-Overlay eingerichteter Rechner hat das also schon.
-3. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
+4. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
    VRAM-Gesamtausbau und die Lüfterdrehzahl. Ohne Afterburner reicht es allein
    für NVIDIA-Karten.
+
+Die Leistungsindikatoren geben die Auslastung nach **Engine** aufgeschlüsselt:
+3D, Videodekodierung, Videokodierung und Kopier-Engine, jede als Summe über alle
+Prozesse. Zusammengezählt werden sie nicht — drei Engines zu je 60 % ergäben
+180 %, und mehr als voll beschäftigt kann eine Karte nicht sein. Der
+Gesamtwert ist deshalb die **belegteste** Engine, wie im Task-Manager.
+
+`gpu_load` wird daraus nur gefüllt, wenn weder Afterburner noch NVML ihn
+geliefert haben. Auf einem Rechner mit NVIDIA-Karte ändert sich also nichts; auf
+einem Laptop mit reiner Intel-Grafik gibt es damit zum ersten Mal überhaupt eine
+GPU-Auslastung. Der belegte Grafikspeicher bekommt dagegen einen **eigenen**
+Bezeichner (`gpu_memory_used` neben `gpu_vram_used`): das eine ist, was der
+Grafikkern vergeben hat, das andere, was die Karte selbst meldet. Die Zahlen
+gehen auseinander, und ein Wert, der seine Bedeutung mit der Quelle wechselt,
+ist schlechter als zwei Werte, die je eine Sache bedeuten.
+
+Nicht jede Engine wird gemeldet. VR, OFA, Security, JPEG-Dekodierung und das
+Legacy-Overlay stehen auf gewöhnlicher Hardware dauerhaft auf null und wären
+fünf Entities, die nie etwas sagen.
+
+Die Zähler werden alle fünf Sekunden gelesen, nicht im normalen Messtakt: sie
+liefern eine Zeile je Prozess, Adapter und Engine, was auf einem normalen
+Rechner mehrere hundert sind. Der Wert ist der Durchschnitt über dieses Fenster,
+ein längeres Fenster also kein gröberer Messwert, sondern ein ruhigerer.
 
 Auf einer NVIDIA-Karte fehlen ohne Afterburner nur die Werte, die NVML nicht
 kennt, etwa Hotspot und Spannung. Auf Intel und AMD bleibt ohne Live-Quelle das
@@ -113,9 +142,10 @@ Treibergeneration um neue Einsprungpunkte, und `LazyProc.Call` löst das Symbol
 einmal aufgelöst und vor dem ersten Aufruf geprüft; ein alter Treiber verliert
 einen Wert, nicht das Programm.
 
-Ohne Afterburner und NVML entfällt also nicht mehr die ganze GPU-Gruppe, sondern
-nur die Live-Telemetrie. Ohne Kernel-Treiber sind Gehäuselüfter,
-Netzteil-Telemetrie und Spannungen grundsätzlich nicht erreichbar.
+Ohne Afterburner und NVML entfallen also nur Temperatur, Takt, Lüfter und
+Leistung — Inventar, Auslastung und Speicherbelegung bleiben. Ohne
+Kernel-Treiber sind Gehäuselüfter, Netzteil-Telemetrie und Spannungen
+grundsätzlich nicht erreichbar.
 
 Die drei Quellen zählen unabhängig voneinander durch. DXGI legt die Instanzen
 fest, Afterburner und NVML werden über den Kartennamen darauf abgebildet — der
@@ -1228,7 +1258,8 @@ internal/collector               eine Messung aus Kern- und optionalen Quellen
 internal/rtss                    RTSS Shared Memory
 internal/sysinfo                 CPU-Last, RAM, Anzeigemodus, Leerlauf, Laufzeit
 internal/hardware/afterburner    Afterburner Shared Memory
-internal/hardware/gpu            GPU-Gruppe: Windows DXGI + Afterburner + NVML
+internal/hardware/gpu            GPU-Gruppe: DXGI + WDDM-Zähler + Afterburner + NVML
+internal/pdh                     Windows-Leistungsindikatoren, einzeln und mit Platzhalter
 internal/hardware/cpu            CPU-Gruppe
 internal/hardware/ram            Speichergruppe, inklusive SMBIOS-Parser
 internal/hardware/disk           Laufwerksgruppe

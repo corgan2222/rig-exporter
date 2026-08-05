@@ -28,7 +28,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.7.1"
+	Version = "1.8.0"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.

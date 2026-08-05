@@ -52,11 +52,16 @@ game_running             -          bool   prec=0 group=core  panel=core  cat=no
 gpu_core_clock           MHz        gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_core_clock_megahertz
 gpu_dedicated_memory_total MB         gauge  prec=0 group=gpu   panel=gpu   cat=diagnostic prom=rig_gpu_dedicated_memory_megabytes
 gpu_driver_version       -          text   prec=0 group=gpu   panel=gpu   cat=diagnostic prom=rig_gpu_driver_info
+gpu_engine_3d            %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_engine_3d_percent
+gpu_engine_copy          %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_engine_copy_percent
+gpu_engine_decode        %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_engine_decode_percent
+gpu_engine_encode        %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_engine_encode_percent
 gpu_fan                  %          gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_fan_percent
 gpu_fan_rpm              rpm        gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_fan_rpm
 gpu_hotspot              °C         gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_hotspot_celsius
 gpu_load                 %          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_percent
 gpu_memory_clock         MHz        gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_memory_clock_megahertz
+gpu_memory_used          MB         gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_memory_used_megabytes
 gpu_name                 -          text   prec=0 group=gpu   panel=gpu   cat=diagnostic prom=rig_gpu_info
 gpu_power                W          gauge  prec=1 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_power_watts
 gpu_power_limit          W          gauge  prec=1 group=gpu   panel=gpu   cat=diagnostic prom=rig_gpu_power_limit_watts

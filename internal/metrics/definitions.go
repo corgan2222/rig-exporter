@@ -332,6 +332,55 @@ var (
 		Prom: "rig_gpu_percent", Help: "Graphics processor utilisation",
 		StateClass: "measurement", Icon: "mdi:chip",
 	}
+	// The engine breakdown behind the overall utilisation, straight out of the
+	// WDDM performance counters — the same numbers the Task Manager's GPU tab
+	// draws. They come from the Windows graphics kernel rather than a vendor
+	// driver, so they exist on integrated graphics where nothing else measures
+	// anything at all.
+	//
+	// Each is the sum over every process using that engine. They are not added
+	// together into the overall figure: three engines at sixty percent would
+	// make a card a hundred and eighty percent busy.
+	GPUEngine3D = Definition{
+		ID: "gpu_engine_3d", Name: i18n.Text{DE: "3D-Auslastung", EN: "3D load"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_engine_3d_percent", Help: "Utilisation of the 3D and compute engine",
+		StateClass: "measurement", Icon: "mdi:video-3d",
+	}
+	GPUEngineDecode = Definition{
+		ID: "gpu_engine_decode", Name: i18n.Text{DE: "Videodekodierung", EN: "Video decode"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_engine_decode_percent", Help: "Utilisation of the video decode engine",
+		StateClass: "measurement", Icon: "mdi:movie-play-outline",
+	}
+	GPUEngineEncode = Definition{
+		ID: "gpu_engine_encode", Name: i18n.Text{DE: "Videokodierung", EN: "Video encode"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_engine_encode_percent", Help: "Utilisation of the video encode engine",
+		StateClass: "measurement", Icon: "mdi:movie-edit-outline",
+	}
+	GPUEngineCopy = Definition{
+		ID: "gpu_engine_copy", Name: i18n.Text{DE: "Kopier-Engine", EN: "Copy engine"},
+		Unit: "%", Kind: KindGauge, Precision: 1,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_engine_copy_percent", Help: "Utilisation of the copy engine",
+		StateClass: "measurement", Icon: "mdi:swap-horizontal",
+	}
+	// Windows' own figure for graphics memory in use, and a separate
+	// measurement from gpu_vram_used on purpose: that one is what NVML and
+	// Afterburner report from the card, this one is what the graphics kernel
+	// has handed out. They differ, and a value that changes meaning with its
+	// source is worse than two values that each mean one thing.
+	GPUMemoryUsed = Definition{
+		ID: "gpu_memory_used", Name: i18n.Text{DE: "Grafikspeicher belegt", EN: "Graphics memory used"},
+		Unit: "MB", Kind: KindGauge,
+		Group: GroupGPU, InstanceLabel: "gpu",
+		Prom: "rig_gpu_memory_used_megabytes", Help: "Dedicated graphics memory in use, as Windows accounts for it",
+		StateClass: "measurement", Icon: "mdi:memory",
+	}
 	GPUTemperature = Definition{
 		ID: "gpu_temperature", Name: i18n.Text{DE: "Temperatur", EN: "Temperature"},
 		Unit: "°C", Kind: KindGauge, Precision: 1,
@@ -885,6 +934,7 @@ var All = []Definition{
 	GPUName, GPUVendor, GPUDriverVersion, GPULoad, GPUTemperature, GPUHotspot, GPUCoreClock, GPUMemoryClock,
 	GPUVRAMUsed, GPUVRAMTotal, GPUDedicatedMemoryTotal, GPUSharedMemoryTotal, GPUVRAMPercent, GPUFan, GPUFanRPM, GPUPower,
 	GPUPowerLimit, GPUPowerPercent, GPUVoltage, GPUSource,
+	GPUEngine3D, GPUEngineDecode, GPUEngineEncode, GPUEngineCopy, GPUMemoryUsed,
 
 	CPUModel, CPUVendor, CPUCoresPhysical, CPUThreads, CPUClock, CPUClockBase, CPUClockMax,
 	CPUTemperature, CPUPower, CPUCoreLoad, CPULoad1, CPULoad5, CPULoad15,
