@@ -1,5 +1,16 @@
 {{ define "content" }}
 
+  <div id="update-banner" class="banner" hidden>
+    <strong>{{ .T "update.title" }} <span id="update-version"></span></strong><br>
+    <span id="update-installed"></span>
+    <a id="update-link" href="#" target="_blank" rel="noopener">{{ .T "update.notes" }}</a>
+    <p id="update-error" class="note" hidden></p>
+    <form method="post" action="/update" class="actions" style="margin-top:.7rem">
+      <button id="update-btn" type="submit">{{ .T "update.install" }}</button>
+      <span class="hint">{{ .T "update.installHint" }}</span>
+    </form>
+  </div>
+
   <div id="rtss-banner" class="banner warn" hidden>
     <strong>{{ .T "rtss.bannerTitle" }}</strong>
     <span id="rtss-detail"></span><br>
@@ -130,6 +141,9 @@ const L = {
   noGame: {{ .T "status.noGame" }},
   rtssConnected: {{ .T "rtss.connected" }},
   rtssUnavailable: {{ .T "rtss.unavailable" }},
+  updateInstalled: {{ .T "update.installed" }},
+  updateInstall: {{ .T "update.install" }},
+  updateRunning: {{ .T "update.running" }},
   disabled: {{ .T "hardware.disabled" }},
   noData: {{ .T "hardware.noData" }},
   noGroups: {{ .T "hardware.none" }},
@@ -293,6 +307,32 @@ async function refresh() {
   const banner = $("rtss-banner");
   banner.hidden = rtssOK || s.no_gpu;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
+
+  renderUpdate(s.update);
+}
+
+// The update box. Hidden unless there is something newer, so a machine that is
+// up to date shows nothing at all rather than a reassuring green nothing.
+function renderUpdate(u) {
+  const box = $("update-banner");
+  if (!u || !u.available) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  $("update-version").textContent = u.latest;
+  $("update-installed").textContent = L.updateInstalled.replace("%s", u.installed) + " ";
+  $("update-link").href = u.url || "#";
+
+  const error = $("update-error");
+  error.hidden = !u.error;
+  error.textContent = u.error || "";
+
+  // While the install runs the program is about to restart itself, so the
+  // button says what is happening instead of inviting a second press.
+  const button = $("update-btn");
+  button.disabled = !!u.in_progress;
+  button.textContent = u.in_progress ? L.updateRunning : L.updateInstall;
 }
 
 setGrouping(byDevice);

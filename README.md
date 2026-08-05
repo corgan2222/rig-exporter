@@ -734,21 +734,32 @@ ist, vom Handy aus nicht. Ist **Diese Seite im Netzwerk erreichbar machen**
 gesetzt, steht dort die LAN-Adresse dieses Rechners und der Link funktioniert
 von überall. Siehe [Oberfläche im Netzwerk](#oberfläche-im-netzwerk).
 
-#### Updates über Home Assistant
+#### Updates
 
-Liegt ein neuer offizieller GitHub-Release vor, kündigt MQTT zusätzlich eine
-native **Update-Entity** für rig-exporter an. Home Assistant zeigt darin die
-installierte und die verfügbare Version, einen kurzen Auszug aus dem Changelog
-und einen Link auf die vollständigen Release Notes. Der Auszug ist auf die von
-Home Assistant vorgesehenen 255 Zeichen begrenzt; der Link führt deshalb immer
-zum ungekürzten Changelog. Geprüft wird direkt beim Start und danach alle zwölf
-Stunden.
+Geprüft wird direkt beim Start und danach alle **sechs Stunden**. Abschaltbar
+unter **Export & Anzeige → Anwendung → Auf neue Versionen prüfen**; ab Werk an.
+Ausgeschaltet verlässt keine Anfrage den Rechner, und es wird auch nichts
+angeboten — weder in Home Assistant noch auf der Anzeigeseite.
 
-Der Exporter installiert nichts unbeaufsichtigt. Erst ein Klick auf
-**Installieren** in Home Assistant löst den Download aus. Währenddessen zeigt
-die Update-Entity den laufenden Vorgang an. Danach beendet sich rig-exporter
-geordnet, tauscht die EXE aus und startet wieder im Hintergrund. Die neue
-Instanz meldet ihre tatsächlich laufende Version zurück an Home Assistant.
+Gibt es etwas Neueres, sind das zwei Wege zur selben Sache:
+
+* **Auf der Anzeigeseite** erscheint ein Kasten mit der neuen Versionsnummer,
+  der installierten daneben, einem Link auf die Release Notes und einem Knopf
+  **Jetzt aktualisieren**.
+* **In Home Assistant** kündigt MQTT eine native **Update-Entity** an, mit
+  denselben Angaben und einem kurzen Auszug aus dem Changelog. Der Auszug ist
+  auf die von Home Assistant vorgesehenen 255 Zeichen begrenzt; der Link führt
+  deshalb immer zum ungekürzten Changelog.
+
+Der Exporter installiert nichts unbeaufsichtigt. Erst der Klick — hier wie dort
+— löst den Download aus. Währenddessen zeigt der Knopf den laufenden Vorgang an.
+Danach beendet sich rig-exporter geordnet, tauscht die EXE aus und startet
+wieder im Hintergrund. Die neue Instanz meldet ihre tatsächlich laufende Version
+zurück, und erst dann gilt der Austausch als geglückt; meldet sie sich nicht,
+wird die alte Fassung zurückgeholt.
+
+Ersetzt wird ausschließlich die EXE, die auch **wirklich läuft**. Ein Aufruf,
+der eine andere Datei austauschen wollte, wird abgelehnt.
 
 Offizielle Update-Artefakte sind signiert. Vor dem Austausch prüft der Exporter
 die Signatur der veröffentlichten Prüfsummen und anschließend die SHA-256-

@@ -6,6 +6,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -29,6 +30,7 @@ type updateController interface {
 	updater.Controller
 	Start()
 	Stop()
+	SetCheckEnabled(bool)
 }
 
 // Status is a consistent view of everything the UI shows.
@@ -40,6 +42,11 @@ type Status struct {
 	Paused    bool
 	Autostart bool
 	UpdatedAt time.Time
+	// Update is what the updater currently knows. Zero when this build cannot
+	// update itself at all, which is why UpdateAvailable is derived here
+	// rather than by every reader comparing two version strings.
+	Update          updater.State
+	UpdateAvailable bool
 }
 
 // Export returns the status of the named target, if it is enabled.
@@ -164,6 +171,9 @@ func (a *App) Start() {
 	a.mu.Unlock()
 
 	if a.updates != nil {
+		// Set before Start, or the first check would already be on its way
+		// while the setting says it should not happen at all.
+		a.updates.SetCheckEnabled(a.Config().UpdateCheckEnabled)
 		a.updates.Start()
 	}
 	go a.loop()
@@ -320,7 +330,25 @@ func (a *App) Status() Status {
 	if on, err := autostart.Enabled(config.AppName); err == nil {
 		status.Autostart = on
 	}
+	if a.updates != nil {
+		status.Update = a.updates.State()
+		status.UpdateAvailable = status.Update.LatestVersion != "" &&
+			status.Update.LatestVersion != status.Update.InstalledVersion
+	}
 	return status
+}
+
+// RequestUpdateInstall installs the release the last check found.
+//
+// The interface offers this as a button rather than leaving it to Home
+// Assistant, because somebody who has just been told a new version exists is
+// looking at the page that told them. Nothing happens without the click:
+// checking and installing stay two separate decisions.
+func (a *App) RequestUpdateInstall() error {
+	if a.updates == nil {
+		return errors.New("this build cannot update itself")
+	}
+	return a.updates.RequestInstall()
 }
 
 func exportStatuses(runners []*runner) []export.Status {
@@ -404,6 +432,9 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 
 	a.cfg = newCfg
 	applyMetricsOptions(newCfg)
+	if a.updates != nil {
+		a.updates.SetCheckEnabled(newCfg.UpdateCheckEnabled)
+	}
 	if rebuildSensors {
 		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log)
 	}

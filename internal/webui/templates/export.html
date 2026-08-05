@@ -283,6 +283,12 @@
         <label for="autostart" style="margin:0"><span class="name">{{ .T "settings.app.autostart" }}</span></label>
       </div>
       <div class="check">
+        <input type="checkbox" name="update_check_enabled" id="update_check_enabled" value="1" {{ if .Config.UpdateCheckEnabled }}checked{{ end }}>
+        <label for="update_check_enabled" style="margin:0"><span class="name">{{ .T "settings.app.updateCheck" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.app.updateCheckHint" }}</p>
+
+      <div class="check">
         <input type="checkbox" name="debug" id="debug" value="1" {{ if .Config.Debug }}checked{{ end }}>
         <label for="debug" style="margin:0"><span class="name">{{ .T "settings.app.debug" }}</span></label>
       </div>

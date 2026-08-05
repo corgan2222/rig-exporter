@@ -124,6 +124,19 @@ type Config struct {
 	// NetAllAdapters reports every connected interface instead of only the
 	// one carrying the default route.
 	NetAllAdapters bool `json:"net_all_adapters"`
+	// UpdateCheckEnabled lets the program ask GitHub every six hours whether a
+	// newer release exists.
+	//
+	// On by default, and switchable because it is the one thing this program
+	// does that talks to somewhere other than the machine it measures and the
+	// broker it was pointed at. Off means no request leaves the machine — and
+	// no update is offered, in Home Assistant or on the dashboard. Nothing is
+	// ever installed without somebody asking for it either way.
+	//
+	// Load unmarshals into Defaults, so a configuration written before this
+	// existed keeps the value on rather than falling silently to off.
+	UpdateCheckEnabled bool `json:"update_check_enabled"`
+
 	// BatteryEnabled reports the battery pack: charge, mains, wear.
 	//
 	// On by default like the other hardware groups, and costing nothing on a
@@ -262,10 +275,14 @@ func Defaults() Config {
 		DiskEnabled:      true,
 		NetEnabled:       true,
 		BatteryEnabled:   true,
-		PingEnabled:      true,
-		PingTarget:       "", // empty means the default gateway
-		PingCount:        3,
-		PingIntervalMs:   15000,
+
+		// On by default: a telemetry exporter that quietly runs an old build
+		// with a fixed bug in it helps nobody. Nothing installs itself.
+		UpdateCheckEnabled: true,
+		PingEnabled:        true,
+		PingTarget:         "", // empty means the default gateway
+		PingCount:          3,
+		PingIntervalMs:     15000,
 
 		// Off, but with its settings already sensible for whoever switches it
 		// on. Ten seconds is fine enough to see what a game or a build did and
