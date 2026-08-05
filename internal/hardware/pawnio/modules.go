@@ -163,6 +163,9 @@ func (s *ModuleStore) unpack(archive []byte) error {
 
 	written := 0
 	for _, entry := range reader.File {
+		if !safeArchivePath(entry.Name) {
+			continue
+		}
 		name := filepath.Base(entry.Name)
 		if entry.FileInfo().IsDir() || validModuleName(name) != nil {
 			continue
@@ -179,6 +182,19 @@ func (s *ModuleStore) unpack(archive []byte) error {
 		return fmt.Errorf("the archive held no modules")
 	}
 	return nil
+}
+
+func safeArchivePath(name string) bool {
+	normalized := strings.ReplaceAll(name, "\\", "/")
+	clean := path.Clean(normalized)
+
+	if strings.HasPrefix(clean, "/") {
+		return false
+	}
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return false
+	}
+	return true
 }
 
 func (s *ModuleStore) extract(entry *zip.File, target string) error {
