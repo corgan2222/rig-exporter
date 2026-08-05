@@ -412,3 +412,38 @@ func TestLegacyCleanupTargetsTheOldTopics(t *testing.T) {
 		t.Error("no legacy entities are retired")
 	}
 }
+
+// The picture is a URL, so it only means anything where the interface can be
+// reached from. Bound to loopback, the address resolves to whichever machine
+// the browser is on — somebody else's 127.0.0.1 — and the card would show a
+// broken image where an icon belongs.
+func TestThePictureIsOnlyOfferedWhenTheInterfaceIsReachable(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		bindAll bool
+		webURL  string
+		want    string
+	}{
+		{"on the network", true, "http://192.168.1.40:8787", "http://192.168.1.40:8787/icon.png"},
+		{"trailing slash", true, "http://192.168.1.40:8787/", "http://192.168.1.40:8787/icon.png"},
+		{"loopback only", false, "http://127.0.0.1:8787", ""},
+		{"no address yet", true, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.Defaults()
+			cfg.WebBindAll = tc.bindAll
+			if got := iconPictureURL(cfg, tc.webURL); got != tc.want {
+				t.Errorf("iconPictureURL = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Without a picture the card still needs something to draw, and Home Assistant
+// resolves an mdi name inside its own frontend with no request going anywhere.
+func TestTheUpdateEntityCarriesAnIconForWhenThereIsNoPicture(t *testing.T) {
+	payload := updateDiscoveryFor(config.Defaults(), "http://127.0.0.1:8787")
+	if payload.Icon != "mdi:speedometer" {
+		t.Errorf("icon = %q, want mdi:speedometer", payload.Icon)
+	}
+}

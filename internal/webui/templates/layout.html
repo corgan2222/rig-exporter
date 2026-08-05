@@ -37,8 +37,19 @@
             margin: 0 -1rem 1.5rem; padding: .7rem 1rem; }
   .topbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center;
                   gap: 1rem; flex-wrap: wrap; }
-  .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; text-decoration: none; color: var(--text); }
-  .brand span { color: var(--muted); font-weight: 400; font-size: .8rem; margin-left: .45rem; }
+  /* The mark sits in the baseline of the name rather than above it: 1em tall,
+     so it grows and shrinks with the type instead of being a picture the text
+     has to make room for. */
+  .brand { display: inline-flex; align-items: center; gap: .45rem;
+           font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em;
+           text-decoration: none; color: var(--text); }
+  .brand img { width: 1em; height: 1em; display: block; flex: none; }
+  .brand span { color: var(--muted); font-weight: 400; font-size: .8rem; }
+  .brand:hover .name { text-decoration: underline; text-underline-offset: 3px; }
+  /* The author credit is a link but must not look like navigation. */
+  .by { color: var(--muted); font-weight: 400; font-size: .8rem; }
+  .by a { color: var(--muted); text-decoration: none; }
+  .by a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
   nav.main { display: flex; gap: .3rem; }
   nav.main a { color: var(--muted); text-decoration: none; padding: .32rem .75rem;
                border-radius: 7px; font-size: .9rem; }
@@ -202,13 +213,19 @@
   footer button { background: transparent; border: 0; color: var(--muted); font: inherit;
                   text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: 0; }
   footer button:hover { color: var(--text); }
+  footer .credit { margin: .5rem 0 0; font-size: .78rem; }
+  footer .credit a { color: var(--muted); text-decoration: none; }
+  footer .credit a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="/">{{ .AppName }}<span>v{{ .Version }} &middot; {{ .Config.DeviceName }}</span></a>
+    <a class="brand" href="{{ .ProjectURL }}" target="_blank" rel="noopener"
+       title="{{ .T "footer.project" }}"><img src="/icon.png" alt=""><span class="name">{{ .AppName }}</span></a>
+    <span class="by">{{ .T "footer.by" }} <a href="{{ .AuthorURL }}" target="_blank" rel="noopener">{{ .AuthorName }}</a></span>
+    <span class="by">v{{ .Version }} &middot; {{ .Config.DeviceName }}</span>
     <nav class="main">
       <a href="/" {{ if eq .Active "status" }}class="active"{{ end }}>{{ .T "nav.status" }}</a>
       <a href="/capture" {{ if eq .Active "capture" }}class="active"{{ end }}>{{ .T "nav.capture" }}</a>
@@ -241,6 +258,11 @@
         {{ .T "footer.folder" }}
       </button>
     </form>
+    <p class="credit">
+      <a href="{{ .ProjectURL }}" target="_blank" rel="noopener">{{ .AppName }}</a>
+      {{ .T "footer.by" }}
+      <a href="{{ .AuthorURL }}" target="_blank" rel="noopener">{{ .AuthorName }}</a>
+    </p>
   </footer>
 </div>
 

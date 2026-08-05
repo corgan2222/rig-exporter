@@ -1,3 +1,5 @@
+![rig-exporter](docs/images/github-banner-1280x300.png)
+
 # rig-exporter
 
 [![CI](https://github.com/corgan2222/rig-exporter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/corgan2222/rig-exporter/actions/workflows/ci.yml)
@@ -485,12 +487,11 @@ NVIDIA-Karten, amd64. Was bekannt ist:
 baut danach. Ohne Flag wird nur gebaut. Ergebnis ist ein einzelnes
 `rig-exporter.exe` (~11 MB) ohne weitere Dateien.
 
-Das Tray-Icon wird mit `-Icon` neu gezeichnet und liegt sonst fertig im
-Repository. Eigener Schalter, weil `go run` dafür ein frisches, unsigniertes
-Binary in den Build-Cache linkt und von dort startet — genau das Muster, das
-Microsoft Defender heuristisch als `Trojan:Win32/Sabsik` meldet. Ein
-Warnhinweis bei jedem Prüflauf, für ein Programm, das aus der
-Standardbibliothek ein Bild malt, ist den Schreck nicht wert.
+Die Icons werden mit `-Icon` neu erzeugt und liegen sonst fertig im Repository.
+Eigener Schalter, weil `go run` dafür ein frisches, unsigniertes Binary in den
+Build-Cache linkt und von dort startet — genau das Muster, das Microsoft
+Defender heuristisch als `Trojan:Win32/Sabsik` meldet. Ein Warnhinweis bei jedem
+Prüflauf ist den Schreck nicht wert.
 
 Die beiden Abzeichen oben zeigen, ob das noch funktioniert. **CI** ist der
 Prüflauf auf `main` — derselbe `build.ps1 -Check`, nur auf einem
@@ -513,12 +514,16 @@ das Binary mit der Korrektur" — sie bewegt sich zwischen Commits nicht. Ein
 schlichtes `go build` lässt die Kennung leer, was ehrlich ist: dieses Binary kam
 nicht aus dem Skript.
 
-`tools/genicon` erzeugt zwei Dinge aus derselben Zeichnung: `icon.ico` für den
-Infobereich und `rsrc_windows_amd64.syso`, die Windows-Ressourcendatei, die der
-ausführbaren Datei ihr Symbol in Explorer, Taskleiste und Alt-Tab gibt. Beide
-sind eingecheckt, damit ein blankes `go build` reicht — geschrieben werden sie
-von Hand statt mit `rsrc` oder `goversioninfo`, damit man kein Werkzeug
-installieren muss.
+`tools/genicon` packt aus **einer** Quelle drei Dinge:
+`docs/images/rig-exporter-entity-512.png` wird zu `icon.ico` für den
+Infobereich, zu `rsrc_windows_amd64.syso` — der Windows-Ressourcendatei, die der
+ausführbaren Datei ihr Symbol in Explorer, Taskleiste und Alt-Tab gibt — und zu
+`icon.png`, das die Weboberfläche unter `/icon.png` ausliefert. Drei Bilder
+desselben Programms, die sich widersprechen, wären schlimmer als keins.
+
+Alle drei sind eingecheckt, damit ein blankes `go build` reicht. Die
+Ressourcendatei wird von Hand geschrieben statt mit `rsrc` oder
+`goversioninfo`, damit man kein Werkzeug installieren muss.
 
 ## Erster Start
 
@@ -1305,7 +1310,7 @@ internal/autostart               der Run-Eintrag in der Registry
 internal/applog                  Logziel und -format
 internal/assets                  das eingebettete Symbol
 internal/winapi                  die Win32-Aufrufe, die x/sys nicht abdeckt
-tools/genicon                    erzeugt internal/assets/icon.ico
+tools/genicon                    packt docs/images in internal/assets
 ```
 
 Ein neuer Messwert wird einmal in `internal/metrics` eingetragen und erscheint

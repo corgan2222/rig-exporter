@@ -86,6 +86,9 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
+	// The same mark as a PNG: the page header draws it, and Home Assistant
+	// points its update card at it.
+	mux.HandleFunc("GET /icon.png", s.handleIconPNG)
 
 	// The old single settings page, kept so a bookmark still lands somewhere.
 	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
@@ -183,6 +186,10 @@ type pageData struct {
 
 	RTSSDownloadURL string
 	AfterburnerURL  string
+	// Where the name in the header and the credit in the footer point.
+	ProjectURL string
+	AuthorURL  string
+	AuthorName string
 	// PawnIOStatus says in one sentence what PawnIO can do here. It is built
 	// fresh on every render: the user may install it, or restart elevated,
 	// while the page is open, and a stale "not installed" would send them
@@ -322,17 +329,24 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 	lang := cfg.Lang()
 
 	return pageData{
-		Lang:            lang,
-		Languages:       i18n.Available,
-		Active:          active,
-		TitleKey:        titleKey,
-		AppName:         config.AppName,
-		Version:         config.VersionString(),
+		Lang:      lang,
+		Languages: i18n.Available,
+		Active:    active,
+		TitleKey:  titleKey,
+		AppName:   config.AppName,
+		// The release only. The build identifier is still on the version
+		// entity and in the log, where somebody chasing a specific commit
+		// looks; in the header it was six characters of hash on every page,
+		// answering a question nobody was asking.
+		Version:         config.Version,
 		ConfigDir:       configDir(),
 		Config:          cfg,
 		Status:          status,
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
+		ProjectURL:      config.ProjectURL,
+		AuthorURL:       config.AuthorURL,
+		AuthorName:      config.AuthorName,
 		PawnIOStatus:    pawnIOStatus(lang),
 		Origins:         originsFor(status.Snapshot, lang),
 		RefreshMs:       cfg.PollIntervalMs,
@@ -745,6 +759,18 @@ func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
 	// A zero time leaves out Last-Modified, which is right: the icon is
 	// compiled in and only ever changes with the program itself.
 	http.ServeContent(w, r, "favicon.ico", time.Time{}, bytes.NewReader(assets.Icon))
+}
+
+// handleIconPNG serves the mark for anything that renders in a browser.
+//
+// Home Assistant fetches this one from wherever it is being viewed, so it has
+// to be reachable from there — which is the same condition the device link is
+// under, and why the picture is only advertised when the interface listens on
+// the network.
+func (s *Server) handleIconPNG(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeContent(w, r, "icon.png", time.Time{}, bytes.NewReader(assets.IconPNG))
 }
 
 func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
