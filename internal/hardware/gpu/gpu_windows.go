@@ -47,9 +47,10 @@ func (s *Source) Group() metrics.Group { return metrics.GroupGPU }
 // Collect appends the GPU readings.
 //
 // DXGI establishes a stable Windows adapter inventory first. Afterburner then
-// contributes live readings for NVIDIA, AMD and Intel, and NVML fills NVIDIA
-// gaps such as power and memory use. The error is a diagnostic: no graphics
-// adapter at all is a normal state, not a failure of the exporter.
+// contributes live readings for NVIDIA, AMD and Intel, and the vendor
+// libraries fill the gaps their own cards leave — NVML for NVIDIA, ADLX for
+// AMD. The error is a diagnostic: no graphics adapter at all is a normal state,
+// not a failure of the exporter.
 func (s *Source) Collect(set *metrics.Set) error {
 	var sources []string
 	cards := map[string]string{}       // instance -> card name
@@ -70,6 +71,16 @@ func (s *Source) Collect(set *metrics.Set) error {
 	if nvmlCards, err := nvmlCards(); err == nil {
 		if mergeFromNVML(set, nvmlCards, cards) {
 			sources = append(sources, "NVIDIA NVML")
+		}
+	}
+
+	// AMD's counterpart, and the reason an AMD machine no longer needs
+	// Afterburner for temperature, clocks, fan and power. It runs after NVML
+	// because the two describe different cards: on a hybrid machine each one
+	// fills only the card it can name, and neither overwrites the other.
+	if amdCards, err := adlxCards(); err == nil {
+		if mergeFromADLX(set, amdCards, cards) {
+			sources = append(sources, ADLXOrigin)
 		}
 	}
 
@@ -330,6 +341,91 @@ func mergeFromNVML(set *metrics.Set, nvml []nvmlCard, cards map[string]string) b
 		}
 	}
 	return added
+}
+
+// mergeFromADLX adds what the AMD driver reports and Windows does not.
+//
+// Every reading is optional, and a missing one is left out rather than written
+// as a zero: which sensors a card has is a property of the silicon. A Radeon RX
+// 570 answers usage, both clocks, temperature, power, fan speed and video
+// memory, and reports hotspot temperature and voltage as unsupported because
+// Polaris has neither sensor.
+//
+// Three readings this deliberately does not produce. There is no power limit
+// anywhere in ADLX, so gpu_power_percent has nothing to be a percentage of.
+// And gpu_fan is the fan's duty cycle, which ADLX does not report at any
+// version — it publishes the tachometer only. Dividing the tachometer by the
+// range maximum would produce a different quantity wearing the same name, so
+// gpu_fan stays empty on AMD and gpu_fan_rpm carries the reading.
+//
+// The third is gpu_load. A vendor source may take it from the Windows counters
+// only by measuring it better, and ADLX does not: its GPUUsage is an
+// instantaneous sample, and on an RX 570 running a desktop it answered 1 %
+// while the 3D engine counter stood at 39.6 %. The counters are averaged over
+// their sampling window and are the number a dashboard wants, so on AMD they
+// keep gpu_load and ADLX stays out of it.
+func mergeFromADLX(set *metrics.Set, cards []adlxCard, known map[string]string) bool {
+	added := false
+
+	previous := set.Origin
+	set.Origin = ADLXOrigin
+	defer func() { set.Origin = previous }()
+
+	instances := assignADLXInstances(cards, known)
+	for i, card := range cards {
+		instance := instances[i]
+		if card.Name != "" {
+			known[instance] = card.Name
+		}
+
+		add := func(def metrics.Definition, value float64, have bool) {
+			if !have {
+				return
+			}
+			if _, exists := set.Find(def.ID, instance); exists {
+				return
+			}
+			set.Add(metrics.Gauge(def, instance, value))
+			added = true
+		}
+
+		if card.Name != "" {
+			if _, exists := set.Find(metrics.GPUName.ID, instance); !exists {
+				set.Add(metrics.Text(metrics.GPUName, instance, card.Name))
+				added = true
+			}
+		}
+		add(metrics.GPUTemperature, card.TempC, card.hasTemp)
+		add(metrics.GPUHotspot, card.HotspotC, card.hasHotspot)
+		add(metrics.GPUCoreClock, card.CoreClock, card.hasCoreClock)
+		add(metrics.GPUMemoryClock, card.MemClock, card.hasMemClock)
+		add(metrics.GPUPower, card.PowerW, card.hasPower)
+		add(metrics.GPUFanRPM, card.FanRPM, card.hasFanRPM)
+		add(metrics.GPUVoltage, card.VoltageMV, card.hasVoltage)
+		add(metrics.GPUVRAMUsed, card.VRAMUsedMB, card.hasVRAMUsed)
+		add(metrics.GPUVRAMTotal, card.VRAMTotalMB, card.hasVRAMTotal)
+
+		// Derived rather than read, so it is only added when both halves are
+		// known and nothing has supplied it already.
+		if card.hasVRAMUsed && card.hasVRAMTotal && card.VRAMTotalMB > 0 {
+			if _, exists := set.Find(metrics.GPUVRAMPercent.ID, instance); !exists {
+				set.Add(metrics.Gauge(metrics.GPUVRAMPercent, instance,
+					card.VRAMUsedMB/card.VRAMTotalMB*100))
+				added = true
+			}
+		}
+	}
+	return added
+}
+
+// assignADLXInstances joins the ADLX cards onto the instances already known,
+// by the same rules the NVML cards follow.
+func assignADLXInstances(cards []adlxCard, known map[string]string) []string {
+	named := make([]namedCard, len(cards))
+	for i, card := range cards {
+		named[i] = namedCard{Index: card.Index, Name: card.Name}
+	}
+	return assignNamedInstances(named, known)
 }
 
 // assignInstances decides which instance each NVML card belongs to, returning

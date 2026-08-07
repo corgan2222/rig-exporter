@@ -12,5 +12,6 @@ probe.txt
 # documentation that ships; these are the project's memory for whoever
 # continues it, and they are nobody else's business.
 HANDOVER.md
+AMD-HANDOVER.md
 maybe_later.md
 review.md

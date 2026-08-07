@@ -113,6 +113,30 @@ var (
 		Prom: "rig_os_version_info", PromLabel: "version", Help: "Windows edition, release and build",
 		EntityCategory: "diagnostic", Icon: "mdi:microsoft-windows",
 	}
+	// Virtualized belongs next to the Windows version for the same reason: it
+	// is the second thing anyone asks when a reading looks wrong. Virtual
+	// hardware has no board sensors, no real fan and a processor clock the host
+	// decides, so a whole class of missing or implausible values is explained by
+	// this one flag rather than by a fault.
+	//
+	// Published as false rather than left out when nothing was found, because
+	// that is a real answer — but a weak one, and the help text says so: a
+	// hypervisor can be told to pass the host board's identity through.
+	Virtualized = Definition{
+		ID: "virtualized", Name: i18n.Text{DE: "Virtuelle Maschine", EN: "Virtual machine"},
+		Kind: KindBool, Group: GroupCore,
+		Prom: "rig_virtualized", Help: "1 when the firmware identity names a hypervisor",
+		EntityCategory: "diagnostic", Icon: "mdi:server",
+	}
+	// Hypervisor says which one, and is left out entirely on hardware that
+	// named none — an empty string would be a claim, an absent reading is not.
+	Hypervisor = Definition{
+		ID: "hypervisor", Name: i18n.Text{DE: "Hypervisor", EN: "Hypervisor"},
+		Kind: KindText, Group: GroupCore,
+		Prom: "rig_hypervisor_info", PromLabel: "hypervisor",
+		Help:           "Virtualisation platform named by the firmware identity",
+		EntityCategory: "diagnostic", Icon: "mdi:server-network",
+	}
 	// ExporterVersion is which build produced a reading. The device block in
 	// Home Assistant already carries it, but nothing else does — a Prometheus
 	// or InfluxDB series had no way to say which version wrote it, which is the
@@ -969,7 +993,8 @@ var (
 var All = []Definition{
 	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
-	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion, Processes,
+	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion,
+	Virtualized, Hypervisor, Processes,
 	ExporterVersion, ExporterCPU, ExporterMemory, TopCPU, TopMemory,
 
 	RAMUsed, RAMFree, RAMTotal, RAMFreePercent,

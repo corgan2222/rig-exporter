@@ -12,15 +12,17 @@
   </div>
 
   <div id="rtss-banner" class="banner warn" hidden>
-    <strong>{{ .T "rtss.bannerTitle" }}</strong>
+    <strong id="rtss-title">{{ .T "rtss.bannerTitle" }}</strong>
     <span id="rtss-detail"></span><br>
-    {{ .T "rtss.bannerBody" }}
+    <span id="rtss-body">{{ .T "rtss.bannerBody" }}</span>
     <a href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAfterburner" }}</a>
     &middot;
     <a href="{{ .RTSSDownloadURL }}" target="_blank" rel="noopener">{{ .T "rtss.download" }}</a>
     {{ .T "rtss.alsoInAfterburner" }}
+    <span id="rtss-amd" hidden>&middot;
+      <a href="{{ .AMDDriverURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAMD" }}</a></span>
     <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
-      <button class="ghost" type="submit" name="what" value="no_gpu">{{ .T "rtss.dismissNoGPU" }}</button>
+      <button class="ghost" type="submit" name="what" value="no_gpu" id="rtss-dismiss">{{ .T "rtss.dismissNoGPU" }}</button>
     </form>
   </div>
 
@@ -126,6 +128,13 @@ const L = {
   noGame: {{ .T "status.noGame" }},
   rtssConnected: {{ .T "rtss.connected" }},
   rtssUnavailable: {{ .T "rtss.unavailable" }},
+  rtssTitle: {{ .T "rtss.bannerTitle" }},
+  rtssTitleAMD: {{ .T "rtss.bannerTitleAMD" }},
+  rtssBody: {{ .T "rtss.bannerBody" }},
+  rtssBodyAMD: {{ .T "rtss.bannerBodyAMD" }},
+  rtssBodyAMDDriver: {{ .T "rtss.bannerBodyAMDDriver" }},
+  rtssDismissNoGPU: {{ .T "rtss.dismissNoGPU" }},
+  rtssDismissNoGame: {{ .T "rtss.dismissNoGame" }},
   updateInstalled: {{ .T "update.installed" }},
   updateInstall: {{ .T "update.install" }},
   updateRunning: {{ .T "update.running" }},
@@ -288,7 +297,10 @@ async function refresh() {
     return;
   }
 
-  $("v-fps").textContent = s.rtss_status === "ok" ? Math.round(s.fps) : "–";
+  // A frame rate the graphics driver counted is a real reading even though
+  // RTSS is not running, so the tile shows it rather than a dash. The server
+  // decides which sources count, so this does not reassemble the rule.
+  $("v-fps").textContent = s.fps_available ? Math.round(s.fps) : "–";
   $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
   for (const id of ["tile-fps", "tile-frametime", "tile-game", "rtss-badge"]) {
@@ -317,6 +329,31 @@ async function refresh() {
   const banner = $("rtss-banner");
   banner.hidden = rtssOK || s.no_gpu;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
+
+  // What is missing depends on the card. An AMD driver that is answering
+  // already covers everything except the frame rate, so the banner stops
+  // asking for Afterburner. An AMD card whose driver says nothing gets the
+  // one pointer that actually helps: the full driver package.
+  // The button sets the same switch whichever label it wears, but a machine
+  // that has a graphics card must not be told it has none.
+  $("rtss-dismiss").textContent = s.gpu_present ? L.rtssDismissNoGame : L.rtssDismissNoGPU;
+
+  // One text for a driver that is answering, whether or not something happens
+  // to be presenting at this instant. Keying it on the current reading made an
+  // unchanged machine alternate between "there are no FPS" and "here they are".
+  if (s.amd_driver) {
+    $("rtss-title").textContent = L.rtssTitleAMD;
+    $("rtss-body").textContent = L.rtssBodyAMD;
+    $("rtss-amd").hidden = true;
+  } else if (s.amd_card) {
+    $("rtss-title").textContent = L.rtssTitle;
+    $("rtss-body").textContent = L.rtssBodyAMDDriver;
+    $("rtss-amd").hidden = false;
+  } else {
+    $("rtss-title").textContent = L.rtssTitle;
+    $("rtss-body").textContent = L.rtssBody;
+    $("rtss-amd").hidden = true;
+  }
 
   renderUpdate(s.update);
 }

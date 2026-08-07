@@ -103,6 +103,7 @@ func TestAFailedSelfMeasurementIsSimplyAbsent(t *testing.T) {
 }
 
 type fakeSystem struct {
+	hypervisor string
 	cpu        float64
 	cpuErr     error
 	memory     sysinfo.Memory
@@ -129,6 +130,7 @@ func (f *fakeSystem) TickCount() uint32                 { return f.tick }
 func (f *fakeSystem) IdleSeconds() float64              { return f.idle }
 func (f *fakeSystem) UptimeHours() float64              { return f.uptime }
 func (f *fakeSystem) WindowsVersion() string            { return f.osVersion }
+func (f *fakeSystem) Hypervisor() string                { return f.hypervisor }
 func (f *fakeSystem) ProcessCount() (int, error)        { return f.processes, f.processesErr }
 
 func (f *fakeSystem) SelfUsage() (sysinfo.SelfUsage, error) { return f.self, f.selfErr }

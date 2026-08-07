@@ -57,6 +57,11 @@ type Snapshot struct {
 	RTSSMessage string
 	RTSSVersion string
 
+	// FPSOrigin names what supplied the frame rate when it did not come from
+	// RTSS, and is empty otherwise. The interface needs it to tell a genuine
+	// reading from the zero that stands for "nothing is rendering".
+	FPSOrigin string
+
 	// SourceErrors records which optional groups failed, for the settings page.
 	SourceErrors map[metrics.Group]string
 }
@@ -85,6 +90,20 @@ func (s Snapshot) GameRunning() bool { return s.Flag(metrics.GameRunning.ID) }
 // worth a fast series.
 func (s Snapshot) Rendering() bool { return s.GameRunning() && s.FPS() > 0 }
 
+// HasFrameRate reports whether the frame rate is a measurement rather than the
+// zero that stands for "nothing is rendering".
+//
+// It is the one place that asks "RTSS or the graphics driver?", so the tray and
+// the dashboard cannot answer it differently. Asking only about RTSS is what
+// made a machine whose driver was counting frames display a dash next to a
+// perfectly good number.
+func (s Snapshot) HasFrameRate() bool {
+	if s.FPSOrigin != "" {
+		return true
+	}
+	return s.RTSSStatus.OK() && s.GameRunning()
+}
+
 // Resolution is the primary display mode, e.g. "2560x1440".
 func (s Snapshot) Resolution() string { return s.Str(metrics.Resolution.ID) }
 
@@ -112,9 +131,20 @@ type SystemSource interface {
 	IdleSeconds() float64
 	UptimeHours() float64
 	WindowsVersion() string
+	// Hypervisor names the virtualisation platform, empty on real hardware.
+	Hypervisor() string
 	ProcessCount() (int, error)
 	SelfUsage() (sysinfo.SelfUsage, error)
 }
+
+// FrameRate reads a frame rate from somewhere other than RTSS, reporting
+// whether one was available at all.
+//
+// A graphics driver can count presented frames without any overlay program:
+// AMD's ADLX does, for whatever is running fullscreen. What it cannot say is
+// which application that is, which is why this supplies a number and not a
+// game — the name and the process id stay RTSS's alone.
+type FrameRate func() (float64, bool)
 
 // Collector produces snapshots.
 type Collector struct {
@@ -123,13 +153,22 @@ type Collector struct {
 	sources []Source
 	log     *slog.Logger
 
+	// frames stands in for RTSS when RTSS has no rendering application, and
+	// frameOrigin names what supplied the number.
+	frames      FrameRate
+	frameOrigin string
+
 	idleMs    uint32
 	lastDispl sysinfo.Display
 
 	// The operating system cannot change under a running process, so it is
-	// read once rather than on every collection.
+	// read once rather than on every collection. Neither can the firmware
+	// identity that says whether this is virtual hardware.
 	osOnce    sync.Once
 	osVersion string
+
+	platformOnce sync.Once
+	hypervisor   string
 
 	// version is this program's own build, reported alongside the readings so
 	// a series can say what wrote it.
@@ -146,6 +185,16 @@ func (c *Collector) ReportVersion(version string) { c.version = version }
 // ReportSelfUsage makes the collector publish this process's own CPU share and
 // working set.
 func (c *Collector) ReportSelfUsage(on bool) { c.selfUsage = on }
+
+// UseFrameRateFallback registers a frame rate to fall back on when RTSS has no
+// rendering application, labelled with what supplies it.
+//
+// It never displaces RTSS. RTSS knows the game, the process and the time the
+// last frame actually took; a driver counter knows none of those. It only fills
+// the case where the frame rate would otherwise be reported as zero.
+func (c *Collector) UseFrameRateFallback(origin string, read FrameRate) {
+	c.frames, c.frameOrigin = read, origin
+}
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
 // entry may go without a new frame before it stops counting as the game.
@@ -252,6 +301,23 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		)
 		return
 	}
+	// RTSS has nothing rendering. The graphics driver may still be counting
+	// presented frames, and on a machine without RTSS that is the difference
+	// between a frame rate and a permanent zero.
+	if fps, ok := c.frameRateFallback(); ok {
+		previous := snap.Set.Origin
+		snap.Set.Origin = c.frameOrigin
+		snap.Add(
+			metrics.Gauge(metrics.FPS, "", fps),
+			// Derived, the same way FrametimeMs already falls back to the
+			// inverse of the rate on RTSS builds without a frame time counter.
+			metrics.Gauge(metrics.Frametime, "", 1000/fps),
+		)
+		snap.Set.Origin = previous
+		snap.FPSOrigin = c.frameOrigin
+		return
+	}
+
 	// Reporting zero rather than omitting keeps the FPS entity numeric, so
 	// Home Assistant graphs it as a line that drops to the floor instead of
 	// breaking into segments.
@@ -259,6 +325,20 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		metrics.Gauge(metrics.FPS, "", 0),
 		metrics.Gauge(metrics.Frametime, "", 0),
 	)
+}
+
+// frameRateFallback asks the registered driver counter, if there is one. A rate
+// of zero is treated as no answer: it means nothing is presenting, which is
+// exactly the state the zero below already describes.
+func (c *Collector) frameRateFallback() (float64, bool) {
+	if c.frames == nil {
+		return 0, false
+	}
+	fps, ok := c.frames()
+	if !ok || fps <= 0 {
+		return 0, false
+	}
+	return fps, true
 }
 
 func (c *Collector) collectSystem(snap *Snapshot) {
@@ -321,6 +401,16 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 	c.osOnce.Do(func() { c.osVersion = c.system.WindowsVersion() })
 	if c.osVersion != "" {
 		snap.Add(metrics.Text(metrics.OSVersion, "", c.osVersion))
+	}
+
+	// Whether the machine is virtual explains a whole class of readings that
+	// are missing or implausible rather than faulty: no board sensors, no real
+	// fan, a processor clock the host decides. The flag is published either
+	// way; the name only when there is one to give.
+	c.platformOnce.Do(func() { c.hypervisor = c.system.Hypervisor() })
+	snap.Add(metrics.Bool(metrics.Virtualized, "", c.hypervisor != ""))
+	if c.hypervisor != "" {
+		snap.Add(metrics.Text(metrics.Hypervisor, "", c.hypervisor))
 	}
 	if processes, err := c.system.ProcessCount(); err == nil {
 		snap.Add(metrics.Gauge(metrics.Processes, "", float64(processes)))

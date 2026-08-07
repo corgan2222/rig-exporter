@@ -89,10 +89,42 @@ var catalogue = map[string]Text{
 		DE: "Ohne RTSS gibt es keine FPS-Werte, ohne Afterburner keine Temperaturen — alle übrigen Gruppen melden weiter.",
 		EN: "Without RTSS there are no FPS values, without Afterburner no temperatures; every other group keeps reporting.",
 	},
+	// An AMD card changes what is actually missing. With its driver answering,
+	// temperature, clocks, fan and power are already there and only the frame
+	// rate is not — naming Afterburner then sends somebody after a program they
+	// do not need, which is the same mistake as naming only one of the two.
+	"rtss.bannerTitleAMD": {
+		DE: "RivaTuner Statistics Server läuft nicht.",
+		EN: "RivaTuner Statistics Server is not running.",
+	},
+	//
+	// It must not depend on whether something is presenting at this instant.
+	// The driver only reports a frame rate while a fullscreen application is
+	// drawing, so a text keyed on the current reading would alternate between
+	// "there are no FPS" and "here are your FPS" on an unchanged machine — and
+	// the first of those is simply untrue here.
+	"rtss.bannerBodyAMD": {
+		DE: "Temperatur, Takt, Lüfter und Leistung liefert der AMD-Treiber bereits, und im Vollbild zählt er auch die Bildrate. Ohne RTSS fehlen nur der Fenstermodus und der Name des laufenden Spiels.",
+		EN: "Temperature, clocks, fan and power already come from the AMD driver, and in fullscreen it counts the frame rate too. Without RTSS only windowed mode and the name of the running game are missing.",
+	},
+	// The other AMD case: the card is present but its driver says nothing. That
+	// is what a display-driver-only installation looks like, and the remedy is
+	// the full Adrenalin package rather than another monitoring program.
+	"rtss.bannerBodyAMDDriver": {
+		DE: "Ohne RTSS gibt es keine FPS-Werte. Die AMD-Karte meldet zurzeit auch keine Temperaturen — dafür braucht es das vollständige Adrenalin-Paket, nicht nur den Anzeigetreiber.",
+		EN: "Without RTSS there are no FPS values. The AMD card is not reporting temperatures either — that needs the full Adrenalin package, not just the display driver.",
+	},
+	"rtss.downloadAMD":         {DE: "AMD-Treiber herunterladen", EN: "Download AMD driver"},
 	"rtss.downloadAfterburner": {DE: "MSI Afterburner herunterladen", EN: "Download MSI Afterburner"},
 	"rtss.download":            {DE: "RTSS herunterladen", EN: "Download RTSS"},
 	"rtss.alsoInAfterburner":   {DE: "(in Afterburner bereits enthalten)", EN: "(already included with Afterburner)"},
-	"rtss.dismissNoGPU":        {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
+	// Two labels for one button. It sets the same switch either way, but the
+	// reason differs: a machine with no graphics card at all cannot have game
+	// data, while a machine with one simply is not used for games. Claiming
+	// "no GPU present" on a Radeon is plainly wrong, and wrong text in an
+	// interface costs more trust than a missing feature.
+	"rtss.dismissNoGPU":  {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
+	"rtss.dismissNoGame": {DE: "Kein Spielrechner — Spieldaten ausblenden", EN: "Not used for gaming — hide game status"},
 
 	// The update box. Only ever on screen when there is something newer, so
 	// none of these has to cope with "you are up to date".

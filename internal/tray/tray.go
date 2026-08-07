@@ -258,7 +258,7 @@ func (t *Tray) render(status app.Status) {
 
 	snap := status.Snapshot
 
-	if snap.RTSSStatus.OK() && snap.GameRunning() {
+	if snap.HasFrameRate() {
 		t.items.fps.SetTitle(fmt.Sprintf("FPS: %.0f  (%.2f ms)", snap.FPS(), snap.FrametimeMs()))
 	} else {
 		t.items.fps.SetTitle("FPS: –")
