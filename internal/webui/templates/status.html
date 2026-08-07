@@ -22,7 +22,7 @@
     <span id="rtss-amd" hidden>&middot;
       <a href="{{ .AMDDriverURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAMD" }}</a></span>
     <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
-      <button class="ghost" type="submit" name="what" value="no_gpu">{{ .T "rtss.dismissNoGPU" }}</button>
+      <button class="ghost" type="submit" name="what" value="no_gpu" id="rtss-dismiss">{{ .T "rtss.dismissNoGPU" }}</button>
     </form>
   </div>
 
@@ -133,6 +133,9 @@ const L = {
   rtssBody: {{ .T "rtss.bannerBody" }},
   rtssBodyAMD: {{ .T "rtss.bannerBodyAMD" }},
   rtssBodyAMDDriver: {{ .T "rtss.bannerBodyAMDDriver" }},
+  rtssBodyAMDFps: {{ .T "rtss.bannerBodyAMDFps" }},
+  rtssDismissNoGPU: {{ .T "rtss.dismissNoGPU" }},
+  rtssDismissNoGame: {{ .T "rtss.dismissNoGame" }},
   updateInstalled: {{ .T "update.installed" }},
   updateInstall: {{ .T "update.install" }},
   updateRunning: {{ .T "update.running" }},
@@ -295,7 +298,10 @@ async function refresh() {
     return;
   }
 
-  $("v-fps").textContent = s.rtss_status === "ok" ? Math.round(s.fps) : "–";
+  // A frame rate the graphics driver counted is a real reading even though
+  // RTSS is not running, so the tile shows it rather than a dash.
+  $("v-fps").textContent =
+    (s.rtss_status === "ok" || s.fps_origin) ? Math.round(s.fps) : "–";
   $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
   for (const id of ["tile-fps", "tile-frametime", "tile-game", "rtss-badge"]) {
@@ -329,7 +335,17 @@ async function refresh() {
   // already covers everything except the frame rate, so the banner stops
   // asking for Afterburner. An AMD card whose driver says nothing gets the
   // one pointer that actually helps: the full driver package.
-  if (s.amd_driver) {
+  // The button sets the same switch whichever label it wears, but a machine
+  // that has a graphics card must not be told it has none.
+  $("rtss-dismiss").textContent = s.gpu_present ? L.rtssDismissNoGame : L.rtssDismissNoGPU;
+
+  if (s.amd_driver && s.fps_origin) {
+    // Frames are being counted by the driver, so the frame rate is already
+    // there and only the name of what is drawing them is not.
+    $("rtss-title").textContent = L.rtssTitleAMD;
+    $("rtss-body").textContent = L.rtssBodyAMDFps;
+    $("rtss-amd").hidden = true;
+  } else if (s.amd_driver) {
     $("rtss-title").textContent = L.rtssTitleAMD;
     $("rtss-body").textContent = L.rtssBodyAMD;
     $("rtss-amd").hidden = true;

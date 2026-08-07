@@ -20,6 +20,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
 	"github.com/corgan2222/rig-exporter/internal/export/influxpush"
 	"github.com/corgan2222/rig-exporter/internal/hamqtt"
+	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/rtss"
 	"github.com/corgan2222/rig-exporter/internal/sysinfo"
@@ -168,6 +169,11 @@ func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provi
 	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
 	c.ReportVersion(config.VersionString())
 	c.ReportSelfUsage(cfg.SelfUsageEnabled)
+	// Registered whatever the graphics group is set to, because the frame rate
+	// belongs to the always-on core group — the same reason RTSS is read even
+	// with the graphics group switched off. On a machine without an AMD driver
+	// this never produces a reading.
+	c.UseFrameRateFallback(gpu.ADLXOrigin, gpu.ADLXFrameRate)
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
 	return c, s

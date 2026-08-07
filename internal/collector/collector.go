@@ -57,6 +57,11 @@ type Snapshot struct {
 	RTSSMessage string
 	RTSSVersion string
 
+	// FPSOrigin names what supplied the frame rate when it did not come from
+	// RTSS, and is empty otherwise. The interface needs it to tell a genuine
+	// reading from the zero that stands for "nothing is rendering".
+	FPSOrigin string
+
 	// SourceErrors records which optional groups failed, for the settings page.
 	SourceErrors map[metrics.Group]string
 }
@@ -116,12 +121,26 @@ type SystemSource interface {
 	SelfUsage() (sysinfo.SelfUsage, error)
 }
 
+// FrameRate reads a frame rate from somewhere other than RTSS, reporting
+// whether one was available at all.
+//
+// A graphics driver can count presented frames without any overlay program:
+// AMD's ADLX does, for whatever is running fullscreen. What it cannot say is
+// which application that is, which is why this supplies a number and not a
+// game — the name and the process id stay RTSS's alone.
+type FrameRate func() (float64, bool)
+
 // Collector produces snapshots.
 type Collector struct {
 	rtss    RTSSSource
 	system  SystemSource
 	sources []Source
 	log     *slog.Logger
+
+	// frames stands in for RTSS when RTSS has no rendering application, and
+	// frameOrigin names what supplied the number.
+	frames      FrameRate
+	frameOrigin string
 
 	idleMs    uint32
 	lastDispl sysinfo.Display
@@ -146,6 +165,16 @@ func (c *Collector) ReportVersion(version string) { c.version = version }
 // ReportSelfUsage makes the collector publish this process's own CPU share and
 // working set.
 func (c *Collector) ReportSelfUsage(on bool) { c.selfUsage = on }
+
+// UseFrameRateFallback registers a frame rate to fall back on when RTSS has no
+// rendering application, labelled with what supplies it.
+//
+// It never displaces RTSS. RTSS knows the game, the process and the time the
+// last frame actually took; a driver counter knows none of those. It only fills
+// the case where the frame rate would otherwise be reported as zero.
+func (c *Collector) UseFrameRateFallback(origin string, read FrameRate) {
+	c.frames, c.frameOrigin = read, origin
+}
 
 // New wires a collector with the core source only. idleMs is how long an RTSS
 // entry may go without a new frame before it stops counting as the game.
@@ -252,6 +281,23 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		)
 		return
 	}
+	// RTSS has nothing rendering. The graphics driver may still be counting
+	// presented frames, and on a machine without RTSS that is the difference
+	// between a frame rate and a permanent zero.
+	if fps, ok := c.frameRateFallback(); ok {
+		previous := snap.Set.Origin
+		snap.Set.Origin = c.frameOrigin
+		snap.Add(
+			metrics.Gauge(metrics.FPS, "", fps),
+			// Derived, the same way FrametimeMs already falls back to the
+			// inverse of the rate on RTSS builds without a frame time counter.
+			metrics.Gauge(metrics.Frametime, "", 1000/fps),
+		)
+		snap.Set.Origin = previous
+		snap.FPSOrigin = c.frameOrigin
+		return
+	}
+
 	// Reporting zero rather than omitting keeps the FPS entity numeric, so
 	// Home Assistant graphs it as a line that drops to the floor instead of
 	// breaking into segments.
@@ -259,6 +305,20 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		metrics.Gauge(metrics.FPS, "", 0),
 		metrics.Gauge(metrics.Frametime, "", 0),
 	)
+}
+
+// frameRateFallback asks the registered driver counter, if there is one. A rate
+// of zero is treated as no answer: it means nothing is presenting, which is
+// exactly the state the zero below already describes.
+func (c *Collector) frameRateFallback() (float64, bool) {
+	if c.frames == nil {
+		return 0, false
+	}
+	fps, ok := c.frames()
+	if !ok || fps <= 0 {
+		return 0, false
+	}
+	return fps, true
 }
 
 func (c *Collector) collectSystem(snap *Snapshot) {

@@ -240,7 +240,14 @@ func runProbe(configPath string, out io.Writer) error {
 		fmt.Fprintf(out, " — %s", snap.RTSSMessage)
 	}
 	fmt.Fprintf(out, "\nGame:       %s\n", snap.Game())
-	fmt.Fprintf(out, "FPS:        %.1f (%.2f ms)\n", snap.FPS(), snap.FrametimeMs())
+	fmt.Fprintf(out, "FPS:        %.1f (%.2f ms)", snap.FPS(), snap.FrametimeMs())
+	// Which of the two counted the frames decides what the number can be asked
+	// to mean: a driver counts fullscreen frames and knows no application, RTSS
+	// knows both and also counts a windowed one.
+	if snap.FPSOrigin != "" {
+		fmt.Fprintf(out, " — counted by %s, not by RTSS", snap.FPSOrigin)
+	}
+	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "Display:    %s @ %d Hz\n", snap.Resolution(), snap.RefreshHz())
 	fmt.Fprintf(out, "CPU / RAM:  %.1f %% / %.1f %%\n", snap.CPUPercent(), snap.RAMPercent())
 

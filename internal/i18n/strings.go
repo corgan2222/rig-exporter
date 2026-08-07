@@ -108,11 +108,24 @@ var catalogue = map[string]Text{
 		DE: "Ohne RTSS gibt es keine FPS-Werte. Die AMD-Karte meldet zurzeit auch keine Temperaturen — dafür braucht es das vollständige Adrenalin-Paket, nicht nur den Anzeigetreiber.",
 		EN: "Without RTSS there are no FPS values. The AMD card is not reporting temperatures either — that needs the full Adrenalin package, not just the display driver.",
 	},
+	// The AMD driver counts presented frames itself, so with something running
+	// fullscreen the frame rate is already there and the one thing RTSS would
+	// still add is the name of the application drawing them.
+	"rtss.bannerBodyAMDFps": {
+		DE: "Bildrate, Temperatur, Takt, Lüfter und Leistung kommen bereits vom AMD-Treiber. Ohne RTSS fehlt nur, welches Spiel läuft — und die Bildrate zählt der Treiber nur im Vollbild.",
+		EN: "Frame rate, temperature, clocks, fan and power already come from the AMD driver. Without RTSS the only thing missing is which game is running — and the driver counts frames in fullscreen only.",
+	},
 	"rtss.downloadAMD":         {DE: "AMD-Treiber herunterladen", EN: "Download AMD driver"},
 	"rtss.downloadAfterburner": {DE: "MSI Afterburner herunterladen", EN: "Download MSI Afterburner"},
 	"rtss.download":            {DE: "RTSS herunterladen", EN: "Download RTSS"},
 	"rtss.alsoInAfterburner":   {DE: "(in Afterburner bereits enthalten)", EN: "(already included with Afterburner)"},
-	"rtss.dismissNoGPU":        {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
+	// Two labels for one button. It sets the same switch either way, but the
+	// reason differs: a machine with no graphics card at all cannot have game
+	// data, while a machine with one simply is not used for games. Claiming
+	// "no GPU present" on a Radeon is plainly wrong, and wrong text in an
+	// interface costs more trust than a missing feature.
+	"rtss.dismissNoGPU":  {DE: "Keine GPU vorhanden — Spieldaten ausblenden", EN: "No GPU present — hide game status"},
+	"rtss.dismissNoGame": {DE: "Kein Spielrechner — Spieldaten ausblenden", EN: "Not used for gaming — hide game status"},
 
 	// The update box. Only ever on screen when there is something newer, so
 	// none of these has to cope with "you are up to date".

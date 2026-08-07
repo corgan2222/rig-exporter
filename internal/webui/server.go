@@ -748,6 +748,13 @@ type statusResponse struct {
 	AMDCard   bool `json:"amd_card"`
 	AMDDriver bool `json:"amd_driver"`
 
+	// FPSOrigin is empty when the frame rate came from RTSS or from nowhere,
+	// and names the driver when it stood in. GPUPresent decides whether the
+	// dismiss button may claim there is no graphics card, which on a machine
+	// that has one would simply be untrue.
+	FPSOrigin  string `json:"fps_origin"`
+	GPUPresent bool   `json:"gpu_present"`
+
 	// The update box. It comes through the API rather than the template
 	// because a check that finishes a second after the page loaded should put
 	// the box on screen without a reload.
@@ -864,6 +871,8 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		NoGPU:       st.Config.NoGPU,
 		AMDCard:     amdCard,
 		AMDDriver:   amdDriver,
+		FPSOrigin:   snap.FPSOrigin,
+		GPUPresent:  snap.Has(metrics.GPUName.ID),
 		Groups:      groupStatuses(st, lang),
 		Exports:     make([]exportStatus, 0, len(st.Exports)),
 		Paused:      st.Paused,

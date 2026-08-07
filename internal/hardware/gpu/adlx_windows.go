@@ -47,6 +47,10 @@ const (
 
 	// IADLXPerformanceMonitoringServices (IPerformanceMonitoring.h).
 	adlxPerfCurrentGPUMetrics = 18
+	adlxPerfCurrentFPS        = 20
+
+	// IADLXFPS (IPerformanceMonitoring.h).
+	adlxFPSValue = 4
 
 	// IADLXGPUMetrics (IPerformanceMonitoring.h). Slot 4 is GPUUsage, which is
 	// deliberately not read — see mergeFromADLX.
@@ -187,6 +191,39 @@ func adlxCards() ([]adlxCard, error) {
 		return nil, fmt.Errorf("adlx reports no graphics card")
 	}
 	return cards, nil
+}
+
+// ADLXFrameRate reports the frame rate the AMD driver counts itself, for the
+// case RTSS is not running.
+//
+// Fullscreen only. Without a fullscreen application ADLX answers
+// ADLX_NOT_SUPPORTED rather than a zero, and that is a statement about what it
+// can measure rather than a failure — which is exactly the distinction the
+// caller needs. Measured against a fullscreen Direct3D loop on a Radeon RX 570
+// it tracked 55 to 62 at a 60 Hz refresh.
+//
+// It knows no application name and no process id. Those are RTSS's alone, and
+// no amount of driver telemetry replaces them.
+func ADLXFrameRate() (float64, bool) {
+	if !adlxLib.load() {
+		return 0, false
+	}
+
+	var services uintptr
+	if ret := adlxCall(adlxLib.system, adlxSystemGetPerformanceServices,
+		uintptr(unsafe.Pointer(&services))); ret != adlxOK || services == 0 {
+		return 0, false
+	}
+	defer adlxReleaseObject(services)
+
+	var reading uintptr
+	if ret := adlxCall(services, adlxPerfCurrentFPS,
+		uintptr(unsafe.Pointer(&reading))); ret != adlxOK || reading == 0 {
+		return 0, false
+	}
+	defer adlxReleaseObject(reading)
+
+	return adlxInt(reading, adlxFPSValue)
 }
 
 func readADLXCard(index int, gpu, services uintptr) adlxCard {

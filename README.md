@@ -86,7 +86,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 
 | Gruppe | Werte | Quelle |
 |---|---|---|
-| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
+| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows; FPS ersatzweise aus dem AMD-Treiber |
 | **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung und ihre Aufteilung auf 3D, Videodekodierung, Videokodierung und Kopier-Engine, belegter Grafikspeicher, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI, Plug and Play und die WDDM-Leistungsindikatoren, MSI Afterburner, NVML (NVIDIA) und ADLX (AMD) |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
@@ -645,8 +645,11 @@ Drei Seiten, erreichbar über die Kopfzeile:
   ausgeblendet statt leer angezeigt.
 
   Fehlt auf einem Rechner die GPU beziehungsweise werden dort bewusst keine
-  Spieldaten genutzt, lässt sich der RTSS-Hinweis mit **„Keine GPU vorhanden —
-  Spieldaten ausblenden“** dauerhaft wegräumen. Die Einstellung wird als
+  Spieldaten genutzt, lässt sich der RTSS-Hinweis dauerhaft wegräumen. Der Knopf
+  heißt **„Keine GPU vorhanden — Spieldaten ausblenden“**, wenn Windows gar
+  keine Grafikkarte meldet, und **„Kein Spielrechner — Spieldaten ausblenden“**,
+  wenn eine da ist: derselbe Schalter, aber einer Radeon zu erklären, sie sei
+  nicht vorhanden, wäre schlicht falsch. Die Einstellung wird als
   `no_gpu` in `config.json` gespeichert und blendet zusätzlich die Kacheln FPS,
   Frametime und Spiel sowie den RTSS-Statuschip aus. Unter *Export & Anzeige →
   Anwendung* lässt sie sich wieder abschalten. Messung und Exporte ändern sich
@@ -1013,7 +1016,7 @@ und ihr Pfad steht am Ende der Ausgabe.
 |---|---|
 | RTSS `not_running` | RTSS ist nicht gestartet. |
 | RTSS `access_denied` | RTSS läuft erhöht, rig-exporter nicht. Eines von beiden angleichen. |
-| FPS bleibt 0, Spiel `none` | RTSS hookt die Anwendung nicht. Im RTSS-Profil „Application detection level" prüfen. |
+| FPS bleibt 0, Spiel `none` | RTSS hookt die Anwendung nicht. Im RTSS-Profil „Application detection level" prüfen. Auf einer Radeon springt ohne RTSS der Treiber ein, aber nur im Vollbild — im Fenstermodus bleibt es bei 0. |
 | Keine GPU-Gruppe | GPU-Gruppe in den Einstellungen aktiv? DXGI und die Windows-Geräteliste fanden keinen physischen Adapter. Ein nicht erreichbarer Afterburner betrifft nur die Live-Werte. |
 | Keine CPU-Temperatur | Kommt über Afterburner, oder über PawnIO — das aber nur auf AMD und nur eleviert. |
 | Keine CPU-Leistung | Gibt es ausschließlich über PawnIO: eingeschaltet, AMD, eleviert. |
@@ -1267,6 +1270,17 @@ kennt — das ist, worauf man gerade schaut. Sonst der zuletzt gerenderte, damit
 ein Spiel im Hintergrund weiterzählt. Einträge, deren letztes Bild älter als das
 Idle-Timeout ist, fallen raus; das lässt ein beendetes Spiel auf `none`
 zurückfallen statt beim letzten Wert einzufrieren.
+
+Hat RTSS nichts, springt der **Grafiktreiber** ein, sofern er selbst Bilder
+zählt: AMDs ADLX tut das. Verdrängen kann er RTSS nicht, und er soll es auch
+nicht — RTSS kennt Spielnamen, Prozess-ID und die Zeit, die das letzte Bild
+wirklich gebraucht hat, und zählt auch im Fenstermodus. Der Treiber zählt
+**nur im Vollbild** und weiß nicht, was da zeichnet; das Spiel bleibt deshalb
+`none`. Die Frametime wird aus der Rate abgeleitet, so wie es schon bei
+RTSS-Fassungen ohne eigenen Frametime-Zähler geschieht. Woher der Wert kam,
+steht als `fps_origin` in `/api/status` und in der `-probe`-Ausgabe — auf dem
+Weg in einen Export erscheint es nicht, dort sieht jeder Messwert gleich aus,
+egal wer ihn gezählt hat.
 
 **GPU-Inventar** kommt aus DXGI 1.1. `DXGI_ADAPTER_DESC1` liefert Name,
 PCI-Kennung, dedizierten und gemeinsam nutzbaren Speicher; Plug and Play ergänzt
