@@ -328,15 +328,43 @@ nächsten Start etwas darin, war der letzte Lauf keiner:
 | nur die Kopfzeile | hart beendet — Task-Manager, Stromausfall, überschriebene EXE |
 | Panik samt Stapelspur | ein Fehler im Programm |
 
-Der Bericht wird zur Seite gelegt (die letzten zehn bleiben liegen), das Log
-bekommt eine Fehlerzeile, und auf der Anzeigeseite steht ein Kasten ganz oben.
-Bei einer echten Panik bietet er einen Knopf an, der GitHub mit einem
-ausgefüllten Fehlerbericht öffnet — **geöffnet, nicht abgeschickt**. Was darin
-steht, ist eine feste Liste: Version, Windows-Fassung, Prozessor, Grafikkarte,
-ob erhöht gelaufen wurde, und die Aufzeichnung selbst. Die Konfiguration wird
-bewusst nicht gelesen, denn dort stehen das Broker-Passwort und drei Tokens.
-Abgeschickt wird nichts, bevor du es auf der GitHub-Seite selbst tust; der
-Knopf lässt sich unter *Export & Anzeige → Anwendung* auch ganz abschalten.
+Der Bericht wird zur Seite gelegt, das Log bekommt eine Fehlerzeile, und auf der
+Anzeigeseite steht ein Kasten ganz oben. Aufgehoben wird unter dem Namen
+
+```
+rig-exporter_<rechner>_crashreport_<datum>_<uhrzeit>.log
+```
+
+— die letzten zehn bleiben liegen. Der Rechnername steht darin, weil solche
+Dateien wandern: an ein Issue gehängt, in einen Chat gezogen, per Mail
+verschickt. Ein Ordner voller `crash-<datum>.log` von drei PCs ist hinterher
+nicht mehr auseinanderzuhalten.
+
+Am Kasten hängen vier Handlungen, und dieselben vier stehen unter
+*Export & Anzeige → Protokolle* an jeder Datei:
+
+| Zeichen | Was es tut |
+|---|---|
+| 👁 | den Bericht im Browser ansehen |
+| ⤓ | ihn als Datei herunterladen |
+| GitHub | GitHub mit ausgefülltem Fehlerbericht öffnen |
+| ✓ | den Hinweis wegnehmen (die Datei bleibt) |
+
+**Geöffnet, nicht abgeschickt.** Was in dem Bericht steht, ist eine feste Liste:
+Version, Windows-Fassung, Prozessor, Grafikkarte, ob erhöht gelaufen wurde, und
+die Aufzeichnung selbst. Die Konfiguration wird bewusst nicht gelesen, denn dort
+stehen das Broker-Passwort und drei Tokens; Kontoname und alles, was wie ein
+Zugangsdatum aussieht, werden vorher aus dem Text genommen — auch aus der Datei,
+nicht nur aus dem Link. Abgeschickt wird nichts, bevor du es auf der
+GitHub-Seite selbst tust; der Knopf lässt sich unter *Export & Anzeige →
+Anwendung* auch ganz abschalten.
+
+Angeboten wird das auch für eine Sitzung, die einfach verschwunden ist, nicht
+nur für eine Panik mit Stapelspur. Ein Programm, das wortlos weg ist, ist genau
+der Fehler, für den das hier gebaut wurde, und der Bericht trägt Build,
+Maschine, antwortende Quellen und die letzten 200 Logzeilen. Ob jemand die
+Aufgabe absichtlich beendet hat, kann das Programm nicht wissen — der Kasten
+fragt es, und wer ihn liest, weiß es.
 
 Aufgezeichnet wird in jedem Fall. Ob ein Absturz auffällt, ist keine
 Einstellung.
@@ -1058,6 +1086,30 @@ und ihr Pfad steht am Ende der Ausgabe.
 | Keine CPU-Leistung | Gibt es ausschließlich über PawnIO: eingeschaltet, AMD, eleviert. |
 | Keine Durchsatzwerte | Erst ab der zweiten Messung vorhanden, sie sind eine Differenz. |
 | Entities fehlen in HA | MQTT-Integration aktiv? Discovery-Präfix identisch? Log prüfen. |
+
+### Protokolle im Browser
+
+Unter *Export & Anzeige* steht ganz unten der Kasten **Protokolle**. Er zeigt die
+letzten 200 Zeilen des laufenden Protokolls, in denselben Stufen, in denen sie
+geschrieben wurden:
+
+| Stufe | Farbe |
+|---|---|
+| DEBUG | violett |
+| INFO | weiß |
+| WARN | gelb |
+| ERROR | orange |
+| Absturz, Panik, harter Abbruch | rot |
+
+*nur Fehler* blendet die ruhigen Stufen aus, ohne etwas nachzuladen. Darunter
+stehen die Dateien: das laufende Protokoll, das rotierte davor und jede
+aufgehobene Absturzaufzeichnung, jeweils mit Ansehen, Herunterladen und — bei
+einem Absturz — dem GitHub-Knopf. Nichts davon verlässt diesen Rechner, solange
+niemand einen davon drückt.
+
+Ausgeliefert wird ausschließlich, was in dieser Liste steht. Die `config.json`
+liegt im selben Ordner und wird über diesen Weg nicht herausgegeben, auch nicht
+unter einem geschickt geschriebenen Namen.
 
 ### Was der Exporter selbst kostet
 
