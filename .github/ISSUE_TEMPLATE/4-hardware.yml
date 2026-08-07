@@ -1,0 +1,109 @@
+name: A piece of hardware is not recognised
+description: >-
+  A cooling controller, a graphics card, a battery or a sensor that other tools
+  can read and this one cannot.
+labels: ["enhancement", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This one usually cannot be answered from the report alone. Nobody here
+        owns your device, so the useful path is: you show what another program
+        reads from it, and then try a build against it. If you are not able to
+        do that, say so — it is still worth filing, it will just wait for
+        somebody who has the hardware.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of device
+      options:
+        - Cooling controller (AIO, pump, fan hub)
+        - Graphics card
+        - Battery
+        - Processor sensor
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Manufacturer and exact model
+      description: The exact model matters — vendors reuse names across protocols.
+      placeholder: NZXT Kraken Z73 (2022 revision)
+    validations:
+      required: true
+
+  - type: textarea
+    id: othertool
+    attributes:
+      label: What another program reads from it
+      description: >-
+        LibreHardwareMonitor, HWiNFO or the vendor's own software, with the
+        values it showed. If LibreHardwareMonitor supports it, a link to the
+        file in its repository that handles the device shortens this enormously.
+    validations:
+      required: true
+
+  - type: input
+    id: usbid
+    attributes:
+      label: USB identifier, for a USB device
+      description: >-
+        Device Manager, Details, Hardware Ids. Empty for anything not on USB.
+      placeholder: USB\VID_1E71&PID_3008
+
+  - type: textarea
+    id: probe
+    attributes:
+      label: The origin table from -probe
+      description: >-
+        The section at the end of `%APPDATA%\rig-exporter\probe.txt`. It shows
+        what is being read today, which says whether the device is invisible or
+        merely incomplete.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: Build identifier
+      placeholder: 1.9.1+167.882a777
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: >-
+        Device enumeration and driver interfaces differ by build, and a device
+        that is invisible on one is often readable on another.
+      placeholder: 11 Pro 24H2 (26100.2314)
+    validations:
+      required: true
+
+  - type: input
+    id: locale
+    attributes:
+      label: Windows display language
+      description: >-
+        Windows names devices in your language, and the name is what gets
+        matched and turned into an identifier.
+      placeholder: de-DE
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you help test it?
+      options:
+        - label: >-
+            I have the device and can run a build against it and report what it
+            returns.
+        - label: >-
+            I can run the program elevated if the source needs it. PawnIO-backed
+            readings do; most others do not.

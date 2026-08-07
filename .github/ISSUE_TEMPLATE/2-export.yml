@@ -1,0 +1,123 @@
+name: An export target does not show what it should
+description: >-
+  Home Assistant, Prometheus, InfluxDB or the JSON endpoint. The reading exists
+  in -probe but does not arrive, or arrives wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for the delivery side. If the value is already missing in
+        `rig-exporter.exe -probe`, it never reached an export in the first place
+        — use **A measurement is missing or wrong** instead.
+
+        Before posting: what you paste can carry host names, broker addresses
+        and tokens. Read it first.
+
+  - type: dropdown
+    id: target
+    attributes:
+      label: Which target
+      options:
+        - Home Assistant over MQTT
+        - Prometheus
+        - InfluxDB (push)
+        - InfluxDB (pull) / JSON endpoint
+    validations:
+      required: true
+
+  - type: input
+    id: entity
+    attributes:
+      label: Which entity, series or field
+      placeholder: sensor.gaming_pc_gpu_temperature / rig_gpu_temperature_celsius
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What the target shows, and what you expected
+      description: >-
+        `unavailable`, `unknown`, a stale value, a missing entity, a scrape that
+        returns nothing — each points somewhere different.
+    validations:
+      required: true
+
+  - type: textarea
+    id: probe
+    attributes:
+      label: The same measurement in -probe
+      description: >-
+        `%APPDATA%\rig-exporter\probe.txt` prints every reading in every export
+        format. Paste the line for this measurement from the format in question,
+        so we can see whether the value left the exporter correctly.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: discovery
+    attributes:
+      label: Home Assistant only — has the retained discovery been cleaned?
+      description: >-
+        A discovery message sits on the broker, survives the program and
+        survives deleting the entity in Home Assistant. Cleaning up means
+        **broker first, then Home Assistant** — the other way round brings the
+        entity straight back, which looks like a fault and is not one.
+      options:
+        - Not applicable, this is not Home Assistant
+        - No, never tried
+        - "Yes: broker first, then Home Assistant"
+        - "Yes, but Home Assistant first"
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: Build identifier
+      description: From the tray, the web interface footer, or `-version`.
+      placeholder: 1.9.1+167.882a777
+    validations:
+      required: true
+
+  - type: input
+    id: targetversion
+    attributes:
+      label: Version of the target
+      placeholder: Home Assistant 2026.7.2 with Mosquitto 2.0.18
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: >-
+        Rarely the cause here, but a refused TLS handshake usually is one of
+        the few times it is.
+      placeholder: 11 Pro 24H2 (26100.2314)
+
+  - type: input
+    id: locale
+    attributes:
+      label: Windows display language
+      description: >-
+        This is where it matters most. Entity ids, MQTT topics and Prometheus
+        labels are built from device names, and those arrive in your language.
+        Everything outside a-z0-9 is folded away; a name that keeps nothing at
+        all becomes a digest, which is why an entity can end up called
+        `net_x1a2b3c4d_ip`.
+      placeholder: de-DE
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Relevant lines from the log
+      description: >-
+        `%APPDATA%\rig-exporter\rig-exporter.log`. Connection and publish
+        failures are recorded there with a reason.
+      render: text

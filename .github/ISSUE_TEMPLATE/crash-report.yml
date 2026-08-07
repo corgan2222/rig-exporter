@@ -1,0 +1,126 @@
+name: Crash report
+description: >-
+  Opened by rig-exporter itself after it caught a crash. Fill this in by hand
+  only if you know what belongs in it.
+title: "Crash: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        rig-exporter fills most of this in and then opens the page. It submits
+        nothing on its own: you read what it wrote and press the button.
+
+        **What it removed before you got here.** Your Windows account name in
+        every path, replaced with `%USER%`, and anything shaped like a
+        credential — `password=`, `token=`, `secret=`, `apikey=`, `bearer=` —
+        replaced with `<removed>`. The report is assembled from a fixed list of
+        facts and never from `config.json`, so the broker password, the MQTT
+        user and the export tokens are not in it at all.
+
+        **What it deliberately left in.** The computer name, drive labels and IP
+        addresses. A fault often hangs on exactly those. You can see them, and
+        you can edit them out before submitting.
+
+  - type: textarea
+    id: panic
+    attributes:
+      label: The crash
+      description: >-
+        The message and the stack. Shortened in the middle when it is too long
+        for a link — the head names the error, the tail names what else was
+        waiting.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you were doing
+      description: >-
+        The one thing the program cannot know. Even "nothing, it had been
+        running overnight" is worth writing — it rules out a great deal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: full
+    attributes:
+      label: The full report
+      description: >-
+        rig-exporter writes it as `crash-<timestamp>.log` next to the
+        configuration, and from 1.9.2 links it at the bottom of the
+        **Export & display** page — one click to open it there. Drag the file
+        into this box, or paste it. The link that opened this page cannot carry
+        the whole thing, so this is usually the part that holds the answer.
+      render: text
+
+  - type: input
+    id: build
+    attributes:
+      label: Build identifier
+      placeholder: 1.9.2+167.882a777
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 10 Pro 22H2 (19045.7548)
+    validations:
+      required: true
+
+  - type: input
+    id: locale
+    attributes:
+      label: Windows display language
+      description: >-
+        Device names, drive labels and your account name arrive in that
+        language, and paths in the stack are built from the last of those.
+      placeholder: de-DE
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Real or virtual hardware
+      description: From the same firmware identity the `virtualized` reading uses.
+      placeholder: virtual (QEMU/KVM)
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Processor and graphics cards
+      placeholder: AMD Ryzen 9 5950X · RTX 5070 Ti + RTX 2080
+    validations:
+      required: true
+
+  - type: input
+    id: elevated
+    attributes:
+      label: Elevated
+      placeholder: "no"
+    validations:
+      required: true
+
+  - type: input
+    id: sources
+    attributes:
+      label: Sources that were answering
+      description: >-
+        Optional. A crash with a vendor library loaded is a different fault than
+        one without, and those libraries are reached through function-pointer
+        tables where a mistake lands exactly here.
+      placeholder: Windows DXGI, AMD ADLX, Windows GPU counters
+
+  - type: textarea
+    id: log
+    attributes:
+      label: The last lines before it happened
+      description: From `%APPDATA%\rig-exporter\rig-exporter.log`, shortened to fit.
+      render: text

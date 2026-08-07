@@ -1,0 +1,85 @@
+# Closes a new issue when its author already has more than a handful open.
+#
+# GitHub has no setting for this. What it does have is interaction limits, which
+# lock out a whole class of accounts at once, and blocking, which is per person
+# and after the fact. Neither expresses "one person, not too many at a time",
+# so it is done here.
+#
+# This is a brake, not a wall. Somebody determined to spam makes another
+# account, and no workflow stops that — for real abuse the answer is still an
+# interaction limit and the report button. What this does stop is the ordinary
+# case: one person opening a dozen issues in an afternoon, faster than anyone
+# can answer them.
+name: Limit open issues per author
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    # Anyone who has already had a change merged is past the point where this
+    # helps, and stopping them would be pure friction.
+    if: >-
+      github.event.issue.author_association != 'OWNER' &&
+      github.event.issue.author_association != 'MEMBER' &&
+      github.event.issue.author_association != 'COLLABORATOR' &&
+      github.event.issue.author_association != 'CONTRIBUTOR'
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const limit = 5;
+            const author = context.payload.issue.user.login;
+
+            // The issues endpoint rather than the search API: search is
+            // indexed with a delay, so an issue opened seconds ago may not be
+            // counted yet, and the check would pass exactly when it should not.
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              creator: author,
+              per_page: 100,
+            });
+
+            // That endpoint returns pull requests as well; they are not issues
+            // and must not count against the limit.
+            const open = issues.filter(i => !i.pull_request);
+            core.info(`${author} has ${open.length} open issue(s), limit ${limit}`);
+            if (open.length <= limit) return;
+
+            const others = open
+              .filter(i => i.number !== context.payload.issue.number)
+              .map(i => `#${i.number}`)
+              .join(', ');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: [
+                `Closing this for now: you already have ${limit} or more issues open here (${others}).`,
+                '',
+                'This is not a judgement on the report. It is a queue that one person',
+                'maintains, and a stack that grows faster than it can be worked through',
+                'helps nobody — least of all you, waiting for an answer.',
+                '',
+                'Close or resolve one of the others and reopen this, or add what you were',
+                'going to write to whichever of them is closest. If they are genuinely',
+                'separate faults and all of them matter, say so in a comment and it will',
+                'be reopened.',
+              ].join('\n'),
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });

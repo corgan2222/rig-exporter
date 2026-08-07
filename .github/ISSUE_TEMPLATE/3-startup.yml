@@ -1,0 +1,97 @@
+name: It does not start, or it disappears
+description: >-
+  No tray icon, no window, the process vanishes, or it dies while running.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form asks for different things than the others, and on purpose.
+        rig-exporter is linked as a GUI application: when it fails early it dies
+        **without a window, a message or an exit code**, and `-probe` may never
+        get far enough to produce anything. So the log and the folder listing
+        matter here, not the probe.
+
+  - type: dropdown
+    id: when
+    attributes:
+      label: When does it happen
+      options:
+        - Immediately at start — no tray icon ever appears
+        - Shortly after start
+        - After running for a while
+        - Only after an update installed itself
+    validations:
+      required: true
+
+  - type: textarea
+    id: listing
+    attributes:
+      label: What sits next to rig-exporter.exe
+      description: >-
+        A plain listing of the folder holding the executable, hidden files
+        included. `Get-ChildItem -Force | Select-Object Name, Length` is enough.
+        A leftover file from an interrupted update can stop the program from
+        starting at all, and its name is the evidence.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: The end of the log
+      description: >-
+        `%APPDATA%\rig-exporter\rig-exporter.log`, the last few dozen lines. If
+        the file does not exist at all, say so — that is itself a finding, and
+        it narrows things down considerably.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: Build identifier
+      description: >-
+        If it will not start far enough to tell you, the file version of
+        `rig-exporter.exe` or where you downloaded it from will do.
+      placeholder: 1.9.1+167.882a777
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: 11 Pro 24H2 (26100.2314)
+    validations:
+      required: true
+
+  - type: input
+    id: locale
+    attributes:
+      label: Windows display language
+      description: >-
+        Your account name sits in the path to the configuration and the log, and
+        an account written in another script is one of the few things that can
+        go wrong before anything is even read.
+      placeholder: de-DE
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Already ruled out
+      description: >-
+        Both of these look exactly like a crash and are not one.
+      options:
+        - label: >-
+            No other rig-exporter is already running. The single-instance lock
+            lets a second one die quietly, and the symptom looks like a refused
+            connection.
+        - label: >-
+            The binary is an official release, or was built with `build.ps1`.
+            A plain `go build` produces a console binary that behaves
+            differently.
