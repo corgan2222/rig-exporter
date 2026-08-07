@@ -91,6 +91,11 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// The full crash record, as it was written. Linked from the banner rather
 	// than shown in it: a goroutine dump is pages long.
 	mux.HandleFunc("GET /crash", s.handleCrash)
+	// One log file, by the name the page listed. Only a name that came out of
+	// that listing is served — see handleLog.
+	mux.HandleFunc("GET /logs/{name}", s.handleLog)
+	// Tidying up: removes the kept records, never the one being written.
+	mux.HandleFunc("POST /logs/clear", s.handleClearLogs)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
@@ -200,6 +205,10 @@ type pageData struct {
 	// CrashIssueURL is a prepared GitHub issue for the pending crash record,
 	// empty when there is nothing to report or the offer is switched off.
 	CrashIssueURL string
+	// Logs is every record this program keeps, and LogTail the last lines of
+	// the running one — enough to see what happened without opening a file.
+	Logs     []logFile
+	LogLines []logLine
 	// Where the name in the header and the credit in the footer point.
 	ProjectURL string
 	AuthorURL  string
@@ -241,6 +250,22 @@ type pageData struct {
 
 // T translates an interface string into the active language.
 func (p pageData) T(key string) string { return i18n.T(p.Lang, key) }
+
+// LogTailNote says how much of the running log is on the page.
+func (p pageData) LogTailNote() string {
+	return strings.Replace(p.T("settings.logs.lastLines"), "%1", strconv.Itoa(tailLines), 1)
+}
+
+// HasCrashLogs reports whether any session ever failed to shut down. Used to
+// say so plainly rather than leaving an absence to be interpreted.
+func (p pageData) HasCrashLogs() bool {
+	for _, file := range p.Logs {
+		if file.Kind == crashKind {
+			return true
+		}
+	}
+	return false
+}
 
 // ExportStatus is the live state of one export target, or nil when that target
 // is switched off — Status.Exports holds an entry per enabled target only.
@@ -364,6 +389,8 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		PawnIOURL:       config.PawnIOURL,
 		CoolingURL:      config.CoolingURL,
 		CrashIssueURL:   crashIssueURL(status),
+		Logs:            logFiles(),
+		LogLines:        logLinesOf(runningLogTail()),
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,

@@ -372,6 +372,29 @@ var catalogue = map[string]Text{
 	},
 	"crash.dismiss": {DE: "Gelesen", EN: "Read it"},
 
+	"settings.logs.title": {DE: "Protokolle", EN: "Logs"},
+	"settings.logs.intro": {
+		DE: "Was das Programm aufschreibt, ohne dass jemand einen Ordner öffnen muss. " +
+			"Nichts davon verlässt diesen Rechner.",
+		EN: "What the program writes down, without anybody having to open a folder. " +
+			"None of it leaves this machine.",
+	},
+	"settings.logs.running":   {DE: "Laufendes Protokoll", EN: "Running log"},
+	"settings.logs.lastLines": {DE: "letzte %1 Zeilen", EN: "last %1 lines"},
+	"settings.logs.files":     {DE: "Dateien", EN: "Files"},
+	"settings.logs.crash":     {DE: "Absturz", EN: "Crash"},
+	"settings.logs.open":      {DE: "öffnen", EN: "open"},
+	"settings.logs.empty":     {DE: "Noch nichts aufgeschrieben.", EN: "Nothing written down yet."},
+	"settings.logs.clear":     {DE: "Aufgehobene Berichte löschen", EN: "Delete the kept records"},
+	"settings.logs.clearHint": {
+		DE: "Entfernt Absturzberichte und das rotierte Protokoll. Das laufende bleibt — es ist geöffnet.",
+		EN: "Removes the crash reports and the rotated log. The running one stays: it is open.",
+	},
+	"settings.logs.noCrash": {
+		DE: "Kein Absturzbericht — bisher hat sich jede Sitzung ordentlich beendet.",
+		EN: "No crash report: every session so far ended on purpose.",
+	},
+
 	"settings.app.crashReport": {
 		DE: "Absturzbericht als GitHub-Issue anbieten",
 		EN: "Offer to report a crash as a GitHub issue",

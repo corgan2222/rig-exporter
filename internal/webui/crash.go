@@ -32,6 +32,10 @@ func machineFor(st app.Status) crashlog.Machine {
 		// missing the first thing anybody would ask.
 		GPU:      strings.Join(textsOf(st, metrics.GPUName.ID), " + "),
 		Elevated: crashlog.Elevated(),
+		// What actually answered. A crash with a vendor library loaded is a
+		// different bug from one without, and those are reached through
+		// function-pointer tables — where this kind of fault comes from.
+		Sources: st.Snapshot.Str(metrics.GPUSource.ID),
 	}
 }
 

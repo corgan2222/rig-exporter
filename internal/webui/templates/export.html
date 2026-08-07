@@ -303,6 +303,80 @@
     </div>
   </form>
 
+  <!-- Last on the page on purpose: nobody comes here to read a log, they come
+       here when something is wrong and the log is the next thing they need.
+       Shown rather than pointed at, because "open the folder" is one step more
+       than most people will take before giving up. -->
+  <div class="card" id="logs">
+    <h2>{{ .T "settings.logs.title" }}</h2>
+    <p class="note" style="margin-top:0">{{ .T "settings.logs.intro" }}</p>
+
+    <div class="cardhead tight" style="margin-bottom:.4rem">
+      <h3 class="sub">{{ .T "settings.logs.running" }}</h3>
+      <span class="note">{{ .LogTailNote }}</span>
+      <a class="sidelink" href="/logs/{{ .AppName }}.log" target="_blank" rel="noopener">{{ .T "settings.logs.open" }}</a>
+    </div>
+    {{ if .LogLines }}
+    <pre class="logview">{{ range .LogLines }}<span class="l-{{ .Level }}">{{ .Text }}</span>
+{{ end }}</pre>
+    {{ else }}
+    <p class="note">{{ .T "settings.logs.empty" }}</p>
+    {{ end }}
+
+    <h3 class="sub" style="margin-top:1.2rem">{{ .T "settings.logs.files" }}</h3>
+    {{ if .Logs }}
+    <table class="logs">
+      {{ range .Logs }}
+      <tr>
+        <td>
+          {{ if eq .Kind "crash" }}<span class="badge alpha">{{ $.T "settings.logs.crash" }}</span> {{ end }}
+          <a href="/logs/{{ .Name }}" target="_blank" rel="noopener"><code>{{ .Name }}</code></a>
+        </td>
+        <td class="num">{{ .SizeText }}</td>
+        <td class="when">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
+      </tr>
+      {{ end }}
+    </table>
+    {{ else }}
+    <p class="note">{{ .T "settings.logs.empty" }}</p>
+    {{ end }}
+    {{ if not .HasCrashLogs }}
+    <p class="note" style="margin-top:.6rem">{{ .T "settings.logs.noCrash" }}</p>
+    {{ end }}
+
+    <!-- Removes what is no longer being written. The running log is open and
+         Windows will not delete an open file, so the label says "kept" rather
+         than "all" — a button that quietly fails at half its job is worse than
+         one that says what it does. -->
+    <form method="post" action="/logs/clear" class="actions" style="margin-top:1rem">
+      <button class="ghost small" type="submit">{{ .T "settings.logs.clear" }}</button>
+      <span class="note">{{ .T "settings.logs.clearHint" }}</span>
+    </form>
+  </div>
+
+<style>
+  /* A log is read by scanning it, so it keeps its own line breaks and its own
+     scrollbar rather than pushing the page sideways. */
+  /* Die Stufen wie in einem Terminal: der Blick soll die roten Zeilen finden,
+     ohne dass die anderen darum kaempfen. */
+  .logview .l-error { color: var(--err); }
+  .logview .l-warn  { color: var(--warn); }
+  .logview .l-info  { color: var(--text); }
+  .logview .l-debug { color: var(--muted); }
+  /* Fortsetzungszeilen erben nichts: eine umgebrochene Meldung oder ein Stack
+     soll nicht rot schreien, weil irgendwo das Wort ERROR im Dateinamen steht. */
+  .logview .l-cont  { color: var(--muted); }
+  .logview { max-height: 22rem; overflow: auto; margin: 0;
+             background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+             padding: .7rem .9rem; font-size: .76rem; line-height: 1.45;
+             white-space: pre; font-variant-numeric: tabular-nums; }
+  h3.sub { font-size: .8rem; margin: 0; text-transform: uppercase; letter-spacing: .07em;
+           color: var(--muted); font-weight: 600; }
+  table.logs { width: 100%; border-collapse: collapse; margin-top: .5rem; font-size: .82rem; }
+  table.logs td { padding: .35rem .8rem .35rem 0; border-bottom: 1px solid var(--line); }
+  table.logs td.num, table.logs td.when { text-align: right; white-space: nowrap; color: var(--muted); }
+</style>
+
 <script>
 // Network target statuses follow along instead of being snapshots.
 //

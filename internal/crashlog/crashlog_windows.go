@@ -11,7 +11,15 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/corgan2222/rig-exporter/internal/applog"
 )
+
+// logTailLines is how much of the application log is folded into a crash
+// report. A crash without it says how the program died; with it, it also says
+// what the program was doing — and that is usually the half that identifies the
+// bug.
+const logTailLines = 200
 
 const (
 	// currentName is the file the running session writes to. It is empty while
@@ -38,14 +46,14 @@ type Recorder struct {
 // Call it once, as early as a run can manage, and before anything that might
 // fault. It must not run in a second instance that is about to exit: that would
 // rotate the crash record of the instance still running.
-func Arm(dir, version, build string) (*Recorder, error) {
+func Arm(dir, version, build, logPath string) (*Recorder, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("crash log directory: %w", err)
 	}
 	path := filepath.Join(dir, currentName)
 
 	r := &Recorder{dir: dir}
-	r.previous = rotate(path, dir)
+	r.previous = rotate(path, dir, logPath)
 
 	// Truncated: what is in here from now on belongs to this session alone.
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
@@ -109,7 +117,7 @@ func (r *Recorder) Close() error {
 
 // rotate moves a leftover record aside and reads it. A file that is missing or
 // holds nothing but whitespace means the last session shut down cleanly.
-func rotate(path, dir string) *Report {
+func rotate(path, dir, logPath string) *Report {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil
@@ -124,19 +132,42 @@ func rotate(path, dir string) *Report {
 	if stamp.IsZero() {
 		stamp = time.Now()
 	}
+
+	// One file per crash, and each one complete on its own: what the runtime
+	// printed, and underneath it what the program had been doing. Whoever picks
+	// this file up should not have to find a second one to make sense of it —
+	// and by the time anybody looks, the running log has moved on.
+	// Scrubbed here, where the file is written, and not only where a link is
+	// built. The issue form asks the sender to attach this very file, so this
+	// is the artefact the promise has to hold for.
+	text := Scrub(string(raw) + logSection(logPath))
+
 	kept := filepath.Join(dir, fmt.Sprintf("crash-%s.log", stamp.Format("2006-01-02-150405")))
-	if err := os.Rename(path, kept); err != nil {
-		// Keeping the report matters more than keeping the file name. If the
-		// rename fails the record still gets reported from memory; it will be
-		// overwritten by the truncate that follows, which is the lesser loss.
-		kept = path
+	if err := os.WriteFile(kept, []byte(text), 0o644); err != nil {
+		// Keeping the report matters more than keeping the file name. The
+		// record is still reported from memory; it is the truncate below that
+		// takes the original away, which is the lesser loss.
+		kept = ""
 	}
 	prune(dir)
 
 	return &Report{
 		Kind: kind, At: at, Version: version, Build: build,
-		Path: kept, Text: string(raw),
+		Path: kept, Text: text,
 	}
+}
+
+// logSection is the tail of the application log, marked off so nobody mistakes
+// it for part of the stack.
+func logSection(logPath string) string {
+	if logPath == "" {
+		return ""
+	}
+	tail := applog.Tail(logPath, logTailLines)
+	if tail == "" {
+		return ""
+	}
+	return "\n\n--- the application log up to this point ---\n" + tail + "\n"
 }
 
 // prune keeps the newest reports and deletes the rest.

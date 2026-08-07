@@ -104,7 +104,10 @@ func main() {
 	// yesterday.
 	var crashes *crashlog.Recorder
 	if dir, dirErr := config.Dir(); dirErr == nil {
-		crashes, _ = crashlog.Arm(dir, config.Version, config.Build)
+		// The application log goes in too, so each kept report is complete on
+		// its own: how the program died, and what it had been doing.
+		logPath, _ := config.LogPath()
+		crashes, _ = crashlog.Arm(dir, config.Version, config.Build, logPath)
 	}
 
 	// Recovery runs while this process owns the ordinary instance mutex, which

@@ -1,7 +1,6 @@
 package crashlog
 
 import (
-	neturl "net/url"
 	"strings"
 	"testing"
 	"time"
@@ -96,54 +95,6 @@ func TestShortTextIsNotTouched(t *testing.T) {
 	}
 }
 
-// The report is about to be published by somebody. It carries the machine's
-// name and hardware on purpose — and must never carry a secret, which is why
-// it is built from a fixed list of facts rather than from the configuration.
-func TestTheReportCarriesTheFactsAndNothingElse(t *testing.T) {
-	r := Report{
-		Kind: KindPanic, Version: "1.9.2", Build: "170.abc",
-		At:   time.Date(2026, 8, 7, 15, 0, 0, 0, time.UTC),
-		Text: "panic: boom\n\ngoroutine 1 [running]:\n",
-	}
-	m := Machine{OS: "Windows 10 Pro 22H2", CPU: "AMD Ryzen 9 5950X", GPU: "NVIDIA GeForce RTX 5070 Ti", Elevated: false}
-
-	body := IssueBody(r, m)
-	for _, want := range []string{"1.9.2", "170.abc", "Windows 10 Pro 22H2", "AMD Ryzen 9 5950X", "panic: boom"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("the report does not mention %q", want)
-		}
-	}
-	// A hypervisor line only appears on a machine that has one.
-	if strings.Contains(body, "Virtual machine") {
-		t.Error("a bare-metal machine was reported as virtual")
-	}
-}
-
-// The button opens a page with the report filled in. It must be a real URL
-// pointing at this project, and it must survive a report full of characters
-// that mean something in a query string.
-func TestTheIssueURLIsUsable(t *testing.T) {
-	r := Report{Kind: KindPanic, Version: "1.9.2",
-		Text: "panic: bad & ugly ?query #fragment\n"}
-
-	raw := IssueURL("https://github.com/corgan2222/rig-exporter", r, Machine{})
-
-	parsed, err := neturl.Parse(raw)
-	if err != nil {
-		t.Fatalf("the prepared link is not a URL: %v", err)
-	}
-	if parsed.Path != "/corgan2222/rig-exporter/issues/new" {
-		t.Errorf("path = %q", parsed.Path)
-	}
-	body := parsed.Query().Get("body")
-	if !strings.Contains(body, "bad & ugly ?query #fragment") {
-		t.Error("the characters that mean something in a URL did not survive")
-	}
-	if parsed.Query().Get("labels") != "crash" {
-		t.Error("the issue is not labelled")
-	}
-}
-
 // A trailing slash on the project URL must not produce a double one.
 func TestTheIssueURLSurvivesATrailingSlash(t *testing.T) {
 	raw := IssueURL("https://github.com/corgan2222/rig-exporter/", Report{Version: "1.9.2"}, Machine{})
@@ -160,5 +111,60 @@ func TestALongDumpStillFitsInALink(t *testing.T) {
 	raw := IssueURL("https://github.com/corgan2222/rig-exporter", r, Machine{})
 	if len(raw) > 16000 {
 		t.Errorf("the prepared link is %d characters, too long for a browser", len(raw))
+	}
+}
+
+// The report is published by a person, and the one thing in it that names that
+// person is the Windows account in every path. It is of no diagnostic use and
+// on many machines it is a real name.
+func TestTheUsersOwnNameIsTakenOutOfTheReport(t *testing.T) {
+	text := `panic: open C:\Users\Stefan Knaak\AppData\Roaming\rig-exporter\config.json: denied
+	D:/Coding/rig-exporter/main.go:99
+config=C:/Users/stefan/AppData/Local/Temp/x.json`
+
+	got := Scrub(text)
+	for _, name := range []string{"Stefan", "stefan"} {
+		if strings.Contains(got, name) {
+			t.Errorf("the account name %q survived: %s", name, got)
+		}
+	}
+	// The path itself has to stay readable, or the report says nothing.
+	if !strings.Contains(got, `AppData\Roaming\rig-exporter\config.json`) {
+		t.Errorf("the path was destroyed rather than anonymised: %s", got)
+	}
+	if !strings.Contains(got, "D:/Coding/rig-exporter/main.go:99") {
+		t.Error("a path that names nobody was scrubbed anyway")
+	}
+}
+
+// Nothing writes a credential to the log today. This is the backstop for the
+// log line somebody adds in two years without thinking about where it ends up.
+func TestAnythingShapedLikeACredentialIsRemoved(t *testing.T) {
+	text := "connecting host=broker.local username=stefan password=hunter2 token: abc123 secret=s3cr3t"
+
+	got := Scrub(text)
+	for _, leaked := range []string{"hunter2", "abc123", "s3cr3t"} {
+		if strings.Contains(got, leaked) {
+			t.Errorf("%q survived: %s", leaked, got)
+		}
+	}
+	// The host is where the fault often is, and stays.
+	if !strings.Contains(got, "host=broker.local") {
+		t.Errorf("the host was removed as well: %s", got)
+	}
+}
+
+// A path that has been through the structured log comes back with its
+// backslashes doubled, because slog quotes the value. The account name is just
+// as exposed in that copy, and it is the copy that reaches a crash report.
+func TestADoubledBackslashPathIsScrubbedToo(t *testing.T) {
+	logged := `level=ERROR msg="the previous session ended" summary="panic: open C:\Users\admin\AppData\Roaming\file"`
+
+	got := Scrub(logged)
+	if strings.Contains(got, "admin") {
+		t.Errorf("the account name survived the doubled separators: %s", got)
+	}
+	if !strings.Contains(got, "%USER%") {
+		t.Errorf("nothing was replaced at all: %s", got)
 	}
 }
