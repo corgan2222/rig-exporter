@@ -228,7 +228,13 @@ func TestAFileNameCannotBreakOutOfTheHeader(t *testing.T) {
 
 // The card is the last thing on the export page, and shows the running log
 // without anybody having to open a folder.
+//
+// With its own directory, because otherwise the test asks whether the machine
+// running it happens to have a log — which is true on the developer's PC and
+// false on a fresh build agent. It passed here and failed on CI, which is the
+// only useful thing a test like that ever does.
 func TestTheExportPageEndsWithTheLogs(t *testing.T) {
+	ownLogDir(t, "rig-exporter.log")
 	_, ts := newServer(t, nil)
 
 	_, body := get(t, ts.URL+"/export")
@@ -245,6 +251,25 @@ func TestTheExportPageEndsWithTheLogs(t *testing.T) {
 	}
 	if !strings.Contains(body, `href="/logs/rig-exporter.log"`) {
 		t.Error("the running log cannot be opened in full")
+	}
+}
+
+// And on a machine where nothing has been written yet the card is still there
+// and says so, rather than showing an empty box with a scrollbar.
+func TestTheLogCardSaysWhenThereIsNothingToShow(t *testing.T) {
+	ownLogDir(t)
+	_, ts := newServer(t, nil)
+
+	_, body := get(t, ts.URL+"/export")
+
+	if !strings.Contains(body, `id="logs"`) {
+		t.Fatal("the log card is gone when the folder is empty")
+	}
+	if strings.Contains(body, `class="logview"`) {
+		t.Error("an empty log was shown as a log")
+	}
+	if !strings.Contains(body, `href="/logs/rig-exporter.log"`) {
+		t.Error("the link to the running log is gone")
 	}
 }
 
