@@ -29,7 +29,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.9.0"
+	Version = "1.9.1"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -39,6 +39,11 @@ const (
 	RTSSDownloadURL = "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"
 	// AfterburnerURL is shown when no graphics telemetry source is available.
 	AfterburnerURL = "https://www.msi.com/Landing/afterburner/graphics-cards"
+	// AMDDriverURL is offered only when an AMD card is present and its driver
+	// is not answering. The full Adrenalin package carries ADLX; the display
+	// driver on its own does not, and that is the difference between a Radeon
+	// reporting its temperature and staying silent.
+	AMDDriverURL = "https://www.amd.com/en/support/download/drivers.html"
 	// PawnIOURL is where the kernel driver behind CPU power comes from. Named
 	// on the source line rather than hidden in a tooltip: it is the one source
 	// this program cannot install for you.

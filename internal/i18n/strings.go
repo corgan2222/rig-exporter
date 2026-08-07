@@ -89,6 +89,26 @@ var catalogue = map[string]Text{
 		DE: "Ohne RTSS gibt es keine FPS-Werte, ohne Afterburner keine Temperaturen — alle übrigen Gruppen melden weiter.",
 		EN: "Without RTSS there are no FPS values, without Afterburner no temperatures; every other group keeps reporting.",
 	},
+	// An AMD card changes what is actually missing. With its driver answering,
+	// temperature, clocks, fan and power are already there and only the frame
+	// rate is not — naming Afterburner then sends somebody after a program they
+	// do not need, which is the same mistake as naming only one of the two.
+	"rtss.bannerTitleAMD": {
+		DE: "RivaTuner Statistics Server läuft nicht.",
+		EN: "RivaTuner Statistics Server is not running.",
+	},
+	"rtss.bannerBodyAMD": {
+		DE: "Ohne RTSS gibt es keine FPS-Werte. Temperatur, Takt, Lüfter und Leistung liefert der AMD-Treiber bereits — dafür wird Afterburner hier nicht gebraucht.",
+		EN: "Without RTSS there are no FPS values. Temperature, clocks, fan and power already come from the AMD driver, so Afterburner is not needed for those here.",
+	},
+	// The other AMD case: the card is present but its driver says nothing. That
+	// is what a display-driver-only installation looks like, and the remedy is
+	// the full Adrenalin package rather than another monitoring program.
+	"rtss.bannerBodyAMDDriver": {
+		DE: "Ohne RTSS gibt es keine FPS-Werte. Die AMD-Karte meldet zurzeit auch keine Temperaturen — dafür braucht es das vollständige Adrenalin-Paket, nicht nur den Anzeigetreiber.",
+		EN: "Without RTSS there are no FPS values. The AMD card is not reporting temperatures either — that needs the full Adrenalin package, not just the display driver.",
+	},
+	"rtss.downloadAMD":         {DE: "AMD-Treiber herunterladen", EN: "Download AMD driver"},
 	"rtss.downloadAfterburner": {DE: "MSI Afterburner herunterladen", EN: "Download MSI Afterburner"},
 	"rtss.download":            {DE: "RTSS herunterladen", EN: "Download RTSS"},
 	"rtss.alsoInAfterburner":   {DE: "(in Afterburner bereits enthalten)", EN: "(already included with Afterburner)"},

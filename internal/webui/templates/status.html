@@ -12,13 +12,15 @@
   </div>
 
   <div id="rtss-banner" class="banner warn" hidden>
-    <strong>{{ .T "rtss.bannerTitle" }}</strong>
+    <strong id="rtss-title">{{ .T "rtss.bannerTitle" }}</strong>
     <span id="rtss-detail"></span><br>
-    {{ .T "rtss.bannerBody" }}
+    <span id="rtss-body">{{ .T "rtss.bannerBody" }}</span>
     <a href="{{ .AfterburnerURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAfterburner" }}</a>
     &middot;
     <a href="{{ .RTSSDownloadURL }}" target="_blank" rel="noopener">{{ .T "rtss.download" }}</a>
     {{ .T "rtss.alsoInAfterburner" }}
+    <span id="rtss-amd" hidden>&middot;
+      <a href="{{ .AMDDriverURL }}" target="_blank" rel="noopener">{{ .T "rtss.downloadAMD" }}</a></span>
     <form method="post" action="/dismiss" class="actions" style="margin-top:.7rem">
       <button class="ghost" type="submit" name="what" value="no_gpu">{{ .T "rtss.dismissNoGPU" }}</button>
     </form>
@@ -126,6 +128,11 @@ const L = {
   noGame: {{ .T "status.noGame" }},
   rtssConnected: {{ .T "rtss.connected" }},
   rtssUnavailable: {{ .T "rtss.unavailable" }},
+  rtssTitle: {{ .T "rtss.bannerTitle" }},
+  rtssTitleAMD: {{ .T "rtss.bannerTitleAMD" }},
+  rtssBody: {{ .T "rtss.bannerBody" }},
+  rtssBodyAMD: {{ .T "rtss.bannerBodyAMD" }},
+  rtssBodyAMDDriver: {{ .T "rtss.bannerBodyAMDDriver" }},
   updateInstalled: {{ .T "update.installed" }},
   updateInstall: {{ .T "update.install" }},
   updateRunning: {{ .T "update.running" }},
@@ -317,6 +324,24 @@ async function refresh() {
   const banner = $("rtss-banner");
   banner.hidden = rtssOK || s.no_gpu;
   $("rtss-detail").textContent = s.rtss_message ? " (" + s.rtss_message + ")" : "";
+
+  // What is missing depends on the card. An AMD driver that is answering
+  // already covers everything except the frame rate, so the banner stops
+  // asking for Afterburner. An AMD card whose driver says nothing gets the
+  // one pointer that actually helps: the full driver package.
+  if (s.amd_driver) {
+    $("rtss-title").textContent = L.rtssTitleAMD;
+    $("rtss-body").textContent = L.rtssBodyAMD;
+    $("rtss-amd").hidden = true;
+  } else if (s.amd_card) {
+    $("rtss-title").textContent = L.rtssTitle;
+    $("rtss-body").textContent = L.rtssBodyAMDDriver;
+    $("rtss-amd").hidden = false;
+  } else {
+    $("rtss-title").textContent = L.rtssTitle;
+    $("rtss-body").textContent = L.rtssBody;
+    $("rtss-amd").hidden = true;
+  }
 
   renderUpdate(s.update);
 }

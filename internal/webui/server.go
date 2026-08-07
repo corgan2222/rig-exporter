@@ -32,6 +32,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/export"
 	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
+	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
 	"github.com/corgan2222/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -190,6 +191,7 @@ type pageData struct {
 
 	RTSSDownloadURL string
 	AfterburnerURL  string
+	AMDDriverURL    string
 	PawnIOURL       string
 	CoolingURL      string
 	// Where the name in the header and the credit in the footer point.
@@ -352,6 +354,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		Status:          status,
 		RTSSDownloadURL: config.RTSSDownloadURL,
 		AfterburnerURL:  config.AfterburnerURL,
+		AMDDriverURL:    config.AMDDriverURL,
 		PawnIOURL:       config.PawnIOURL,
 		CoolingURL:      config.CoolingURL,
 		ProjectURL:      config.ProjectURL,
@@ -698,6 +701,28 @@ func backTo(r *http.Request) string {
 	return referer.Path
 }
 
+// amdPresence reports whether a Radeon is in the inventory, and whether its own
+// driver is the source of the live readings.
+//
+// The vendor comes from the card, the origin from the individual readings —
+// both are already collected, so this asks the snapshot rather than adding a
+// second path through the collector. An AMD card with a silent driver is the
+// only case where the AMD download is worth offering, and it is exactly the
+// case a machine with the display driver alone lands in.
+func amdPresence(snap collector.Snapshot) (card, driver bool) {
+	for _, reading := range snap.Readings {
+		if reading.Def.ID == metrics.GPUVendor.ID && strings.EqualFold(reading.Text, "AMD") {
+			card = true
+		}
+		if reading.Origin == gpu.ADLXOrigin {
+			driver = true
+		}
+	}
+	// A driver answering without a card named is not a state worth describing,
+	// and saying so would only produce a banner nobody can act on.
+	return card, card && driver
+}
+
 // statusResponse is the JSON the dashboard polls for live values.
 type statusResponse struct {
 	FPS         float64 `json:"fps"`
@@ -714,6 +739,14 @@ type statusResponse struct {
 	RTSSMessage string `json:"rtss_message"`
 	RTSSVersion string `json:"rtss_version"`
 	NoGPU       bool   `json:"no_gpu"`
+
+	// What an idle FPS tile means depends on the card. AMDCard says a Radeon is
+	// in the inventory; AMDDriver says its own driver is the one answering, in
+	// which case temperatures, clocks, fan and power are already there and only
+	// the frame rate is missing. The two apart are what lets the banner ask for
+	// the right thing instead of always naming Afterburner.
+	AMDCard   bool `json:"amd_card"`
+	AMDDriver bool `json:"amd_driver"`
 
 	// The update box. It comes through the API rather than the template
 	// because a check that finishes a second after the page loaded should put
@@ -813,6 +846,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 	st := s.app.Status()
 	snap := st.Snapshot
 	lang := st.Config.Lang()
+	amdCard, amdDriver := amdPresence(snap)
 
 	resp := statusResponse{
 		FPS:         snap.FPS(),
@@ -828,6 +862,8 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		RTSSMessage: snap.RTSSMessage,
 		RTSSVersion: snap.RTSSVersion,
 		NoGPU:       st.Config.NoGPU,
+		AMDCard:     amdCard,
+		AMDDriver:   amdDriver,
 		Groups:      groupStatuses(st, lang),
 		Exports:     make([]exportStatus, 0, len(st.Exports)),
 		Paused:      st.Paused,

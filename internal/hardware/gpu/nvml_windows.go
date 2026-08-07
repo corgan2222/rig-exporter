@@ -4,8 +4,9 @@
 //
 // Windows DXGI supplies the adapter identity and memory limits on every
 // supported machine, including integrated Intel laptop graphics. MSI
-// Afterburner's shared memory adds live readings for NVIDIA, AMD and Intel;
-// NVML ships with the NVIDIA driver and fills its remaining gaps.
+// Afterburner's shared memory adds live readings for NVIDIA, AMD and Intel.
+// The two vendor libraries fill the rest without needing another program
+// running: NVML ships with the NVIDIA driver, ADLX with AMD's.
 //
 // Windows itself exposes neither temperature nor clocks through DXGI, so a
 // card without a live source reports its inventory and leaves those readings

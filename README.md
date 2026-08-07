@@ -87,7 +87,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | Gruppe | Werte | Quelle |
 |---|---|---|
 | **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows |
-| **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung und ihre Aufteilung auf 3D, Videodekodierung, Videokodierung und Kopier-Engine, belegter Grafikspeicher, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI, Plug and Play und die WDDM-Leistungsindikatoren, MSI Afterburner und NVML |
+| **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung und ihre Aufteilung auf 3D, Videodekodierung, Videokodierung und Kopier-Engine, belegter Grafikspeicher, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI, Plug and Play und die WDDM-Leistungsindikatoren, MSI Afterburner, NVML (NVIDIA) und ADLX (AMD) |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
 | **Laufwerke** | Typ (NVMe/SSD/HDD), Label, Dateisystem, Hersteller, Kapazität, belegt, frei, Belegung und freier Anteil in %, Lesen, Schreiben, Auslastung — pro Volume, dazu fünf Summenwerte über alle | Windows |
@@ -114,7 +114,7 @@ Windows kennt jede Grafikkarte selbst: DXGI liefert Modell, PCI-Hersteller,
 dedizierten Grafikspeicher und die Obergrenze des gemeinsam nutzbaren
 Systemspeichers; Plug and Play ergänzt die installierte Treiberversion.
 Temperatur, Takt und Leistung gehören dagegen nicht zu diesen Schnittstellen.
-Deshalb greifen vier Quellen ineinander:
+Deshalb greifen fünf Quellen ineinander:
 
 1. **Windows DXGI** (`CreateDXGIFactory1` / `EnumAdapters1`) bildet das Inventar.
    Es braucht weder Zusatzsoftware noch Administratorrechte und erkennt damit
@@ -130,6 +130,11 @@ Deshalb greifen vier Quellen ineinander:
 4. **NVML** aus dem NVIDIA-Treiber füllt die Lücken, vor allem den
    VRAM-Gesamtausbau und die Lüfterdrehzahl. Ohne Afterburner reicht es allein
    für NVIDIA-Karten.
+5. **ADLX** (`amdadlx64.dll`) ist das Gegenstück auf der AMD-Seite und kommt mit
+   dem Adrenalin-Treiber. Es liefert Temperatur, Hotspot, Kern- und
+   Speichertakt, Leistung, Lüfterdrehzahl, Spannung und den VRAM-Ausbau, und
+   reicht damit ohne Afterburner für Radeon-Karten. Der reine Anzeigetreiber
+   bringt es nicht mit — dafür braucht es das vollständige Paket.
 
 Die Leistungsindikatoren geben die Auslastung nach **Engine** aufgeschlüsselt:
 3D, Videodekodierung, Videokodierung und Kopier-Engine, jede als Summe über alle
@@ -140,7 +145,11 @@ Gesamtwert ist deshalb die **belegteste** Engine, wie im Task-Manager.
 `gpu_load` wird daraus nur gefüllt, wenn weder Afterburner noch NVML ihn
 geliefert haben. Auf einem Rechner mit NVIDIA-Karte ändert sich also nichts; auf
 einem Laptop mit reiner Intel-Grafik gibt es damit zum ersten Mal überhaupt eine
-GPU-Auslastung. Der belegte Grafikspeicher bekommt dagegen einen **eigenen**
+GPU-Auslastung. **ADLX ist hier bewusst nicht beteiligt:** eine Herstellerquelle
+darf den Zählern einen Wert nur abnehmen, wenn sie ihn genauer misst, und
+ADLX' `GPUUsage` ist eine Momentaufnahme — auf einer RX 570 meldete sie 1 %,
+während der 3D-Zähler bei 39,6 % stand. Auf AMD bleibt `gpu_load` deshalb bei
+den Leistungsindikatoren. Der belegte Grafikspeicher bekommt dagegen einen **eigenen**
 Bezeichner (`gpu_memory_used` neben `gpu_vram_used`): das eine ist, was der
 Grafikkern vergeben hat, das andere, was die Karte selbst meldet. Die Zahlen
 gehen auseinander, und ein Wert, der seine Bedeutung mit der Quelle wechselt,
@@ -156,23 +165,32 @@ Rechner mehrere hundert sind. Der Wert ist der Durchschnitt über dieses Fenster
 ein längeres Fenster also kein gröberer Messwert, sondern ein ruhigerer.
 
 Auf einer NVIDIA-Karte fehlen ohne Afterburner nur die Werte, die NVML nicht
-kennt, etwa Hotspot und Spannung. Auf Intel und AMD bleibt ohne Live-Quelle das
-DXGI-Inventar sichtbar; nicht messbare Werte werden weggelassen statt als null
-behauptet. NVML meldet auch die Lüfterdrehzahl (`nvmlDeviceGetFanSpeedRPM`,
+kennt, etwa Hotspot und Spannung. Auf einer Radeon deckt ADLX inzwischen
+dasselbe ab; offen bleiben dort die Leistungsgrenze, die ADLX überhaupt nicht
+führt, und der Lüfter in Prozent — ADLX kennt nur die Drehzahl, und die
+Drehzahl durch ihren Höchstwert zu teilen wäre eine andere Größe unter
+demselben Bezeichner. Auf Intel bleibt ohne Live-Quelle das DXGI-Inventar
+sichtbar; nicht messbare Werte werden weggelassen statt als null behauptet.
+Welche Sensoren eine Karte hat, entscheidet sie selbst: eine Polaris-Radeon
+antwortet auf Hotspot und Spannung mit `ADLX_NOT_SUPPORTED`, weil sie beide
+Sensoren nicht besitzt. NVML meldet auch die Lüfterdrehzahl (`nvmlDeviceGetFanSpeedRPM`,
 gemeldet wird der schnellste Lüfter der Karte) und wächst mit jeder
 Treibergeneration um neue Einsprungpunkte, und `LazyProc.Call` löst das Symbol
 über `mustFind` auf — das **panict**, wenn es fehlt. In einem Binary mit
 `-H windowsgui` stirbt damit das Tray wortlos. Deshalb wird jeder Einsprungpunkt
 einmal aufgelöst und vor dem ersten Aufruf geprüft; ein alter Treiber verliert
-einen Wert, nicht das Programm.
+einen Wert, nicht das Programm. Für ADLX gilt dasselbe: von dort werden
+ohnehin nur zwei Symbole gebraucht, alles Weitere läuft über
+Funktionszeigertabellen wie bei DXGI, und beide werden vor dem ersten Aufruf
+geprüft.
 
-Ohne Afterburner und NVML entfallen also nur Temperatur, Takt, Lüfter und
-Leistung — Inventar, Auslastung und Speicherbelegung bleiben. Ohne
+Ohne Afterburner und ohne Herstellerquelle entfallen also nur Temperatur, Takt,
+Lüfter und Leistung — Inventar, Auslastung und Speicherbelegung bleiben. Ohne
 Kernel-Treiber sind Gehäuselüfter, Netzteil-Telemetrie und Spannungen
 grundsätzlich nicht erreichbar.
 
-Die drei Quellen zählen unabhängig voneinander durch. DXGI legt die Instanzen
-fest, Afterburner und NVML werden über den Kartennamen darauf abgebildet — der
+Die Quellen zählen unabhängig voneinander durch. DXGI legt die Instanzen
+fest, Afterburner, NVML und ADLX werden über den Kartennamen darauf abgebildet — der
 ist allerdings nicht eindeutig, zwei gleiche Karten heißen gleich. Zugeordnet
 wird darum in Indexreihenfolge und jede Instanz höchstens einmal. Zusätzlich
 begrenzt die Plug-and-Play-Geräteliste, wie oft dieselbe PCI-Kennung vorkommen
