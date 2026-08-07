@@ -217,6 +217,15 @@ func runProbe(configPath string, out io.Writer) error {
 	// elevation looks just like one taken with it, minus what is missing.
 	fmt.Fprintf(out, "Elevated:   %t\n", winapi.IsElevated())
 
+	// The third fact of the same kind: virtual hardware has no board sensors
+	// and no real fan, so a whole column of missing values is explained here
+	// rather than mistaken for a fault.
+	if hypervisor := snap.Str(metrics.Hypervisor.ID); hypervisor != "" {
+		fmt.Fprintf(out, "Hardware:   virtual (%s)\n", hypervisor)
+	} else {
+		fmt.Fprintf(out, "Hardware:   no hypervisor signature in the firmware\n")
+	}
+
 	pawn := pawnio.Detect()
 	fmt.Fprintf(out, "PawnIO:     ")
 	switch {

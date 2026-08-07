@@ -86,7 +86,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 
 | Gruppe | Werte | Quelle |
 |---|---|---|
-| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows; FPS ersatzweise aus dem AMD-Treiber |
+| **FPS & System** (immer an) | FPS, Frametime, laufendes Spiel, Auflösung, Bildwiederholrate, CPU-Last, RAM-Last, Windows-Version, virtuelle Maschine und Hypervisor, Anzahl Prozesse, Laufzeit, Leerlaufzeit | RTSS + Windows; FPS ersatzweise aus dem AMD-Treiber |
 | **Grafikkarte** | Name, Hersteller, Treiberversion, dedizierter und gemeinsam nutzbarer Speicher, Temperatur, Hotspot, Kern- und Speichertakt, Auslastung und ihre Aufteilung auf 3D, Videodekodierung, Videokodierung und Kopier-Engine, belegter Grafikspeicher, VRAM, Lüfter (% und U/min), Leistung, Leistungsgrenze und deren Ausschöpfung, Spannung — pro Karte | Windows DXGI, Plug and Play und die WDDM-Leistungsindikatoren, MSI Afterburner, NVML (NVIDIA) und ADLX (AMD) |
 | **Prozessor** | Modell, Hersteller, Kerne, Threads, Basis-, wirksamer und höchster beobachteter Takt, Temperatur, Leistung, Load über 1/5/15 Minuten, optional Last je Thread | Windows, Temperatur über Afterburner oder PawnIO, Leistung nur über PawnIO (AMD, eleviert) |
 | **Arbeitsspeicher** | belegt und frei in MB, frei in %, gesamt, Takt, maximaler Takt, Typ, bestückte und vorhandene Steckplätze, ein Eintrag je Modul | Windows + SMBIOS der Firmware |
@@ -1281,6 +1281,25 @@ RTSS-Fassungen ohne eigenen Frametime-Zähler geschieht. Woher der Wert kam,
 steht als `fps_origin` in `/api/status` und in der `-probe`-Ausgabe — auf dem
 Weg in einen Export erscheint es nicht, dort sieht jeder Messwert gleich aus,
 egal wer ihn gezählt hat.
+
+**Ob die Maschine virtuell ist**, steht in der Firmware-Kennung: Hersteller,
+Produktname und BIOS-Hersteller, die Windows aus den SMBIOS-Tabellen unter
+`HKLM\HARDWARE\DESCRIPTION\System\BIOS` ablegt. Ein Gast nennt sich dort selbst
+— `QEMU` / `Standard PC (i440FX + PIIX, 1996)`, `VMware, Inc.`, `innotek GmbH`,
+`Microsoft Corporation` / `Virtual Machine`.
+
+Bewusst **nicht** über das Hypervisor-Bit des Prozessors, obwohl es näher läge:
+Windows setzt das auch auf echter Hardware, sobald Hyper-V, WSL 2 oder die
+Speicherintegrität aktiv ist — jedes davon setzt den Wirt selbst auf einen
+Hypervisor. Ein Spiele-PC mit eingeschalteter VBS würde sich damit als virtuelle
+Maschine melden, und eine falsche Ja-Antwort ist hier der teure Fehler: sie
+schickt jemanden auf Fehlersuche bei dem einen Wert, der stimmt.
+
+Die Nein-Antwort ist schwächer als die Ja-Antwort, und `virtualized` heißt
+deshalb genau „keine bekannte Kennung gefunden". Ein Hypervisor lässt sich so
+einstellen, dass er die Kennung des Wirt-Boards durchreicht; dann ist hier
+nichts zu sehen. Der Name landet in `hypervisor` und fehlt auf echter Hardware
+ganz, statt als leerer Text zu erscheinen.
 
 **GPU-Inventar** kommt aus DXGI 1.1. `DXGI_ADAPTER_DESC1` liefert Name,
 PCI-Kennung, dedizierten und gemeinsam nutzbaren Speicher; Plug and Play ergänzt

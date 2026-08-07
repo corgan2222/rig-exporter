@@ -26,6 +26,11 @@ type Provider struct {
 	haveLastSelf bool
 	lastSelfCPU  uint64
 	lastTotalCPU uint64
+
+	// The firmware identity cannot change under a running process, so it is
+	// read once rather than on every collection.
+	hypervisorOnce sync.Once
+	hypervisor     string
 }
 
 // New returns a Provider with no CPU baseline yet.

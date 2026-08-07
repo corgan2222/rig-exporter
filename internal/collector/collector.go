@@ -131,6 +131,8 @@ type SystemSource interface {
 	IdleSeconds() float64
 	UptimeHours() float64
 	WindowsVersion() string
+	// Hypervisor names the virtualisation platform, empty on real hardware.
+	Hypervisor() string
 	ProcessCount() (int, error)
 	SelfUsage() (sysinfo.SelfUsage, error)
 }
@@ -160,9 +162,13 @@ type Collector struct {
 	lastDispl sysinfo.Display
 
 	// The operating system cannot change under a running process, so it is
-	// read once rather than on every collection.
+	// read once rather than on every collection. Neither can the firmware
+	// identity that says whether this is virtual hardware.
 	osOnce    sync.Once
 	osVersion string
+
+	platformOnce sync.Once
+	hypervisor   string
 
 	// version is this program's own build, reported alongside the readings so
 	// a series can say what wrote it.
@@ -395,6 +401,16 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 	c.osOnce.Do(func() { c.osVersion = c.system.WindowsVersion() })
 	if c.osVersion != "" {
 		snap.Add(metrics.Text(metrics.OSVersion, "", c.osVersion))
+	}
+
+	// Whether the machine is virtual explains a whole class of readings that
+	// are missing or implausible rather than faulty: no board sensors, no real
+	// fan, a processor clock the host decides. The flag is published either
+	// way; the name only when there is one to give.
+	c.platformOnce.Do(func() { c.hypervisor = c.system.Hypervisor() })
+	snap.Add(metrics.Bool(metrics.Virtualized, "", c.hypervisor != ""))
+	if c.hypervisor != "" {
+		snap.Add(metrics.Text(metrics.Hypervisor, "", c.hypervisor))
 	}
 	if processes, err := c.system.ProcessCount(); err == nil {
 		snap.Add(metrics.Gauge(metrics.Processes, "", float64(processes)))
