@@ -1,0 +1,17 @@
+# Blank issues stay enabled on purpose. The forms below cover the reports where
+# a fixed set of questions genuinely shortens the round trip; a feature request
+# or a question does not fit a raster, and forcing one on it only produces empty
+# fields.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Diagnostics and the troubleshooting table
+    url: https://github.com/corgan2222/rig-exporter/blob/main/README.md#diagnose
+    about: >-
+      What -probe reports, what the tray states mean, and the table of symptoms
+      with their usual cause. Worth a look before opening an issue.
+  - name: What is measured, and from which source
+    url: https://github.com/corgan2222/rig-exporter/blob/main/README.md
+    about: >-
+      Every reading, the group it belongs to and the program or interface it
+      comes from. A value that is missing is often a source that is not running.
