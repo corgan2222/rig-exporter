@@ -97,9 +97,15 @@ var catalogue = map[string]Text{
 		DE: "RivaTuner Statistics Server läuft nicht.",
 		EN: "RivaTuner Statistics Server is not running.",
 	},
+	//
+	// It must not depend on whether something is presenting at this instant.
+	// The driver only reports a frame rate while a fullscreen application is
+	// drawing, so a text keyed on the current reading would alternate between
+	// "there are no FPS" and "here are your FPS" on an unchanged machine — and
+	// the first of those is simply untrue here.
 	"rtss.bannerBodyAMD": {
-		DE: "Ohne RTSS gibt es keine FPS-Werte. Temperatur, Takt, Lüfter und Leistung liefert der AMD-Treiber bereits — dafür wird Afterburner hier nicht gebraucht.",
-		EN: "Without RTSS there are no FPS values. Temperature, clocks, fan and power already come from the AMD driver, so Afterburner is not needed for those here.",
+		DE: "Temperatur, Takt, Lüfter und Leistung liefert der AMD-Treiber bereits, und im Vollbild zählt er auch die Bildrate. Ohne RTSS fehlen nur der Fenstermodus und der Name des laufenden Spiels.",
+		EN: "Temperature, clocks, fan and power already come from the AMD driver, and in fullscreen it counts the frame rate too. Without RTSS only windowed mode and the name of the running game are missing.",
 	},
 	// The other AMD case: the card is present but its driver says nothing. That
 	// is what a display-driver-only installation looks like, and the remedy is
@@ -107,13 +113,6 @@ var catalogue = map[string]Text{
 	"rtss.bannerBodyAMDDriver": {
 		DE: "Ohne RTSS gibt es keine FPS-Werte. Die AMD-Karte meldet zurzeit auch keine Temperaturen — dafür braucht es das vollständige Adrenalin-Paket, nicht nur den Anzeigetreiber.",
 		EN: "Without RTSS there are no FPS values. The AMD card is not reporting temperatures either — that needs the full Adrenalin package, not just the display driver.",
-	},
-	// The AMD driver counts presented frames itself, so with something running
-	// fullscreen the frame rate is already there and the one thing RTSS would
-	// still add is the name of the application drawing them.
-	"rtss.bannerBodyAMDFps": {
-		DE: "Bildrate, Temperatur, Takt, Lüfter und Leistung kommen bereits vom AMD-Treiber. Ohne RTSS fehlt nur, welches Spiel läuft — und die Bildrate zählt der Treiber nur im Vollbild.",
-		EN: "Frame rate, temperature, clocks, fan and power already come from the AMD driver. Without RTSS the only thing missing is which game is running — and the driver counts frames in fullscreen only.",
 	},
 	"rtss.downloadAMD":         {DE: "AMD-Treiber herunterladen", EN: "Download AMD driver"},
 	"rtss.downloadAfterburner": {DE: "MSI Afterburner herunterladen", EN: "Download MSI Afterburner"},

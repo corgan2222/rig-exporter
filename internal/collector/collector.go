@@ -90,6 +90,20 @@ func (s Snapshot) GameRunning() bool { return s.Flag(metrics.GameRunning.ID) }
 // worth a fast series.
 func (s Snapshot) Rendering() bool { return s.GameRunning() && s.FPS() > 0 }
 
+// HasFrameRate reports whether the frame rate is a measurement rather than the
+// zero that stands for "nothing is rendering".
+//
+// It is the one place that asks "RTSS or the graphics driver?", so the tray and
+// the dashboard cannot answer it differently. Asking only about RTSS is what
+// made a machine whose driver was counting frames display a dash next to a
+// perfectly good number.
+func (s Snapshot) HasFrameRate() bool {
+	if s.FPSOrigin != "" {
+		return true
+	}
+	return s.RTSSStatus.OK() && s.GameRunning()
+}
+
 // Resolution is the primary display mode, e.g. "2560x1440".
 func (s Snapshot) Resolution() string { return s.Str(metrics.Resolution.ID) }
 

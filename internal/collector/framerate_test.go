@@ -115,6 +115,44 @@ func TestWithoutAnyFrameRateTheReadingStaysZero(t *testing.T) {
 	}
 }
 
+// HasFrameRate is what the tray and the dashboard both ask before showing a
+// number instead of a dash. Asking only about RTSS put a dash next to a
+// perfectly good driver-counted rate, which is the bug this pins down.
+func TestHasFrameRateAcceptsEitherSource(t *testing.T) {
+	system := newSystem()
+	system.foreground = 4242
+
+	for _, tc := range []struct {
+		name string
+		rtss fakeRTSS
+		back FrameRate
+		sys  *fakeSystem
+		want bool
+	}{
+		{"RTSS with a running game", runningGame(), nil, system, true},
+		{"the driver counting frames", fakeRTSS{err: rtss.ErrNotRunning},
+			driverCounting(60, true), newSystem(), true},
+		{"RTSS running, nothing rendering, no driver", fakeRTSS{snap: rtss.Snapshot{Version: 0x00020007}},
+			nil, newSystem(), false},
+		{"nothing anywhere", fakeRTSS{err: rtss.ErrNotRunning}, nil, newSystem(), false},
+		// A driver that answers zero means nothing is presenting, which is the
+		// same as having no frame rate at all.
+		{"the driver answers zero", fakeRTSS{err: rtss.ErrNotRunning},
+			driverCounting(0, true), newSystem(), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCollector(tc.rtss, tc.sys)
+			if tc.back != nil {
+				c.UseFrameRateFallback("AMD ADLX", tc.back)
+			}
+
+			if got := c.Collect().HasFrameRate(); got != tc.want {
+				t.Errorf("HasFrameRate = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
 // RTSS running with nothing rendering is the ordinary desktop case, and the
 // driver may well be counting a fullscreen application RTSS has no profile for.
 func TestARunningRTSSWithoutAGameStillAcceptsTheDriverRate(t *testing.T) {

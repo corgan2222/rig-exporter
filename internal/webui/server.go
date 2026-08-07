@@ -754,6 +754,9 @@ type statusResponse struct {
 	// that has one would simply be untrue.
 	FPSOrigin  string `json:"fps_origin"`
 	GPUPresent bool   `json:"gpu_present"`
+	// FPSAvailable answers "RTSS or the graphics driver?" once, so the tile
+	// does not have to reassemble the question out of the other fields.
+	FPSAvailable bool `json:"fps_available"`
 
 	// The update box. It comes through the API rather than the template
 	// because a check that finishes a second after the page loaded should put
@@ -856,32 +859,33 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 	amdCard, amdDriver := amdPresence(snap)
 
 	resp := statusResponse{
-		FPS:         snap.FPS(),
-		Frametime:   snap.FrametimeMs(),
-		Game:        snap.Game(),
-		Resolution:  snap.Resolution(),
-		RefreshRate: snap.RefreshHz(),
-		CPU:         snap.CPUPercent(),
-		RAM:         snap.RAMPercent(),
-		RAMUsedMB:   uint64(snap.Number(metrics.RAMUsed.ID)),
-		RAMTotalMB:  uint64(snap.Number(metrics.RAMTotal.ID)),
-		RTSSStatus:  string(snap.RTSSStatus),
-		RTSSMessage: snap.RTSSMessage,
-		RTSSVersion: snap.RTSSVersion,
-		NoGPU:       st.Config.NoGPU,
-		AMDCard:     amdCard,
-		AMDDriver:   amdDriver,
-		FPSOrigin:   snap.FPSOrigin,
-		GPUPresent:  snap.Has(metrics.GPUName.ID),
-		Groups:      groupStatuses(st, lang),
-		Exports:     make([]exportStatus, 0, len(st.Exports)),
-		Paused:      st.Paused,
-		Preset:      st.Config.Measurements.Preset,
-		Decimals:    st.Config.Decimals,
-		EntityCount: len(snap.Entities()),
-		PublishMs:   publishPace(st),
-		Rendering:   snap.Rendering(),
-		Update:      updateStatusOf(st),
+		FPS:          snap.FPS(),
+		Frametime:    snap.FrametimeMs(),
+		Game:         snap.Game(),
+		Resolution:   snap.Resolution(),
+		RefreshRate:  snap.RefreshHz(),
+		CPU:          snap.CPUPercent(),
+		RAM:          snap.RAMPercent(),
+		RAMUsedMB:    uint64(snap.Number(metrics.RAMUsed.ID)),
+		RAMTotalMB:   uint64(snap.Number(metrics.RAMTotal.ID)),
+		RTSSStatus:   string(snap.RTSSStatus),
+		RTSSMessage:  snap.RTSSMessage,
+		RTSSVersion:  snap.RTSSVersion,
+		NoGPU:        st.Config.NoGPU,
+		AMDCard:      amdCard,
+		AMDDriver:    amdDriver,
+		FPSOrigin:    snap.FPSOrigin,
+		GPUPresent:   snap.Has(metrics.GPUName.ID),
+		FPSAvailable: snap.HasFrameRate(),
+		Groups:       groupStatuses(st, lang),
+		Exports:      make([]exportStatus, 0, len(st.Exports)),
+		Paused:       st.Paused,
+		Preset:       st.Config.Measurements.Preset,
+		Decimals:     st.Config.Decimals,
+		EntityCount:  len(snap.Entities()),
+		PublishMs:    publishPace(st),
+		Rendering:    snap.Rendering(),
+		Update:       updateStatusOf(st),
 	}
 	for _, e := range st.Exports {
 		resp.Exports = append(resp.Exports, exportStatus{
