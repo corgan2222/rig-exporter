@@ -1,0 +1,148 @@
+name: A measurement is missing or wrong
+description: A value never arrives, or it arrives with the wrong number in it.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before posting: rig-exporter reads a lot about your machine, and `-probe`
+        output carries the host name, drive labels and network addresses. Read
+        what you paste.
+
+        A missing value and a wrong value are two different reports. Missing is
+        often a source that is not running, and the origin table below usually
+        answers it on its own. Wrong is the more serious of the two.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Missing or wrong?
+      options:
+        - Missing — the value never appears at all
+        - Wrong — the value appears, but the number is not right
+    validations:
+      required: true
+
+  - type: input
+    id: metric
+    attributes:
+      label: Which measurement
+      description: >-
+        The identifier, not the display name — it is the same in every language
+        and every export format.
+      placeholder: gpu_temperature
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should read instead, and how you know
+      description: >-
+        The reading another program shows at the same moment is the most useful
+        thing here. Which program, and what it said.
+    validations:
+      required: true
+
+  - type: textarea
+    id: origins
+    attributes:
+      label: The origin table from -probe
+      description: >-
+        The section headed `--- Datenquellen ---` / `--- Sources ---` at the end
+        of `%APPDATA%\rig-exporter\probe.txt`. It says which source supplied
+        which reading, which is exactly the question here.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: probe
+    attributes:
+      label: The group the measurement belongs to, from -probe
+      description: >-
+        Optional, and useful mainly when the value is wrong rather than missing:
+        the block it sits in, e.g. `--- Grafikkarte ---`, shows what its
+        neighbours read at the same moment.
+      render: text
+
+  - type: input
+    id: build
+    attributes:
+      label: Build identifier
+      description: >-
+        From the tray, the footer of the web interface, or `rig-exporter.exe
+        -version`. A `.dirty` suffix means the binary was built from a modified
+        tree, which is worth knowing.
+      placeholder: 1.9.1+167.882a777
+    validations:
+      required: true
+
+  - type: dropdown
+    id: alongside
+    attributes:
+      label: What is running alongside
+      description: Several answers are fine. This decides whole classes of readings.
+      multiple: true
+      options:
+        - RivaTuner Statistics Server
+        - MSI Afterburner
+        - AMD Adrenalin (full package, not just the display driver)
+        - NVIDIA driver
+        - PawnIO
+        - LibreHardwareMonitor / HWiNFO / similar
+        - None of these
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Processor and graphics card
+      placeholder: Ryzen 7 5800X3D / Radeon RX 7900 XTX
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: >-
+        Which counters and interfaces exist at all differs by build.
+      placeholder: 11 Pro 24H2 (26100.2314)
+    validations:
+      required: true
+
+  - type: input
+    id: locale
+    attributes:
+      label: Windows display language
+      description: >-
+        Device names, drive labels and account names arrive in that language,
+        and those are what identifiers are built from. Anything outside a-z0-9
+        is folded away; a name that keeps nothing at all is replaced by a digest
+        instead, so an entity called `net_x1a2b3c4d_ip` is the symptom of
+        exactly this and not a fault.
+      placeholder: de-DE
+    validations:
+      required: true
+
+  - type: textarea
+    id: header
+    attributes:
+      label: The first lines of -probe
+      description: >-
+        The four lines above the first blank one. They answer three questions
+        that decide whole classes of readings and are invisible in the numbers
+        themselves: whether the process is elevated, what PawnIO can do here,
+        and whether this is virtual hardware — which has no board sensors and no
+        real fan, so a whole column is absent by nature rather than by fault.
+      render: text
+      placeholder: |
+        rig-exporter 1.9.1 — node_id desktop_90ci524
+        Taken:      2026-08-07 14:50:48
+        Elevated:   false
+        Hardware:   virtual (QEMU/KVM)
+        PawnIO:     not installed — switched off in the configuration
+    validations:
+      required: true
