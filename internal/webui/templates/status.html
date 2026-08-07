@@ -1,5 +1,39 @@
 {{ define "content" }}
 
+  <!-- Top of the page, above everything: a crash that nobody notices is the
+       failure this whole mechanism exists to end. Rendered from the server
+       rather than from the status poll, because it has to be there on the
+       first paint even if the poll never answers. -->
+  {{ with .Status.Crash }}
+  <div class="banner err" id="crash-banner">
+    {{ if eq (printf "%s" .Kind) "panic" }}
+    <strong>{{ $.T "crash.title" }}</strong><br>
+    <code class="crashsummary">{{ .Summary }}</code><br>
+    {{ $.T "crash.body" }}
+    {{ else }}
+    <strong>{{ $.T "crash.titleUnclean" }}</strong><br>
+    {{ $.T "crash.bodyUnclean" }}
+    {{ end }}
+    <p class="note" style="margin:.5rem 0 0">
+      {{ $.T "crash.happened" }}: {{ .At.Format "2006-01-02 15:04:05" }}
+      &middot; {{ $.AppName }} {{ .Version }}{{ if .Build }}+{{ .Build }}{{ end }}
+    </p>
+    <div class="actions" style="margin-top:.7rem">
+      <a class="ghost button" href="/crash" target="_blank" rel="noopener">{{ $.T "crash.view" }}</a>
+      {{ if $.CrashIssueURL }}
+      <a class="ghost button" href="{{ $.CrashIssueURL }}" target="_blank" rel="noopener"
+         title="{{ $.T "crash.reportHint" }}">{{ $.T "crash.report" }}</a>
+      {{ end }}
+      <form method="post" action="/dismiss" style="display:inline">
+        <button class="ghost" type="submit" name="what" value="crash">{{ $.T "crash.dismiss" }}</button>
+      </form>
+    </div>
+    {{ if $.CrashIssueURL }}
+    <p class="note" style="margin:.5rem 0 0">{{ $.T "crash.reportHint" }}</p>
+    {{ end }}
+  </div>
+  {{ end }}
+
   <div id="update-banner" class="banner" hidden>
     <strong>{{ .T "update.title" }} <span id="update-version"></span></strong><br>
     <span id="update-installed"></span>

@@ -305,6 +305,42 @@ Findet sich kein passendes Gerät, entsteht keine einzige Entity — wie bei jed
 anderen Gruppe auch. Auf der Anzeigeseite und in der Messwertauswahl taucht der
 Kasten dann gar nicht erst auf.
 
+### Wenn es abstürzt
+
+Ein Programm, das mit `-H windowsgui` gebaut ist, startet ohne aufblitzende
+Konsole — und hat dafür **kein stderr**. Genau dorthin schreibt Go eine Panik
+samt Stapelspur. Ohne Gegenmaßnahme verschwindet also ausgerechnet das, was den
+Fehler erklärt: der Prozess ist weg, im Log steht nichts, und im
+Windows-Ereignisprotokoll steht auch nichts, weil die Go-Laufzeit den Fehler
+selbst behandelt.
+
+rig-exporter gibt sich deshalb beim Start ein stderr zurück und zeigt auf
+`crash.log` neben der Konfiguration. Was die Laufzeit im Ernstfall schreibt,
+landet damit auf der Platte statt im Nichts — auch die Panik einer Goroutine,
+die kein `recover` je auffangen könnte.
+
+Eine Sitzung, die sich ordentlich beendet, leert die Datei wieder. Ist beim
+nächsten Start etwas darin, war der letzte Lauf keiner:
+
+| Inhalt | Bedeutung |
+|---|---|
+| leer | sauber beendet |
+| nur die Kopfzeile | hart beendet — Task-Manager, Stromausfall, überschriebene EXE |
+| Panik samt Stapelspur | ein Fehler im Programm |
+
+Der Bericht wird zur Seite gelegt (die letzten zehn bleiben liegen), das Log
+bekommt eine Fehlerzeile, und auf der Anzeigeseite steht ein Kasten ganz oben.
+Bei einer echten Panik bietet er einen Knopf an, der GitHub mit einem
+ausgefüllten Fehlerbericht öffnet — **geöffnet, nicht abgeschickt**. Was darin
+steht, ist eine feste Liste: Version, Windows-Fassung, Prozessor, Grafikkarte,
+ob erhöht gelaufen wurde, und die Aufzeichnung selbst. Die Konfiguration wird
+bewusst nicht gelesen, denn dort stehen das Broker-Passwort und drei Tokens.
+Abgeschickt wird nichts, bevor du es auf der GitHub-Seite selbst tust; der
+Knopf lässt sich unter *Export & Anzeige → Anwendung* auch ganz abschalten.
+
+Aufgezeichnet wird in jedem Fall. Ob ein Absturz auffällt, ist keine
+Einstellung.
+
 ### Der Akku
 
 Die Akkugruppe ist die einzige, die auf den meisten Rechnern leer bleibt, und

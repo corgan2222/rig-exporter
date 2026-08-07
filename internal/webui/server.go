@@ -88,6 +88,9 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// exceptions, which the form full of ticks cannot express.
 	mux.HandleFunc("POST /rung", s.handleRung)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
+	// The full crash record, as it was written. Linked from the banner rather
+	// than shown in it: a goroutine dump is pages long.
+	mux.HandleFunc("GET /crash", s.handleCrash)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
@@ -194,6 +197,9 @@ type pageData struct {
 	AMDDriverURL    string
 	PawnIOURL       string
 	CoolingURL      string
+	// CrashIssueURL is a prepared GitHub issue for the pending crash record,
+	// empty when there is nothing to report or the offer is switched off.
+	CrashIssueURL string
 	// Where the name in the header and the credit in the footer point.
 	ProjectURL string
 	AuthorURL  string
@@ -357,6 +363,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		AMDDriverURL:    config.AMDDriverURL,
 		PawnIOURL:       config.PawnIOURL,
 		CoolingURL:      config.CoolingURL,
+		CrashIssueURL:   crashIssueURL(status),
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,
@@ -577,6 +584,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.Autostart = r.FormValue("autostart") != ""
 		cfg.Debug = r.FormValue("debug") != ""
 		cfg.UpdateCheckEnabled = r.FormValue("update_check_enabled") != ""
+		cfg.CrashReportOffered = r.FormValue("crash_report_offered") != ""
 	}
 
 	err := s.app.ApplyConfig(cfg)
@@ -645,6 +653,14 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 // the next start.
 func (s *Server) handleDismiss(w http.ResponseWriter, r *http.Request) {
 	notice := r.FormValue("what")
+	// The crash banner is not a setting. It is dismissed for this session and
+	// the record stays on disk, so dismissing it by accident loses nothing.
+	if notice == "crash" {
+		s.app.DismissCrash()
+		http.Redirect(w, r, backTo(r), http.StatusSeeOther)
+		return
+	}
+
 	cfg := s.app.Config()
 	switch notice {
 	case "recorder":

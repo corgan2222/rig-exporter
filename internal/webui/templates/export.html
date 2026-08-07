@@ -289,6 +289,12 @@
       <p class="note indent">{{ .T "settings.app.updateCheckHint" }}</p>
 
       <div class="check">
+        <input type="checkbox" name="crash_report_offered" id="crash_report_offered" value="1" {{ if .Config.CrashReportOffered }}checked{{ end }}>
+        <label for="crash_report_offered" style="margin:0"><span class="name">{{ .T "settings.app.crashReport" }}</span></label>
+      </div>
+      <p class="note indent">{{ .T "settings.app.crashReportHint" }}</p>
+
+      <div class="check">
         <input type="checkbox" name="debug" id="debug" value="1" {{ if .Config.Debug }}checked{{ end }}>
         <label for="debug" style="margin:0"><span class="name">{{ .T "settings.app.debug" }}</span></label>
       </div>

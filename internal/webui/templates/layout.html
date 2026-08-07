@@ -189,6 +189,17 @@
   .targetstatus .note.err { color: var(--err); }
   .targetstatus form { display: inline; }
   button.ghost.small { padding: .3rem .8rem; font-size: .8rem; }
+  /* A link that acts like a button. The crash banner opens two pages and
+     submits one form, and three controls that look like three different things
+     would read as three different kinds of action. */
+  a.ghost.button { display: inline-block; background: transparent; color: var(--text);
+                   border: 1px solid var(--line); border-radius: 7px; padding: .45rem 1rem;
+                   font: inherit; font-size: .9rem; text-decoration: none; cursor: pointer; }
+  a.ghost.button:hover { border-color: var(--muted); }
+  /* The fault line is evidence: it keeps its own spacing and does not wrap
+     into the prose around it. */
+  .crashsummary { display: inline-block; margin: .35rem 0; font-size: .85rem;
+                  overflow-wrap: anywhere; }
   /* A chip that leads somewhere looks like a chip, not like a link: the
      underline would fight the pill shape. The hover says it is clickable. */
   a.badge { color: inherit; text-decoration: none; }

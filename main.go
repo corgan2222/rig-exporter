@@ -23,6 +23,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/applog"
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/crashlog"
 	"github.com/corgan2222/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -92,6 +93,20 @@ func main() {
 		return
 	}
 
+	// From here on the process has a standard error again, pointed at a file.
+	// It has to happen before anything that can fault — the update recovery
+	// below is one of those — and after the second-instance check above, or a
+	// duplicate start that is about to exit would rotate away the crash record
+	// of the instance still running.
+	//
+	// A failure here is not worth stopping for. The program runs exactly as it
+	// did before; only a crash would go unrecorded, which is where it was
+	// yesterday.
+	var crashes *crashlog.Recorder
+	if dir, dirErr := config.Dir(); dirErr == nil {
+		crashes, _ = crashlog.Arm(dir, config.Version, config.Build)
+	}
+
 	// Recovery runs while this process owns the ordinary instance mutex, which
 	// serializes competing manual starts. The intended replacement launch
 	// carries a ready marker and must be allowed to prove itself instead.
@@ -107,7 +122,7 @@ func main() {
 		}
 	}
 
-	if err := run(*configPath, *background, *readyMarker); err != nil {
+	if err := run(*configPath, *background, *readyMarker, crashes); err != nil {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
 		os.Exit(1)
@@ -354,7 +369,7 @@ func loadConfigFor(configPath string) (config.Config, error) {
 	return cfg, nil
 }
 
-func run(configPath string, background bool, readyMarker string) error {
+func run(configPath string, background bool, readyMarker string, crashes *crashlog.Recorder) error {
 	if configPath == "" {
 		path, err := config.Path()
 		if err != nil {
@@ -380,6 +395,15 @@ func run(configPath string, background bool, readyMarker string) error {
 	defer closeLog.Close()
 
 	log.Info("starting", "version", config.Version, "config", configPath, "node_id", cfg.NodeID)
+	// The previous session, if it did not get to say goodbye. Logged before
+	// anything else can go wrong, because this is the one line somebody will
+	// come looking for.
+	if previous := crashes.Previous(); previous != nil {
+		log.Error("the previous session ended without shutting down",
+			"kind", previous.Kind, "summary", previous.Summary(),
+			"version", previous.Version, "build", previous.Build,
+			"started", previous.At, "report", previous.Path)
+	}
 	if cfgErr != nil {
 		// A broken config is not fatal: defaults keep the app usable and the
 		// settings page lets the user fix it.
@@ -424,6 +448,10 @@ func run(configPath string, background bool, readyMarker string) error {
 	} else {
 		application = app.New(cfg, configPath, log, nil)
 	}
+
+	// What the previous session left behind travels with the status, so the
+	// dashboard can say it rather than leaving it in a log nobody opens.
+	application.SetCrash(crashes.Previous())
 
 	settings, err := webui.New(application, log)
 	if err != nil {
@@ -509,6 +537,11 @@ func run(configPath string, background bool, readyMarker string) error {
 	})
 	trayUI.Run() // blocks until the user picks Beenden
 
+	// Reaching this line is what "ended on purpose" means. Emptying the record
+	// here is the whole detection: anything found at the next start was left by
+	// a session that never got this far.
+	crashes.Disarm()
+	_ = crashes.Close()
 	return nil
 }
 
