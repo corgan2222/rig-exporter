@@ -353,14 +353,17 @@ var catalogue = map[string]Text{
 		EN: "The full crash record was kept, next to the configuration.",
 	},
 	"crash.bodyUnclean": {
-		DE: "Kein Absturz mit Fehlermeldung — der Prozess wurde hart beendet, etwa über den Task-Manager, " +
-			"durch einen Stromausfall oder weil die Datei überschrieben wurde. Es gibt nichts zu melden.",
+		DE: "Kein Absturz mit Fehlermeldung — der Prozess wurde hart beendet: über den Task-Manager, " +
+			"durch einen Stromausfall oder weil die Datei überschrieben wurde. Wenn nichts davon zutrifft, " +
+			"ist genau das der Fehler, der gemeldet gehört.",
 		EN: "Not a crash with a stack — the process was ended hard: the task manager, a power cut, " +
-			"or the executable being replaced underneath it. There is nothing to report.",
+			"or the executable being replaced underneath it. If none of those happened, that is exactly " +
+			"the bug worth reporting.",
 	},
 	"crash.summary":  {DE: "Fehler", EN: "Fault"},
 	"crash.happened": {DE: "Sitzung begann", EN: "Session started"},
 	"crash.view":     {DE: "Bericht ansehen", EN: "View the record"},
+	"crash.download": {DE: "Bericht herunterladen", EN: "Download the record"},
 	"crash.report":   {DE: "Als GitHub-Issue melden", EN: "Report it as a GitHub issue"},
 	// Said before the button is pressed, not after. The page that opens shows
 	// the whole text, and nothing leaves this machine until it is submitted.
@@ -383,7 +386,8 @@ var catalogue = map[string]Text{
 	"settings.logs.lastLines":  {DE: "letzte %1 Zeilen", EN: "last %1 lines"},
 	"settings.logs.files":      {DE: "Dateien", EN: "Files"},
 	"settings.logs.crash":      {DE: "Absturz", EN: "Crash"},
-	"settings.logs.open":       {DE: "öffnen", EN: "open"},
+	"settings.logs.open":       {DE: "Im Browser ansehen", EN: "View in the browser"},
+	"settings.logs.download":   {DE: "Herunterladen", EN: "Download"},
 	"settings.logs.empty":      {DE: "Noch nichts aufgeschrieben.", EN: "Nothing written down yet."},
 	"settings.logs.errorsOnly": {DE: "nur Fehler", EN: "errors only"},
 	"settings.logs.clear":      {DE: "Aufgehobene Berichte löschen", EN: "Delete the kept records"},

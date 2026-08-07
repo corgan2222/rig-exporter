@@ -91,9 +91,13 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// The full crash record, as it was written. Linked from the banner rather
 	// than shown in it: a goroutine dump is pages long.
 	mux.HandleFunc("GET /crash", s.handleCrash)
+	// The same record as a file to keep. A report that has to be reached by
+	// opening a folder is a report that gets described from memory instead.
+	mux.HandleFunc("GET /crash/download", s.handleCrashDownload)
 	// One log file, by the name the page listed. Only a name that came out of
 	// that listing is served — see handleLog.
 	mux.HandleFunc("GET /logs/{name}", s.handleLog)
+	mux.HandleFunc("GET /logs/{name}/download", s.handleLogDownload)
 	// Tidying up: removes the kept records, never the one being written.
 	mux.HandleFunc("POST /logs/clear", s.handleClearLogs)
 	// One kept crash report, turned into a prepared GitHub form. A crash from

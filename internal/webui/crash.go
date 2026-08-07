@@ -4,6 +4,7 @@ package webui
 
 import (
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/corgan2222/rig-exporter/internal/app"
@@ -55,23 +56,38 @@ func textsOf(st app.Status, id string) []string {
 
 // crashIssueURL is the prepared GitHub page for the pending report, or empty
 // when there is nothing to report or the user does not want the offer.
+//
+// Offered for a session that simply vanished as well, not only for one that
+// left a stack. That was the other way round at first, on the argument that a
+// hard kill is nobody's bug — and it had the case backwards. A program that
+// disappears without a message is the failure this whole mechanism was built
+// for, and the record still carries the build, the machine, what was answering
+// and the last two hundred lines of the log. What it cannot say is whether
+// somebody ended the task on purpose; the banner asks that in words, and the
+// person reading it is the one who knows.
 func crashIssueURL(st app.Status) string {
 	if st.Crash == nil || !st.Config.CrashReportOffered {
-		return ""
-	}
-	// An unclean exit is not a bug to report. Somebody ended the task, or the
-	// power went, and there is no stack for a maintainer to read.
-	if st.Crash.Kind != crashlog.KindPanic {
 		return ""
 	}
 	return crashlog.IssueURL(config.ProjectURL, *st.Crash, machineFor(st))
 }
 
-// handleCrash serves the full record as plain text.
+// handleCrash serves the full record as plain text, to read in the browser.
 //
 // Plain text on purpose: this is evidence, and a browser that renders it as a
 // document would reflow the one thing that has to stay exactly as written.
 func (s *Server) handleCrash(w http.ResponseWriter, r *http.Request) {
+	s.serveCrash(w, r, false)
+}
+
+// handleCrashDownload serves the same record as a file to keep. The issue form
+// asks for it as an attachment, and asking somebody to find it in AppData first
+// is where a bug report stops being written.
+func (s *Server) handleCrashDownload(w http.ResponseWriter, r *http.Request) {
+	s.serveCrash(w, r, true)
+}
+
+func (s *Server) serveCrash(w http.ResponseWriter, r *http.Request, download bool) {
 	report := s.app.Status().Crash
 	if report == nil {
 		http.NotFound(w, r)
@@ -81,13 +97,13 @@ func (s *Server) handleCrash(w http.ResponseWriter, r *http.Request) {
 	text := report.Text
 	// Prefer the file: it is the whole record, where what is held in memory is
 	// only what was there when this session started.
+	name := "crash.log"
 	if report.Path != "" {
+		name = filepath.Base(report.Path)
 		if full, err := crashlog.ReadReport(report.Path); err == nil && full != "" {
 			text = full
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_, _ = w.Write([]byte(text))
+	serveRecord(w, name, []byte(text), download)
 }

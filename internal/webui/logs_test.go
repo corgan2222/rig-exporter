@@ -3,12 +3,15 @@
 package webui
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/corgan2222/rig-exporter/internal/config"
 )
 
 // stamp gives a file a modification time, so an ordering that must come from
@@ -28,6 +31,22 @@ func writeFiles(t *testing.T, dir string, names ...string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// ownLogDir points the program's configuration directory at a temporary one and
+// fills it, so a test about serving files does not depend on what happens to be
+// in the tester's AppData. os.UserConfigDir reads this variable on Windows.
+func ownLogDir(t *testing.T, names ...string) string {
+	t.Helper()
+	base := t.TempDir()
+	t.Setenv("AppData", base)
+
+	dir := filepath.Join(base, config.AppName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFiles(t, dir, names...)
+	return dir
 }
 
 // The card lists what this program wrote and nothing else. The configuration
@@ -142,6 +161,68 @@ func TestNoFileOutsideTheListingIsServed(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Every file the page lists can also be kept. The issue form asks for the
+// record as an attachment, and "open the folder" is the step at which most
+// people stop.
+func TestEveryListedRecordCanBeDownloaded(t *testing.T) {
+	crash := "rig-exporter_corgan-pc3_crashreport_2026-08-07_15-40-00.log"
+	ownLogDir(t, "rig-exporter.log", crash)
+	_, ts := newServer(t, nil)
+
+	for _, name := range []string{"rig-exporter.log", crash} {
+		resp, err := http.Get(ts.URL + "/logs/" + name + "/download")
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET /logs/%s/download = %d", name, resp.StatusCode)
+			continue
+		}
+		if got := resp.Header.Get("Content-Disposition"); !strings.Contains(got, name) {
+			t.Errorf("%s: Content-Disposition = %q", name, got)
+		}
+		if string(body) != "x" {
+			t.Errorf("%s: served %q", name, body)
+		}
+	}
+}
+
+// And the download route is no way around the listing. It reads a name out of
+// the request just as the other one does, and the configuration with the broker
+// password sits in the same directory.
+func TestDownloadingAlsoRefusesWhatWasNotListed(t *testing.T) {
+	ownLogDir(t, "rig-exporter.log")
+	_, ts := newServer(t, nil)
+
+	for _, name := range []string{
+		"config.json", "update-signing-key.pem", "..%2Fconfig.json",
+	} {
+		if code, _ := get(t, ts.URL+"/logs/"+name+"/download"); code != http.StatusNotFound {
+			t.Errorf("GET /logs/%s/download = %d, want 404", name, code)
+		}
+	}
+}
+
+// A file name cannot end a header and start another one. Every name that gets
+// here was written by this program and would survive unquoted — which is
+// exactly the reasoning that stops holding the day somebody adds a caller.
+func TestAFileNameCannotBreakOutOfTheHeader(t *testing.T) {
+	for _, name := range []string{
+		"a\r\nX-Injected: yes.log",
+		`a"b.log`,
+		"a\\b.log",
+		"",
+	} {
+		got := headerSafe(name)
+		if strings.ContainsAny(got, "\r\n\"\\") || got == "" {
+			t.Errorf("headerSafe(%q) = %q", name, got)
+		}
 	}
 }
 

@@ -271,9 +271,8 @@ func (s *Server) handleLogIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	report := crashlog.ReportOf(string(raw), filepath.Join(dir, file.Name))
-	if report.Kind != crashlog.KindPanic {
-		// A hard kill has no stack and nothing for a maintainer to read.
-		// Sending somebody to GitHub with it wastes two people's time.
+	if report.Kind == "" {
+		// Nothing in the file that reads as a crash at all.
 		http.Redirect(w, r, "/export#logs", http.StatusSeeOther)
 		return
 	}
@@ -283,12 +282,22 @@ func (s *Server) handleLogIssue(w http.ResponseWriter, r *http.Request) {
 		http.StatusSeeOther)
 }
 
-// handleLog serves one log file as text.
+// handleLog serves one log file as text, to read in the browser.
+func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) { s.serveLog(w, r, false) }
+
+// handleLogDownload serves the same file as something to keep.
+//
+// Worth its own route rather than a query parameter: this link is what somebody
+// follows to get the file onto their desktop before attaching it to an issue,
+// and a route says so where ?download=1 has to be explained.
+func (s *Server) handleLogDownload(w http.ResponseWriter, r *http.Request) { s.serveLog(w, r, true) }
+
+// serveLog is both of those.
 //
 // The name is checked against the enumeration rather than cleaned: a name that
 // did not come out of the directory listing is not served, so there is no path
 // to traverse and no pattern to outwit.
-func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
+func (s *Server) serveLog(w http.ResponseWriter, r *http.Request, download bool) {
 	wanted := r.PathValue("name")
 
 	var found bool
@@ -314,9 +323,38 @@ func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	serveRecord(w, wanted, raw, download)
+}
+
+// serveRecord writes one record out, either to read or to keep.
+func serveRecord(w http.ResponseWriter, name string, raw []byte, download bool) {
 	// Text, and told not to be sniffed into anything else: this is a record,
 	// and a browser deciding it is a document would reflow it.
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if download {
+		// Quoted and filtered. Every name that gets here was written by this
+		// program and would survive unquoted, which is exactly the reasoning
+		// that stops holding the day somebody adds a second caller.
+		w.Header().Set("Content-Disposition", `attachment; filename="`+headerSafe(name)+`"`)
+	}
 	_, _ = w.Write(raw)
+}
+
+// headerSafe reduces a file name to what may stand inside a quoted header
+// value. A newline in there would end the header and start another one.
+func headerSafe(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r < 0x20, r == 0x7f, r == '"', r == '\\':
+			b.WriteRune('-')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "record.log"
+	}
+	return b.String()
 }

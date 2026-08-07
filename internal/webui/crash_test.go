@@ -55,9 +55,15 @@ func TestACrashIsTheFirstThingOnTheDashboard(t *testing.T) {
 	}
 }
 
-// A hard kill is not a bug report. There is no stack, nothing for a maintainer
-// to read, and sending somebody to GitHub with it wastes two people's time.
-func TestAnUncleanExitIsShownButNotOfferedAsAnIssue(t *testing.T) {
+// A session that simply vanished is offered as a bug report too.
+//
+// This was the other way round at first, on the argument that a hard kill is
+// nobody's bug. That had the case backwards: a program that disappears without
+// a message is the failure this whole mechanism exists for, and the record
+// still carries the build, the machine and the last two hundred log lines.
+// Whether somebody ended the task on purpose is the one thing the program
+// cannot know — the banner asks it in words, and the reader is who knows.
+func TestAVanishedSessionIsOfferedAsAnIssueToo(t *testing.T) {
 	server, ts := newServer(t, nil)
 	server.app.SetCrash(&crashlog.Report{
 		Kind: crashlog.KindUnclean, Version: "1.9.2",
@@ -69,8 +75,66 @@ func TestAnUncleanExitIsShownButNotOfferedAsAnIssue(t *testing.T) {
 	if !strings.Contains(body, `id="crash-banner"`) {
 		t.Fatal("an unclean exit was not shown at all")
 	}
-	if strings.Contains(body, "issues/new") {
-		t.Error("a hard kill was offered as a bug report")
+	if !strings.Contains(body, "issues/new") {
+		t.Error("a session that vanished cannot be reported")
+	}
+	if !strings.Contains(body, `href="/crash/download"`) {
+		t.Error("the record cannot be downloaded from the banner")
+	}
+}
+
+// The banner offers all four: read it, keep it, report it, put it away.
+func TestTheBannerOffersEveryWayOnWithTheRecord(t *testing.T) {
+	server, ts := newServer(t, nil)
+	server.app.SetCrash(panicReport())
+
+	_, body := get(t, ts.URL+"/")
+	for _, want := range []string{
+		`href="/crash"`, `href="/crash/download"`, "issues/new",
+		`name="what" value="crash"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the banner is missing %q", want)
+		}
+	}
+}
+
+// The issue form asks for the record as an attachment. Somebody who has to find
+// AppData first writes the report from memory instead, or not at all.
+func TestTheRecordCanBeDownloadedUnderItsOwnName(t *testing.T) {
+	server, ts := newServer(t, nil)
+	report := panicReport()
+	report.Path = "" // nothing on disk in a test; the held text is the record
+	server.app.SetCrash(report)
+
+	resp, err := http.Get(ts.URL + "/crash/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /crash/download = %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Disposition"); !strings.HasPrefix(got, "attachment;") {
+		t.Errorf("Content-Disposition = %q, want an attachment", got)
+	}
+}
+
+// And under the name of the kept file when there is one, because that name says
+// which machine and which moment.
+func TestTheDownloadIsNamedAfterTheKeptFile(t *testing.T) {
+	server, ts := newServer(t, nil)
+	server.app.SetCrash(panicReport())
+
+	resp, err := http.Get(ts.URL + "/crash/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("Content-Disposition"); !strings.Contains(got, "crash-2026-08-07-154000.log") {
+		t.Errorf("Content-Disposition = %q, want the kept file's name", got)
 	}
 }
 

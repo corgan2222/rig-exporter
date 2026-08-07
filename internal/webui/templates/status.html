@@ -18,15 +18,24 @@
       {{ $.T "crash.happened" }}: {{ .At.Format "2006-01-02 15:04:05" }}
       &middot; {{ $.AppName }} {{ .Version }}{{ if .Build }}+{{ .Build }}{{ end }}
     </p>
+    <!-- Vier Handlungen, vier Zeichen, dieselben wie in der Dateiliste auf der
+         Export-Seite: ansehen, herunterladen, melden, gelesen. Das Wort steht
+         im title, damit die Reihe nicht laenger wird als der Hinweis selbst. -->
     <div class="actions" style="margin-top:.7rem">
-      <a class="ghost button" href="/crash" target="_blank" rel="noopener">{{ $.T "crash.view" }}</a>
-      {{ if $.CrashIssueURL }}
-      <a class="ghost button" href="{{ $.CrashIssueURL }}" target="_blank" rel="noopener"
-         title="{{ $.T "crash.reportHint" }}">{{ $.T "crash.report" }}</a>
-      {{ end }}
-      <form method="post" action="/dismiss" style="display:inline">
-        <button class="ghost" type="submit" name="what" value="crash">{{ $.T "crash.dismiss" }}</button>
-      </form>
+      <span class="iconrow">
+        <a class="iconbtn" href="/crash" target="_blank" rel="noopener"
+           title="{{ $.T "crash.view" }}" aria-label="{{ $.T "crash.view" }}">{{ template "icon-view" }}</a>
+        <a class="iconbtn" href="/crash/download"
+           title="{{ $.T "crash.download" }}" aria-label="{{ $.T "crash.download" }}">{{ template "icon-download" }}</a>
+        {{ if $.CrashIssueURL }}
+        <a class="iconbtn" href="{{ $.CrashIssueURL }}" target="_blank" rel="noopener"
+           title="{{ $.T "crash.reportHint" }}" aria-label="{{ $.T "crash.report" }}">{{ template "icon-github" }}</a>
+        {{ end }}
+        <form method="post" action="/dismiss" class="iconrow">
+          <button class="iconbtn" type="submit" name="what" value="crash"
+                  title="{{ $.T "crash.dismiss" }}" aria-label="{{ $.T "crash.dismiss" }}">{{ template "icon-read" }}</button>
+        </form>
+      </span>
     </div>
     {{ if $.CrashIssueURL }}
     <p class="note" style="margin:.5rem 0 0">{{ $.T "crash.reportHint" }}</p>

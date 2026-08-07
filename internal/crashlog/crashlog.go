@@ -57,8 +57,13 @@ type Report struct {
 }
 
 // Summary is the first meaningful line of a panic, for a heading.
+//
+// Read from the runtime's half only. The application log underneath quotes the
+// summary of every earlier crash, so searching the whole record finds last
+// week's fault instead of this one's.
 func (r Report) Summary() string {
-	for _, line := range strings.Split(r.Text, "\n") {
+	crash, _ := r.Split()
+	for _, line := range strings.Split(crash, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 			return line
@@ -228,7 +233,17 @@ const logMarker = "--- the application log up to this point ---"
 // The same parsing the startup does, exposed so a file from last week can be
 // turned into a bug report long after the banner that announced it has gone.
 func ReportOf(text, path string) Report {
-	kind, crashed := classify(text)
+	// Only the runtime's half decides what this was.
+	//
+	// The application log is appended underneath it, and one of the lines this
+	// program itself writes on every start is `the previous session ended
+	// without shutting down kind=panic summary="panic: …"`. So a record of a
+	// session that simply vanished contained the word panic — from a crash days
+	// earlier — and was read back as a panic whose stack could not be found.
+	// The prepared issue was titled "unknown crash". Found by opening the
+	// finished file, not by reading this function.
+	runtime, _, _ := strings.Cut(text, logMarker)
+	kind, crashed := classify(runtime)
 	if !crashed {
 		return Report{}
 	}

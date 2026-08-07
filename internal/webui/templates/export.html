@@ -316,11 +316,20 @@
       <span class="note">{{ .LogTailNote }}</span>
       <button type="button" class="ghost small" id="errors-only"
               aria-pressed="false">{{ .T "settings.logs.errorsOnly" }}</button>
-      <a class="sidelink" href="/logs/{{ .AppName }}.log" target="_blank" rel="noopener">{{ .T "settings.logs.open" }}</a>
+      <span class="iconrow">
+        <a class="iconbtn" href="/logs/{{ .AppName }}.log" target="_blank" rel="noopener"
+           title="{{ .T "settings.logs.open" }}" aria-label="{{ .T "settings.logs.open" }}">{{ template "icon-view" }}</a>
+        <a class="iconbtn" href="/logs/{{ .AppName }}.log/download"
+           title="{{ .T "settings.logs.download" }}" aria-label="{{ .T "settings.logs.download" }}">{{ template "icon-download" }}</a>
+      </span>
     </div>
     {{ if .LogLines }}
-    <pre class="logview">{{ range .LogLines }}<span class="l-{{ .Level }}">{{ .Text }}</span>
-{{ end }}</pre>
+    <!-- Der Zeilenumbruch steht INNERHALB des span, nicht dahinter. Sonst
+         bleibt er beim Filtern auf Fehler stehen, waehrend die Zeile
+         verschwindet — und man sieht eine Wand aus leeren Zeilen mit ein paar
+         Fehlern darin. -->
+    <pre class="logview">{{ range .LogLines }}<span class="l-{{ .Level }}">{{ .Text }}
+</span>{{ end }}</pre>
     {{ else }}
     <p class="note">{{ .T "settings.logs.empty" }}</p>
     {{ end }}
@@ -336,11 +345,20 @@
         </td>
         <td class="num">{{ .SizeText }}</td>
         <td class="when">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
+        <!-- Dieselben Zeichen wie im Absturz-Hinweis auf der Startseite. Der
+             Dateiname links ist weiterhin ein Link, das Auge daneben tut
+             dasselbe — es steht da, damit die Reihe ueberall gleich aussieht. -->
         <td class="act">
-          {{ if and (eq .Kind "crash") $.Config.CrashReportOffered }}
-          <a class="sidelink" href="/logs/{{ .Name }}/issue" target="_blank" rel="noopener"
-             title="{{ $.T "crash.reportHint" }}">{{ $.T "crash.report" }}</a>
-          {{ end }}
+          <span class="iconrow">
+            <a class="iconbtn" href="/logs/{{ .Name }}" target="_blank" rel="noopener"
+               title="{{ $.T "settings.logs.open" }}" aria-label="{{ $.T "settings.logs.open" }}">{{ template "icon-view" }}</a>
+            <a class="iconbtn" href="/logs/{{ .Name }}/download"
+               title="{{ $.T "settings.logs.download" }}" aria-label="{{ $.T "settings.logs.download" }}">{{ template "icon-download" }}</a>
+            {{ if and (eq .Kind "crash") $.Config.CrashReportOffered }}
+            <a class="iconbtn" href="/logs/{{ .Name }}/issue" target="_blank" rel="noopener"
+               title="{{ $.T "crash.reportHint" }}" aria-label="{{ $.T "crash.report" }}">{{ template "icon-github" }}</a>
+            {{ end }}
+          </span>
         </td>
       </tr>
       {{ end }}

@@ -208,6 +208,51 @@ func TestTheNameFromBeforeTheRenameIsStillRecognised(t *testing.T) {
 	}
 }
 
+// A record of a session that simply vanished stays that, however often the log
+// underneath it mentions the word panic.
+//
+// This program writes `the previous session ended without shutting down
+// kind=panic summary="panic: …"` on every start after a crash, and that line
+// travels inside the next record's log tail. Reading the whole file made a hard
+// kill look like a panic whose stack was missing, and the prepared issue came
+// out titled "unknown crash". Taken from a real file on this machine.
+func TestALogMentioningAnOlderPanicDoesNotMakeThisOneAPanic(t *testing.T) {
+	report := ReportOf(strings.Join([]string{
+		"rig-exporter session 2026-08-07T17:25:37+02:00 version=1.9.2 build=175 pid=36640",
+		"",
+		logMarker,
+		`time=2026-08-07T15:50:29.656+02:00 level=ERROR msg="the previous session ended ` +
+			`without shutting down" kind=panic summary="panic: runtime error: index out of range"`,
+		`time=2026-08-07T15:50:30.101+02:00 level=INFO msg=starting version=1.9.2`,
+	}, "\n"), "")
+
+	if report.Kind != KindUnclean {
+		t.Errorf("kind = %q, want %q", report.Kind, KindUnclean)
+	}
+	if got := report.Summary(); got != "the process ended without shutting down" {
+		t.Errorf("summary = %q", got)
+	}
+}
+
+// And the other way round: a real stack is still found when a log follows it.
+func TestARealStackIsStillFoundWithALogUnderneath(t *testing.T) {
+	report := ReportOf(strings.Join([]string{
+		"rig-exporter session 2026-08-07T17:02:15+02:00 version=1.9.2 build=demo pid=40344",
+		"panic: assignment to entry in nil map",
+		"",
+		"goroutine 8 [running]:",
+		logMarker,
+		`time=2026-08-07T17:02:14.900+02:00 level=INFO msg=starting version=1.9.2`,
+	}, "\n"), "")
+
+	if report.Kind != KindPanic {
+		t.Errorf("kind = %q, want %q", report.Kind, KindPanic)
+	}
+	if got := report.Summary(); got != "panic: assignment to entry in nil map" {
+		t.Errorf("summary = %q", got)
+	}
+}
+
 // The time in the name is the time the list is sorted by, so it has to be
 // readable again — out of both namings, because a folder holds both.
 func TestTheTimeCanBeReadBackOutOfEitherName(t *testing.T) {
