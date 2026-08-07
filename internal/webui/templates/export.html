@@ -314,6 +314,8 @@
     <div class="cardhead tight" style="margin-bottom:.4rem">
       <h3 class="sub">{{ .T "settings.logs.running" }}</h3>
       <span class="note">{{ .LogTailNote }}</span>
+      <button type="button" class="ghost small" id="errors-only"
+              aria-pressed="false">{{ .T "settings.logs.errorsOnly" }}</button>
       <a class="sidelink" href="/logs/{{ .AppName }}.log" target="_blank" rel="noopener">{{ .T "settings.logs.open" }}</a>
     </div>
     {{ if .LogLines }}
@@ -334,6 +336,12 @@
         </td>
         <td class="num">{{ .SizeText }}</td>
         <td class="when">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
+        <td class="act">
+          {{ if and (eq .Kind "crash") $.Config.CrashReportOffered }}
+          <a class="sidelink" href="/logs/{{ .Name }}/issue" target="_blank" rel="noopener"
+             title="{{ $.T "crash.reportHint" }}">{{ $.T "crash.report" }}</a>
+          {{ end }}
+        </td>
       </tr>
       {{ end }}
     </table>
@@ -359,13 +367,19 @@
      scrollbar rather than pushing the page sideways. */
   /* Die Stufen wie in einem Terminal: der Blick soll die roten Zeilen finden,
      ohne dass die anderen darum kaempfen. */
-  .logview .l-error { color: var(--err); }
-  .logview .l-warn  { color: var(--warn); }
-  .logview .l-info  { color: var(--text); }
-  .logview .l-debug { color: var(--muted); }
+  .logview .l-critical { color: #ef4444; font-weight: 600; }
+  .logview .l-error    { color: #fb923c; }
+  .logview .l-warn     { color: #facc15; }
+  .logview .l-info     { color: #f1f5f9; }
+  .logview .l-debug    { color: #c084fc; }
   /* Fortsetzungszeilen erben nichts: eine umgebrochene Meldung oder ein Stack
      soll nicht rot schreien, weil irgendwo das Wort ERROR im Dateinamen steht. */
   .logview .l-cont  { color: var(--muted); }
+  /* Nur Fehler: die ruhigen Stufen verschwinden, die lauten bleiben stehen.
+     Rein im Browser, damit der Umschalter nichts nachladen muss. */
+  .logview.errors-only .l-info,
+  .logview.errors-only .l-debug,
+  .logview.errors-only .l-cont { display: none; }
   .logview { max-height: 22rem; overflow: auto; margin: 0;
              background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
              padding: .7rem .9rem; font-size: .76rem; line-height: 1.45;
@@ -375,6 +389,8 @@
   table.logs { width: 100%; border-collapse: collapse; margin-top: .5rem; font-size: .82rem; }
   table.logs td { padding: .35rem .8rem .35rem 0; border-bottom: 1px solid var(--line); }
   table.logs td.num, table.logs td.when { text-align: right; white-space: nowrap; color: var(--muted); }
+  table.logs td.act { text-align: right; white-space: nowrap; }
+  #errors-only[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
 </style>
 
 <script>
@@ -439,6 +455,17 @@ async function refreshExportStatuses() {
 
 refreshExportStatuses();
 setInterval(refreshExportStatuses, 3000);
+
+// Nur Fehler zeigen. Reines Umschalten einer Klasse: die Zeilen sind schon da,
+// sie sollen nur nicht alle gleichzeitig um Aufmerksamkeit bitten.
+const errorsOnly = document.getElementById("errors-only");
+const logview = document.querySelector(".logview");
+if (errorsOnly && logview) {
+  errorsOnly.addEventListener("click", () => {
+    const on = logview.classList.toggle("errors-only");
+    errorsOnly.setAttribute("aria-pressed", String(on));
+  });
+}
 </script>
 {{ end }}
 

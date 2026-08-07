@@ -123,6 +123,13 @@ type Machine struct {
 	CPU        string
 	GPU        string
 	Elevated   bool
+	// Locale is the Windows display language as a BCP-47 name, de-DE and such.
+	//
+	// Not decoration. Windows names devices and drives in the display language,
+	// and those names become instance identifiers: Slug keeps only a-z0-9, so a
+	// Japanese or Cyrillic adapter name leaves nothing and falls through to a
+	// digest. Without the language, the resulting report cannot be placed.
+	Locale string
 	// Sources names what actually answered — Afterburner, NVML, ADLX, PawnIO.
 	// A crash with a vendor library loaded is a different bug from one without,
 	// and those libraries are reached through function-pointer tables, which is
@@ -134,6 +141,19 @@ type Machine struct {
 // record. The two halves go into different fields of the report, so the split
 // has to be findable again.
 const logMarker = "--- the application log up to this point ---"
+
+// ReportOf reads a kept record back into a report.
+//
+// The same parsing the startup does, exposed so a file from last week can be
+// turned into a bug report long after the banner that announced it has gone.
+func ReportOf(text, path string) Report {
+	kind, crashed := classify(text)
+	if !crashed {
+		return Report{}
+	}
+	at, version, build := parseHeader(text)
+	return Report{Kind: kind, At: at, Version: version, Build: build, Path: path, Text: text}
+}
 
 // Split returns the runtime's output and the application log separately.
 func (r Report) Split() (crash, log string) {
@@ -259,6 +279,7 @@ func IssueURL(projectURL string, r Report, m Machine) string {
 	query.Set("platform", platformText(m))
 	query.Set("hardware", hardwareText(m))
 	query.Set("elevated", yesNo(m.Elevated))
+	query.Set("locale", m.Locale)
 	if m.Sources != "" {
 		query.Set("sources", m.Sources)
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/corgan2222/rig-exporter/internal/applog"
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/crashlog"
 )
 
 // The log files this program writes, and nothing else.
@@ -161,11 +162,19 @@ func logLinesOf(tail string) []logLine {
 				break
 			}
 		}
-		// A continuation line — a wrapped message, a stack — inherits nothing
-		// and is marked as such, so it is not shouted in red for having the
-		// word ERROR in a file name.
+		// A continuation line — a wrapped message, a stack frame — inherits
+		// nothing, so it is not shouted at for having the word ERROR in a file
+		// name it happens to mention.
 		if !strings.HasPrefix(text, "time=") {
 			line.Level = "cont"
+		}
+		// Red is kept for what earns it, and it wins over everything above.
+		// slog has no level beyond ERROR, so the distinction is made on
+		// content: a panic or a fatal error is the one thing in a record that
+		// means the program stopped.
+		if strings.Contains(text, "panic:") || strings.Contains(text, "fatal error:") ||
+			strings.Contains(text, "ended without shutting down") {
+			line.Level = "critical"
 		}
 		out = append(out, line)
 	}
@@ -199,6 +208,52 @@ func (s *Server) handleClearLogs(w http.ResponseWriter, r *http.Request) {
 	// the banner would point at nothing.
 	s.app.DismissCrash()
 	http.Redirect(w, r, "/export#logs", http.StatusSeeOther)
+}
+
+// handleLogIssue opens the prepared GitHub form for one kept crash report.
+//
+// Per file rather than only for the pending one: a crash from last week is
+// still worth reporting, and the banner that announced it is long gone. The
+// report is rebuilt from the file, so what is offered is exactly what is on
+// disk — and the redirect is where it ends, because a prepared page is not a
+// submitted issue.
+func (s *Server) handleLogIssue(w http.ResponseWriter, r *http.Request) {
+	wanted := r.PathValue("name")
+
+	var file logFile
+	for _, candidate := range logFiles() {
+		if candidate.Name == wanted && candidate.Kind == crashKind {
+			file = candidate
+			break
+		}
+	}
+	if file.Name == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	dir, err := config.Dir()
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, file.Name))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	report := crashlog.ReportOf(string(raw), filepath.Join(dir, file.Name))
+	if report.Kind != crashlog.KindPanic {
+		// A hard kill has no stack and nothing for a maintainer to read.
+		// Sending somebody to GitHub with it wastes two people's time.
+		http.Redirect(w, r, "/export#logs", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r,
+		crashlog.IssueURL(config.ProjectURL, report, machineFor(s.app.Status())),
+		http.StatusSeeOther)
 }
 
 // handleLog serves one log file as text.

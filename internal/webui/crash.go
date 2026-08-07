@@ -10,6 +10,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/crashlog"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // machineFor is the handful of facts that make a crash report worth reading.
@@ -32,6 +33,7 @@ func machineFor(st app.Status) crashlog.Machine {
 		// missing the first thing anybody would ask.
 		GPU:      strings.Join(textsOf(st, metrics.GPUName.ID), " + "),
 		Elevated: crashlog.Elevated(),
+		Locale:   winapi.UILanguage(),
 		// What actually answered. A crash with a vendor library loaded is a
 		// different bug from one without, and those are reached through
 		// function-pointer tables — where this kind of fault comes from.

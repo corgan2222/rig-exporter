@@ -96,6 +96,9 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	mux.HandleFunc("GET /logs/{name}", s.handleLog)
 	// Tidying up: removes the kept records, never the one being written.
 	mux.HandleFunc("POST /logs/clear", s.handleClearLogs)
+	// One kept crash report, turned into a prepared GitHub form. A crash from
+	// last week is still worth reporting, and its banner is long gone.
+	mux.HandleFunc("GET /logs/{name}/issue", s.handleLogIssue)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
