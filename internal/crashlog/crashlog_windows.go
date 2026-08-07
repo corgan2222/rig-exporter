@@ -142,7 +142,11 @@ func rotate(path, dir, logPath string) *Report {
 	// is the artefact the promise has to hold for.
 	text := Scrub(string(raw) + logSection(logPath))
 
-	kept := filepath.Join(dir, fmt.Sprintf("crash-%s.log", stamp.Format("2006-01-02-150405")))
+	// The machine goes in the name: these files get attached to issues and
+	// dropped into chats, and once moved the name is all that is left to say
+	// which PC they came from.
+	host, _ := os.Hostname()
+	kept := filepath.Join(dir, ReportName(host, stamp))
 	if err := os.WriteFile(kept, []byte(text), 0o644); err != nil {
 		// Keeping the report matters more than keeping the file name. The
 		// record is still reported from memory; it is the truncate below that
@@ -172,15 +176,42 @@ func logSection(logPath string) string {
 
 // prune keeps the newest reports and deletes the rest.
 func prune(dir string) {
-	matches, err := filepath.Glob(filepath.Join(dir, "crash-*.log"))
-	if err != nil || len(matches) <= keptReports {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
 		return
 	}
-	// The names carry the timestamp, so sorting them sorts by age.
-	sort.Strings(matches)
-	for _, old := range matches[:len(matches)-keptReports] {
-		_ = os.Remove(old)
+	var matches []string
+	for _, entry := range entries {
+		if !entry.IsDir() && IsReportName(entry.Name()) {
+			matches = append(matches, entry.Name())
+		}
 	}
+	if len(matches) <= keptReports {
+		return
+	}
+	// Oldest first, by the time in the name. Sorting the names as text would do
+	// for one naming and stopped doing for two: every crash- name sorts before
+	// every rig-exporter_ name, so the older scheme would be deleted first
+	// however recent it was.
+	sort.Slice(matches, func(i, j int) bool { return olderReport(matches[i], matches[j]) })
+	for _, old := range matches[:len(matches)-keptReports] {
+		_ = os.Remove(filepath.Join(dir, old))
+	}
+}
+
+// olderReport orders two report names by the time each one carries. A name
+// without a readable time sorts oldest, so an unrecognisable file is the first
+// to go rather than the last.
+func olderReport(a, b string) bool {
+	atA, okA := StampOf(a)
+	atB, okB := StampOf(b)
+	if okA != okB {
+		return !okA
+	}
+	if !okA || atA.Equal(atB) {
+		return a < b
+	}
+	return atA.Before(atB)
 }
 
 // Elevated reports whether this process runs with administrator rights, which

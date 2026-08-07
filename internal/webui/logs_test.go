@@ -8,7 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// stamp gives a file a modification time, so an ordering that must come from
+// the clock can be tested without waiting for one.
+func stamp(t *testing.T, dir, name string, at time.Time) {
+	t.Helper()
+	if err := os.Chtimes(filepath.Join(dir, name), at, at); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // writeFiles fills a directory the way the program would.
 func writeFiles(t *testing.T, dir string, names ...string) {
@@ -26,7 +36,8 @@ func TestOnlyTheProgramsOwnRecordsAreListed(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir,
 		"rig-exporter.log", "rig-exporter.log.1",
-		"crash-2026-08-07-154000.log", "crash-2026-08-06-101500.log",
+		"rig-exporter_corgan-pc3_crashreport_2026-08-07_15-40-00.log",
+		"crash-2026-08-06-101500.log",
 		"config.json", "config.json.bak", "probe.txt", "update-signing-key.pem")
 
 	var listed []string
@@ -34,17 +45,25 @@ func TestOnlyTheProgramsOwnRecordsAreListed(t *testing.T) {
 		listed = append(listed, file.Name)
 	}
 
-	want := []string{
-		"rig-exporter.log", "rig-exporter.log.1",
-		"crash-2026-08-07-154000.log", "crash-2026-08-06-101500.log",
+	// The set is the point here: which files belong to this program and which
+	// do not. The order among the crash reports comes from their timestamps and
+	// is tested separately.
+	want := map[string]bool{
+		"rig-exporter.log": true, "rig-exporter.log.1": true,
+		"rig-exporter_corgan-pc3_crashreport_2026-08-07_15-40-00.log": true,
+		"crash-2026-08-06-101500.log":                                 true,
 	}
 	if len(listed) != len(want) {
-		t.Fatalf("listed %v, want %v", listed, want)
+		t.Fatalf("listed %v, want the four records", listed)
 	}
-	for i := range want {
-		if listed[i] != want[i] {
-			t.Errorf("position %d = %q, want %q", i, listed[i], want[i])
+	for _, name := range listed {
+		if !want[name] {
+			t.Errorf("%q is not one of this program's records", name)
 		}
+	}
+	// The running log still comes first, whatever the crashes do.
+	if listed[0] != "rig-exporter.log" {
+		t.Errorf("the running log is not first: %q", listed[0])
 	}
 }
 
@@ -52,14 +71,34 @@ func TestOnlyTheProgramsOwnRecordsAreListed(t *testing.T) {
 // the one that matters is the one that just happened.
 func TestTheNewestCrashIsListedFirst(t *testing.T) {
 	dir := t.TempDir()
-	writeFiles(t, dir, "crash-2026-08-01-100000.log", "crash-2026-08-07-154000.log", "rig-exporter.log")
+	newest := "rig-exporter_corgan-pc3_crashreport_2026-08-07_15-40-00.log"
+	writeFiles(t, dir, "crash-2026-08-01-100000.log", newest, "rig-exporter.log")
+
+	// The modification times are set against the names on purpose: the newest
+	// record is given the oldest one. This is what Windows does by itself for a
+	// file that is still open — the directory entry keeps a time from before the
+	// last write — so the order has to come from the name, and this is the test
+	// that says so. It fails the moment anything sorts by the clock again.
+	stamp(t, dir, newest, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	stamp(t, dir, "crash-2026-08-01-100000.log", time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC))
 
 	files := logFilesIn(dir)
 	if files[0].Name != "rig-exporter.log" || !files[0].Current {
 		t.Errorf("the running log is not first: %+v", files[0])
 	}
-	if files[1].Name != "crash-2026-08-07-154000.log" {
+	if files[1].Name != newest {
 		t.Errorf("the newest crash is not first among the reports: %q", files[1].Name)
+	}
+	// Both namings sort against each other, which sorting the names as text
+	// would not do: every crash- name sorts before every rig-exporter_ one.
+	if files[2].Name != "crash-2026-08-01-100000.log" {
+		t.Errorf("the older crash is not last: %q", files[2].Name)
+	}
+	// And the time the page prints is the time the name says, so the column and
+	// the file name in the same row cannot contradict each other.
+	want := time.Date(2026, 8, 7, 15, 40, 0, 0, time.Local)
+	if !files[1].ModTime.Equal(want) {
+		t.Errorf("the row says %s, the name says %s", files[1].ModTime, want)
 	}
 }
 

@@ -98,16 +98,43 @@ func logFilesIn(dir string) []logFile {
 			if info.Size() > 0 {
 				crashes = append(crashes, file)
 			}
-		case strings.HasPrefix(name, "crash-") && strings.HasSuffix(name, ".log"):
+		case crashlog.IsReportName(name):
 			file.Kind = crashKind
+			// The time comes out of the name, not off the file. Windows leaves
+			// the directory entry of an open file stale, so the modification
+			// time of a record can be from before the crash that filled it —
+			// and the name is also what the page prints, so the two would
+			// disagree in front of the reader.
+			if at, ok := crashlog.StampOf(name); ok {
+				file.ModTime = at
+			}
 			crashes = append(crashes, file)
 		}
 	}
 
 	// The current log first, then its backup; crash reports newest first.
+	//
+	// Newest by the time in the name, not by the file's modification time: for a
+	// file that is still open Windows reports a modification time from before
+	// the last write, and the record the page most wants at the top is exactly
+	// the one that was just written.
 	sort.SliceStable(logs, func(i, j int) bool { return logs[i].Current && !logs[j].Current })
-	sort.Slice(crashes, func(i, j int) bool { return crashes[i].Name > crashes[j].Name })
+	sort.SliceStable(crashes, func(i, j int) bool { return newerReport(crashes[i], crashes[j]) })
 	return append(logs, crashes...)
+}
+
+// newerReport puts the later of two crash reports first. The record of the
+// session that has not ended yet stays at the top of its group.
+func newerReport(a, b logFile) bool {
+	if a.Current != b.Current {
+		return a.Current
+	}
+	if a.ModTime.Equal(b.ModTime) {
+		// Never a coin toss: the list must not reshuffle between two loads of
+		// the same page.
+		return a.Name > b.Name
+	}
+	return a.ModTime.After(b.ModTime)
 }
 
 // logFiles is the same for the directory this program actually uses.

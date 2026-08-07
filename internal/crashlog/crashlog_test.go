@@ -168,3 +168,100 @@ func TestADoubledBackslashPathIsScrubbedToo(t *testing.T) {
 		t.Errorf("nothing was replaced at all: %s", got)
 	}
 }
+
+// The machine belongs in the name. These files get attached to issues and
+// dropped into chats; once one has been moved, the name is the only thing left
+// that says which PC it came from.
+func TestAKeptReportIsNamedAfterTheMachineAndTheMoment(t *testing.T) {
+	at := time.Date(2026, 8, 7, 16, 38, 51, 0, time.UTC)
+
+	got := ReportName("corgan-pc3", at)
+	want := "rig-exporter_corgan-pc3_crashreport_2026-08-07_16-38-51.log"
+	if got != want {
+		t.Errorf("name = %q, want %q", got, want)
+	}
+	if !IsReportName(got) {
+		t.Error("the name this package writes is not one it recognises")
+	}
+}
+
+// A host name can be almost anything; a file name cannot.
+func TestAnAwkwardHostNameStillProducesAUsableFileName(t *testing.T) {
+	at := time.Date(2026, 8, 7, 16, 38, 51, 0, time.UTC)
+
+	for _, host := range []string{`WORK GROUP\PC`, "büro:pc/1", "田中のPC", ""} {
+		name := ReportName(host, at)
+		if strings.ContainsAny(name, `\/:*?"<>|`) {
+			t.Errorf("host %q produced an unusable name: %q", host, name)
+		}
+		if !IsReportName(name) {
+			t.Errorf("host %q produced a name that is not recognised: %q", host, name)
+		}
+	}
+}
+
+// Reports written before the rename are still reports. Dropping them from the
+// list would lose exactly the crashes somebody is trying to look up.
+func TestTheNameFromBeforeTheRenameIsStillRecognised(t *testing.T) {
+	if !IsReportName("crash-2026-08-07-163851.log") {
+		t.Error("a report from the previous naming is no longer recognised")
+	}
+}
+
+// The time in the name is the time the list is sorted by, so it has to be
+// readable again — out of both namings, because a folder holds both.
+func TestTheTimeCanBeReadBackOutOfEitherName(t *testing.T) {
+	at := time.Date(2026, 8, 7, 16, 38, 51, 0, time.Local)
+
+	for _, name := range []string{
+		ReportName("corgan-pc3", at),
+		"crash-2026-08-07-163851.log",
+	} {
+		got, ok := StampOf(name)
+		if !ok {
+			t.Errorf("%q carries no readable time", name)
+			continue
+		}
+		if !got.Equal(at) {
+			t.Errorf("%q = %s, want %s", name, got, at)
+		}
+	}
+}
+
+// A machine may be called crashreport, and the name still has to be read from
+// the right end.
+func TestTheHostNameCannotBeMistakenForTheMarker(t *testing.T) {
+	at := time.Date(2026, 8, 7, 16, 38, 51, 0, time.Local)
+
+	got, ok := StampOf(ReportName("crashreport", at))
+	if !ok || !got.Equal(at) {
+		t.Errorf("a machine called crashreport confused the name: %s, %v", got, ok)
+	}
+}
+
+// Anything else says so rather than answering with the zero time, which would
+// sort as the year 1 and quietly become the oldest record in the folder.
+func TestANameWithoutATimeSaysSo(t *testing.T) {
+	for _, name := range []string{
+		"rig-exporter.log", "crash.log", "config.json",
+		"rig-exporter_corgan-pc3_crashreport_yesterday.log",
+		"crash-not-a-date.log",
+	} {
+		if _, ok := StampOf(name); ok {
+			t.Errorf("%q was read as carrying a time", name)
+		}
+	}
+}
+
+// And nothing else in that directory is.
+func TestNothingElseIsTakenForAReport(t *testing.T) {
+	for _, name := range []string{
+		"config.json", "config.json.bak", "rig-exporter.log", "rig-exporter.log.1",
+		"crash.log", "probe.txt", "update-signing-key.pem",
+		"rig-exporter_corgan-pc3_crashreport_2026-08-07_16-38-51.txt",
+	} {
+		if IsReportName(name) {
+			t.Errorf("%q was taken for a crash report", name)
+		}
+	}
+}

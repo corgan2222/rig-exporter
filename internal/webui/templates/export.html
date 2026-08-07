@@ -464,7 +464,16 @@ if (errorsOnly && logview) {
   errorsOnly.addEventListener("click", () => {
     const on = logview.classList.toggle("errors-only");
     errorsOnly.setAttribute("aria-pressed", String(on));
+    // Nach dem Umschalten wieder ans Ende: die gefilterte Ansicht ist kürzer,
+    // und die letzte Zeile ist die, die gesucht wird.
+    logview.scrollTop = logview.scrollHeight;
   });
+}
+
+// Ein Protokoll wird von hinten gelesen. Ohne das hier steht die älteste der
+// 200 Zeilen oben und die neueste ausserhalb des Kastens.
+if (logview) {
+  logview.scrollTop = logview.scrollHeight;
 }
 </script>
 {{ end }}

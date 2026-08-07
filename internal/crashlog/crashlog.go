@@ -137,6 +137,87 @@ type Machine struct {
 	Sources string
 }
 
+// How a kept report is named.
+//
+// The machine is in the file name because these files travel: they get attached
+// to an issue, mailed, dropped into a chat. A folder of crash-2026-08-07.log
+// from three PCs is a folder nobody can sort out afterwards, and the name is
+// the only part that survives being moved.
+const (
+	reportPrefix = "rig-exporter_"
+	reportMarker = "_crashreport_"
+	// reportStamp has no colons, which a file name cannot carry, and sorts
+	// correctly as text because the date runs from large to small.
+	reportStamp = "2006-01-02_15-04-05"
+	// legacyPrefix is what the first version wrote. Still recognised so a
+	// report from before the rename is not quietly dropped from the list.
+	legacyPrefix = "crash-"
+	legacyStamp  = "2006-01-02-150405"
+)
+
+// ReportName is the file one crash is kept under.
+func ReportName(host string, at time.Time) string {
+	return reportPrefix + safeName(host) + reportMarker + at.Format(reportStamp) + ".log"
+}
+
+// IsReportName reports whether a file name is a kept crash report.
+func IsReportName(name string) bool {
+	if !strings.HasSuffix(name, ".log") {
+		return false
+	}
+	return strings.HasPrefix(name, legacyPrefix) ||
+		(strings.HasPrefix(name, reportPrefix) && strings.Contains(name, reportMarker))
+}
+
+// StampOf reads the time back out of a report's file name.
+//
+// Which is where the time has to be read from. The obvious source is the file's
+// own modification time, and it is wrong: Windows leaves the directory entry of
+// an open file stale, so a record can carry a timestamp hours before the last
+// thing written into it. The name is written once and never lies, it survives
+// being copied out of the folder, and it is what somebody looking at the list
+// reads — so the list is sorted by it.
+//
+// Both namings are understood, because a folder can hold both.
+func StampOf(name string) (time.Time, bool) {
+	rest, found := strings.CutSuffix(name, ".log")
+	if !found {
+		return time.Time{}, false
+	}
+	if legacy, found := strings.CutPrefix(rest, legacyPrefix); found {
+		at, err := time.ParseInLocation(legacyStamp, legacy, time.Local)
+		return at, err == nil
+	}
+	// LastIndex, not Index: a machine may well be called crashreport.
+	marker := strings.LastIndex(rest, reportMarker)
+	if marker < 0 {
+		return time.Time{}, false
+	}
+	at, err := time.ParseInLocation(reportStamp, rest[marker+len(reportMarker):], time.Local)
+	return at, err == nil
+}
+
+// safeName reduces a host name to what a file name can carry everywhere.
+//
+// A Windows machine can be called almost anything, and the name reaches this
+// through a report that is about to be attached to an issue. Letters, digits
+// and the two separators survive; everything else becomes a hyphen.
+func safeName(host string) string {
+	if host == "" {
+		return "unknown"
+	}
+	var b strings.Builder
+	for _, r := range host {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 // logMarker separates the runtime's output from the application log inside one
 // record. The two halves go into different fields of the report, so the split
 // has to be findable again.
