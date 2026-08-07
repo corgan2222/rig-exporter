@@ -29,7 +29,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.9.1"
+	Version = "1.9.3"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -168,6 +168,20 @@ type Config struct {
 	// Load unmarshals into Defaults, so a configuration written before this
 	// existed keeps the value on rather than falling silently to off.
 	UpdateCheckEnabled bool `json:"update_check_enabled"`
+
+	// CrashReportOffered decides whether the interface offers to turn a crash
+	// record into a GitHub issue.
+	//
+	// On by default, because the offer is only a prepared page: the button
+	// opens GitHub with the report filled in, and the user reads every word and
+	// presses submit themselves. Nothing is ever sent from here, and no token
+	// exists that could be. Switchable because the report names the machine,
+	// its hardware and its Windows build, and not everybody wants that button
+	// within reach.
+	//
+	// The record itself is written either way. Whether a crash is noticed is
+	// not a setting.
+	CrashReportOffered bool `json:"crash_report_offered"`
 
 	// BatteryEnabled reports the battery pack: charge, mains, wear.
 	//
@@ -404,6 +418,9 @@ func Defaults() Config {
 		DiskEnabled:            true,
 		NetEnabled:             true,
 		BatteryEnabled:         true,
+		// Offering costs nothing and sends nothing: the button only opens a
+		// page that the user has to submit.
+		CrashReportOffered: true,
 
 		// On by default: a telemetry exporter that quietly runs an old build
 		// with a fixed bug in it helps nobody. Nothing installs itself.

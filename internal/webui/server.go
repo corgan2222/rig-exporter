@@ -88,6 +88,21 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// exceptions, which the form full of ticks cannot express.
 	mux.HandleFunc("POST /rung", s.handleRung)
 	mux.HandleFunc("GET /api/status", s.handleAPIStatus)
+	// The full crash record, as it was written. Linked from the banner rather
+	// than shown in it: a goroutine dump is pages long.
+	mux.HandleFunc("GET /crash", s.handleCrash)
+	// The same record as a file to keep. A report that has to be reached by
+	// opening a folder is a report that gets described from memory instead.
+	mux.HandleFunc("GET /crash/download", s.handleCrashDownload)
+	// One log file, by the name the page listed. Only a name that came out of
+	// that listing is served — see handleLog.
+	mux.HandleFunc("GET /logs/{name}", s.handleLog)
+	mux.HandleFunc("GET /logs/{name}/download", s.handleLogDownload)
+	// Tidying up: removes the kept records, never the one being written.
+	mux.HandleFunc("POST /logs/clear", s.handleClearLogs)
+	// One kept crash report, turned into a prepared GitHub form. A crash from
+	// last week is still worth reporting, and its banner is long gone.
+	mux.HandleFunc("GET /logs/{name}/issue", s.handleLogIssue)
 	// The same icon the tray shows, so a pinned tab is recognisable as this
 	// program rather than as a blank page.
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
@@ -194,6 +209,13 @@ type pageData struct {
 	AMDDriverURL    string
 	PawnIOURL       string
 	CoolingURL      string
+	// CrashIssueURL is a prepared GitHub issue for the pending crash record,
+	// empty when there is nothing to report or the offer is switched off.
+	CrashIssueURL string
+	// Logs is every record this program keeps, and LogTail the last lines of
+	// the running one — enough to see what happened without opening a file.
+	Logs     []logFile
+	LogLines []logLine
 	// Where the name in the header and the credit in the footer point.
 	ProjectURL string
 	AuthorURL  string
@@ -235,6 +257,22 @@ type pageData struct {
 
 // T translates an interface string into the active language.
 func (p pageData) T(key string) string { return i18n.T(p.Lang, key) }
+
+// LogTailNote says how much of the running log is on the page.
+func (p pageData) LogTailNote() string {
+	return strings.Replace(p.T("settings.logs.lastLines"), "%1", strconv.Itoa(tailLines), 1)
+}
+
+// HasCrashLogs reports whether any session ever failed to shut down. Used to
+// say so plainly rather than leaving an absence to be interpreted.
+func (p pageData) HasCrashLogs() bool {
+	for _, file := range p.Logs {
+		if file.Kind == crashKind {
+			return true
+		}
+	}
+	return false
+}
 
 // ExportStatus is the live state of one export target, or nil when that target
 // is switched off — Status.Exports holds an entry per enabled target only.
@@ -357,6 +395,9 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		AMDDriverURL:    config.AMDDriverURL,
 		PawnIOURL:       config.PawnIOURL,
 		CoolingURL:      config.CoolingURL,
+		CrashIssueURL:   crashIssueURL(status),
+		Logs:            logFiles(),
+		LogLines:        logLinesOf(runningLogTail()),
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,
@@ -577,6 +618,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.Autostart = r.FormValue("autostart") != ""
 		cfg.Debug = r.FormValue("debug") != ""
 		cfg.UpdateCheckEnabled = r.FormValue("update_check_enabled") != ""
+		cfg.CrashReportOffered = r.FormValue("crash_report_offered") != ""
 	}
 
 	err := s.app.ApplyConfig(cfg)
@@ -645,6 +687,14 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 // the next start.
 func (s *Server) handleDismiss(w http.ResponseWriter, r *http.Request) {
 	notice := r.FormValue("what")
+	// The crash banner is not a setting. It is dismissed for this session and
+	// the record stays on disk, so dismissing it by accident loses nothing.
+	if notice == "crash" {
+		s.app.DismissCrash()
+		http.Redirect(w, r, backTo(r), http.StatusSeeOther)
+		return
+	}
+
 	cfg := s.app.Config()
 	switch notice {
 	case "recorder":

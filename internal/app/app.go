@@ -16,6 +16,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/autostart"
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/crashlog"
 	"github.com/corgan2222/rig-exporter/internal/export"
 	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
 	"github.com/corgan2222/rig-exporter/internal/export/influxpush"
@@ -55,6 +56,29 @@ type Status struct {
 	// publish, and the difference between those two is most of the answer.
 	Churn        float64
 	ChurnSamples int
+	// Crash is the previous session's record, when it did not end on purpose.
+	// Nil once it has been seen, and nil on every ordinary start — which is
+	// what makes a banner built from it something a user notices.
+	Crash *crashlog.Report
+}
+
+// SetCrash hands over what the previous session left behind, so the interface
+// can say so. Called once at startup.
+func (a *App) SetCrash(report *crashlog.Report) {
+	a.mu.Lock()
+	a.crash = report
+	a.mu.Unlock()
+	a.notify()
+}
+
+// DismissCrash stops showing the record. The file stays where it is — somebody
+// who dismissed a banner by accident should still be able to find the report,
+// and it is pruned by age rather than by a click.
+func (a *App) DismissCrash() {
+	a.mu.Lock()
+	a.crash = nil
+	a.mu.Unlock()
+	a.notify()
 }
 
 // Export returns the status of the named target, if it is enabled.
@@ -88,7 +112,10 @@ type App struct {
 	churn         float64
 	churnSamples  int
 	paused        bool
-	listeners     []func(Status)
+	// crash is what the previous session left behind, held until somebody has
+	// seen it. Guarded by mu like the rest.
+	crash     *crashlog.Report
+	listeners []func(Status)
 
 	// webURLFn reports where the settings interface is really listening. It
 	// arrives after New, because the web server picks its port later, and it is
@@ -399,6 +426,7 @@ func (a *App) Status() Status {
 
 		Churn:        a.churn,
 		ChurnSamples: a.churnSamples,
+		Crash:        a.crash,
 	}
 	a.mu.RUnlock()
 

@@ -338,6 +338,77 @@ var catalogue = map[string]Text{
 		DE: "Nur auf Geräten mit Akku. Ein Desktop meldet hier nichts, statt eine Anzeige zu erzeugen, die immer auf null steht. Verschleiß, Ladezyklen und Chemie stehen im erweiterten Messwertsatz und nur, wenn der Akku sie meldet.",
 		EN: "Laptops only. A desktop reports nothing here rather than producing a gauge that sits at zero forever. Wear, charge cycles and chemistry are in the extended sensor set, and only appear when the battery reports them.",
 	},
+	// The crash banner. It has to say three things: that it happened, that the
+	// evidence was kept, and what the reader can do with it.
+	"crash.title": {
+		DE: "rig-exporter ist beim letzten Start abgestürzt",
+		EN: "rig-exporter crashed during the previous run",
+	},
+	"crash.titleUnclean": {
+		DE: "rig-exporter wurde beim letzten Mal beendet, ohne sich abzumelden",
+		EN: "rig-exporter ended last time without shutting down",
+	},
+	"crash.body": {
+		DE: "Der vollständige Absturzbericht liegt neben der Konfiguration und ist aufgehoben worden.",
+		EN: "The full crash record was kept, next to the configuration.",
+	},
+	"crash.bodyUnclean": {
+		DE: "Kein Absturz mit Fehlermeldung — der Prozess wurde hart beendet: über den Task-Manager, " +
+			"durch einen Stromausfall oder weil die Datei überschrieben wurde. Wenn nichts davon zutrifft, " +
+			"ist genau das der Fehler, der gemeldet gehört.",
+		EN: "Not a crash with a stack — the process was ended hard: the task manager, a power cut, " +
+			"or the executable being replaced underneath it. If none of those happened, that is exactly " +
+			"the bug worth reporting.",
+	},
+	"crash.summary":  {DE: "Fehler", EN: "Fault"},
+	"crash.happened": {DE: "Sitzung begann", EN: "Session started"},
+	"crash.view":     {DE: "Bericht ansehen", EN: "View the record"},
+	"crash.download": {DE: "Bericht herunterladen", EN: "Download the record"},
+	"crash.report":   {DE: "Als GitHub-Issue melden", EN: "Report it as a GitHub issue"},
+	// Said before the button is pressed, not after. The page that opens shows
+	// the whole text, and nothing leaves this machine until it is submitted.
+	"crash.reportHint": {
+		DE: "Öffnet GitHub mit ausgefülltem Bericht — Rechnername, Hardware und Windows-Version stehen darin. " +
+			"Abgeschickt wird nichts, bevor du es dort selbst tust.",
+		EN: "Opens GitHub with the report filled in — it names this machine, its hardware and its Windows build. " +
+			"Nothing is sent until you submit it there yourself.",
+	},
+	"crash.dismiss": {DE: "Gelesen", EN: "Read it"},
+
+	"settings.logs.title": {DE: "Protokolle", EN: "Logs"},
+	"settings.logs.intro": {
+		DE: "Was das Programm aufschreibt, ohne dass jemand einen Ordner öffnen muss. " +
+			"Nichts davon verlässt diesen Rechner.",
+		EN: "What the program writes down, without anybody having to open a folder. " +
+			"None of it leaves this machine.",
+	},
+	"settings.logs.running":    {DE: "Laufendes Protokoll", EN: "Running log"},
+	"settings.logs.lastLines":  {DE: "letzte %1 Zeilen", EN: "last %1 lines"},
+	"settings.logs.files":      {DE: "Dateien", EN: "Files"},
+	"settings.logs.crash":      {DE: "Absturz", EN: "Crash"},
+	"settings.logs.open":       {DE: "Im Browser ansehen", EN: "View in the browser"},
+	"settings.logs.download":   {DE: "Herunterladen", EN: "Download"},
+	"settings.logs.empty":      {DE: "Noch nichts aufgeschrieben.", EN: "Nothing written down yet."},
+	"settings.logs.errorsOnly": {DE: "nur Fehler", EN: "errors only"},
+	"settings.logs.clear":      {DE: "Aufgehobene Berichte löschen", EN: "Delete the kept records"},
+	"settings.logs.clearHint": {
+		DE: "Entfernt Absturzberichte und das rotierte Protokoll. Das laufende bleibt — es ist geöffnet.",
+		EN: "Removes the crash reports and the rotated log. The running one stays: it is open.",
+	},
+	"settings.logs.noCrash": {
+		DE: "Kein Absturzbericht — bisher hat sich jede Sitzung ordentlich beendet.",
+		EN: "No crash report: every session so far ended on purpose.",
+	},
+
+	"settings.app.crashReport": {
+		DE: "Absturzbericht als GitHub-Issue anbieten",
+		EN: "Offer to report a crash as a GitHub issue",
+	},
+	"settings.app.crashReportHint": {
+		DE: "Nur der Knopf. Der Absturz wird in jedem Fall aufgezeichnet — ob er auffällt, ist keine Einstellung.",
+		EN: "The button only. A crash is recorded either way; whether it gets noticed is not a setting.",
+	},
+
 	"settings.sensors.special": {
 		DE: "Spezielle Hardware — AIO-Wasserkühlung, Pumpe, Lüfter-Hub",
 		EN: "Special hardware — AIO water cooling, pump, fan hub",
