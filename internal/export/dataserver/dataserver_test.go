@@ -189,6 +189,68 @@ func TestHealthNeverRequiresAToken(t *testing.T) {
 	}
 }
 
+// Setting a token has to quieten the whole port, index page included.
+//
+// The index names the version and the node id and states in writing that a
+// token is required, which tells an unauthenticated caller that the host is
+// worth another look. The listener defaults to 0.0.0.0, so "another look" can
+// come from anywhere on the network.
+func TestTheIndexRequiresTheTokenToo(t *testing.T) {
+	_, ts := newTestServer(t, func(c *config.Config) {
+		c.DataToken = "s3cret"
+		c.NodeID = "corganpc3"
+	}, true)
+
+	code, body := get(t, ts.URL+"/")
+	if code != http.StatusUnauthorized {
+		t.Errorf("GET / without a token = %d, want %d", code, http.StatusUnauthorized)
+	}
+	for _, leak := range []string{config.Version, "corganpc3", "token is required"} {
+		if strings.Contains(body, leak) {
+			t.Errorf("unauthenticated index leaks %q:\n%s", leak, body)
+		}
+	}
+}
+
+// Every deadline has to be set, not just the header one.
+//
+// Go falls IdleTimeout back to ReadTimeout, so leaving both unset means no idle
+// deadline is ever applied and a keep-alive connection is held for the lifetime
+// of the process. This listener defaults to 0.0.0.0 and /health needs no token,
+// so the request that holds a connection open is free.
+//
+// The same four are set on the web interface's server. They were written from
+// the same two-line block and are the kind of thing that comes apart when only
+// one side is touched, so both sides are pinned.
+func TestTheServerSetsEveryDeadline(t *testing.T) {
+	s, _ := newTestServer(t, nil, true)
+
+	for name, got := range map[string]time.Duration{
+		"ReadHeaderTimeout": s.server.ReadHeaderTimeout,
+		"ReadTimeout":       s.server.ReadTimeout,
+		"WriteTimeout":      s.server.WriteTimeout,
+		"IdleTimeout":       s.server.IdleTimeout,
+	} {
+		if got <= 0 {
+			t.Errorf("%s = %v; an unset deadline is never applied", name, got)
+		}
+	}
+}
+
+// With no token configured the port is open by definition, and the index is
+// the one thing that explains what the port is. It must keep working.
+func TestTheIndexStaysOpenWithoutAToken(t *testing.T) {
+	_, ts := newTestServer(t, func(c *config.Config) { c.NodeID = "corganpc3" }, true)
+
+	code, body := get(t, ts.URL+"/")
+	if code != http.StatusOK {
+		t.Fatalf("GET / = %d, want %d", code, http.StatusOK)
+	}
+	if !strings.Contains(body, "corganpc3") {
+		t.Errorf("the index no longer says which machine this is:\n%s", body)
+	}
+}
+
 func TestExportKeepsOnlyTheLatestReading(t *testing.T) {
 	s, ts := newTestServer(t, nil, true)
 

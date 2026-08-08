@@ -945,10 +945,15 @@ einem anderen Rechner zugreifen kann. Standardmäßig **aus**.
 | `/metrics` | Prometheus Text Exposition |
 | `/influx` | InfluxDB Line Protocol |
 | `/health` | Liveness-Check, nie tokenpflichtig |
-| `/` | Übersicht der aktiven Endpunkte |
+| `/` | Übersicht der aktiven Endpunkte, tokenpflichtig wie die Daten |
 
 Optionaler Token, geprüft als `Authorization: Bearer <token>` oder `?token=`.
 Ohne Token kann jeder im Netz die Werte lesen.
+
+Ist ein Token gesetzt, schweigt der Port auch für die Übersichtsseite: sie nennt
+Version und Node-ID, und das sind genau die Angaben, die einem Fremden sagen,
+ob sich ein zweiter Blick lohnt. Nur `/health` antwortet weiter ohne Token —
+ein Liveness-Check, der ein Geheimnis braucht, prüft nichts.
 
 Läuft der Server, stehen die fertigen Adressen als anklickbare Links auf der
 Anzeige und im Einstellungsblock. Sie tragen die IP-Adresse der Schnittstelle,
