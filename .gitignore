@@ -15,3 +15,7 @@ HANDOVER.md
 AMD-HANDOVER.md
 maybe_later.md
 review.md
+
+# Fix-Notizen je Aufgabe. Arbeitsmaterial wie HANDOVER.md, nicht Teil der
+# Auslieferung. Der Ordner wandert bewusst nicht ins Repository.
+fixes/
