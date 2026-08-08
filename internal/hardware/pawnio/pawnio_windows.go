@@ -99,17 +99,40 @@ func (l *library) resolve(name string) proc {
 
 // libraryPaths lists where the library might be, best guess first.
 //
-// The bare name goes first so a machine that has it on the search path is
-// served without touching the disk. The installed location is derived from the
-// environment rather than hardcoded, because "C:\Program Files" is not where
-// every Windows keeps its programs — a localised or relocated installation
-// would otherwise look like an absent one.
+// Absolute paths only, and that is the point rather than a detail. Loading a
+// DLL by bare name hands the choice to the Windows search order, whose first
+// entry is the directory of the running executable and which also takes in the
+// current working directory and every entry of %PATH%. x/sys says so on the
+// constructor this uses: "using NewLazyDLL without an absolute path name is
+// subject to DLL preloading attacks." Turning PawnIO on means running this
+// program elevated, so the process that would load a planted DLL is the
+// administrative one — and Detect runs on every start, whether or not anybody
+// switched PawnIO on.
+//
+// What is given up is a copy installed somewhere else and reachable only
+// through %PATH%. That was never a supported layout, and serving it meant
+// accepting whatever else the search order turned up first.
+//
+// The location is still derived from the environment rather than hardcoded,
+// because "C:\Program Files" is not where every Windows keeps its programs — a
+// localised or relocated installation would otherwise look like an absent one.
+// The three variables overlap (ProgramFiles and ProgramW6432 name the same
+// directory in a 64-bit process), so duplicates are dropped: loading the same
+// path twice only makes the failure case slower.
 func libraryPaths() []string {
-	paths := []string{libraryFileName}
+	var paths []string
+	seen := map[string]bool{}
 	for _, key := range []string{"ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"} {
-		if base := os.Getenv(key); base != "" {
-			paths = append(paths, filepath.Join(base, "PawnIO", libraryFileName))
+		base := os.Getenv(key)
+		if base == "" {
+			continue
 		}
+		path := filepath.Join(base, "PawnIO", libraryFileName)
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		paths = append(paths, path)
 	}
 	return paths
 }
