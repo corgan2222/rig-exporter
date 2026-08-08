@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Kind says what the previous run's record means.
@@ -330,7 +331,34 @@ func truncate(text string, limit int) string {
 	keep := limit - len(note)
 	head := keep * 2 / 3
 	tail := keep - head
-	return text[:head] + note + text[len(text)-tail:]
+
+	// The budget is in bytes, but the cut has to land between characters. A
+	// drive label or an adapter name reaches the log in the display language,
+	// so a multi-byte rune across either offset is the ordinary case rather
+	// than an exotic one — and half a rune becomes a replacement character in
+	// the prepared issue, in the one field meant to be read as evidence.
+	//
+	// Both offsets move outward from the middle, so the result only ever gets
+	// shorter than the budget, never longer.
+	head = runeStartAtOrBefore(text, head)
+	from := runeStartAtOrAfter(text, len(text)-tail)
+	return text[:head] + note + text[from:]
+}
+
+// runeStartAtOrBefore returns the largest offset up to i that begins a rune.
+func runeStartAtOrBefore(text string, i int) int {
+	for i > 0 && !utf8.RuneStart(text[i]) {
+		i--
+	}
+	return i
+}
+
+// runeStartAtOrAfter returns the smallest offset from i on that begins a rune.
+func runeStartAtOrAfter(text string, i int) int {
+	for i < len(text) && !utf8.RuneStart(text[i]) {
+		i++
+	}
+	return i
 }
 
 // The issue form this fills in, and the budget for the two long fields.
