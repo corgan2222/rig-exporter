@@ -357,3 +357,55 @@ func TestTruncateCutsBetweenCharacters(t *testing.T) {
 		t.Errorf("truncate rewrote a text that fits: %q", got)
 	}
 }
+
+// A machine name that survives nothing must still name a machine.
+//
+// safeName keeps [A-Za-z0-9-] and trims hyphens off both ends, so a host
+// written entirely in Cyrillic, Greek or Japanese trims to nothing. The
+// empty-host fallback sits before that trim and never sees the result, so the
+// report came out as rig-exporter__crashreport_… — the machine part missing
+// from a naming scheme whose only purpose is telling machines apart.
+//
+// Windows permits non-ASCII computer names, and localised installs are the
+// population the report's Locale field exists to serve.
+func TestSafeNameAlwaysNamesTheMachine(t *testing.T) {
+	for _, host := range []string{"СЕРВЕР", "パソコン", "Σ", "---", "___"} {
+		got := safeName(host)
+		if got == "" {
+			t.Errorf("safeName(%q) = %q; the report would lose the machine", host, got)
+		}
+		if strings.Trim(got, "-") == "" {
+			t.Errorf("safeName(%q) = %q, which is only separators", host, got)
+		}
+	}
+
+	// Two different machines must not collapse onto one name, or a folder of
+	// reports from several PCs is exactly the folder the scheme exists to
+	// avoid.
+	if a, b := safeName("СЕРВЕР"), safeName("パソコン"); a == b {
+		t.Errorf("two different machines both became %q", a)
+	}
+
+	// Stable across calls: the name goes into a file name, not a session id.
+	if a, b := safeName("СЕРВЕР"), safeName("СЕРВЕР"); a != b {
+		t.Errorf("safeName is not stable: %q then %q", a, b)
+	}
+
+	// The ordinary case is untouched, and a genuinely empty host keeps the
+	// answer it always had.
+	if got := safeName("corgan-pc3"); got != "corgan-pc3" {
+		t.Errorf("safeName(%q) = %q", "corgan-pc3", got)
+	}
+	if got := safeName(""); got != "unknown" {
+		t.Errorf("safeName(\"\") = %q, want unknown", got)
+	}
+
+	// Whatever it produces has to survive the round trip, or the report cannot
+	// be recognised as one afterwards.
+	for _, host := range []string{"СЕРВЕР", "corgan-pc3", ""} {
+		name := ReportName(host, time.Date(2026, 8, 8, 3, 4, 5, 0, time.UTC))
+		if !IsReportName(name) {
+			t.Errorf("ReportName(%q) produced %q, which IsReportName rejects", host, name)
+		}
+	}
+}
