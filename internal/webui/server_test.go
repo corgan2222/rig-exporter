@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/corgan2222/rig-exporter/internal/app"
 	"github.com/corgan2222/rig-exporter/internal/applog"
@@ -24,6 +25,31 @@ import (
 // newServer wires a server against a real App with everything that would
 // reach the network switched off, so the handlers can be exercised without a
 // broker, a data server or a collection loop.
+// Every deadline has to be set, not just the header one.
+//
+// Go falls IdleTimeout back to ReadTimeout, so with both unset no idle deadline
+// is ever applied and a keep-alive connection that finished one request is held
+// for the lifetime of the process, goroutine and socket included. This page
+// offers web_bind_all, which moves the listener off loopback.
+//
+// The data server sets the same four. The two servers were written from one
+// two-line block and are the kind of thing that comes apart when only one side
+// is touched, so both sides are pinned.
+func TestTheServerSetsEveryDeadline(t *testing.T) {
+	s, _ := newServer(t, nil)
+
+	for name, got := range map[string]time.Duration{
+		"ReadHeaderTimeout": s.server.ReadHeaderTimeout,
+		"ReadTimeout":       s.server.ReadTimeout,
+		"WriteTimeout":      s.server.WriteTimeout,
+		"IdleTimeout":       s.server.IdleTimeout,
+	} {
+		if got <= 0 {
+			t.Errorf("%s = %v; an unset deadline is never applied", name, got)
+		}
+	}
+}
+
 func newServer(t *testing.T, mutate func(*config.Config)) (*Server, *httptest.Server) {
 	t.Helper()
 

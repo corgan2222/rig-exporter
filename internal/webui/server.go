@@ -115,9 +115,22 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 		http.Redirect(w, r, "/export", http.StatusMovedPermanently)
 	})
 
+	// All four deadlines, not just the header one. Go falls IdleTimeout back to
+	// ReadTimeout, and with both unset no idle deadline is ever applied: a
+	// keep-alive connection that has finished one request is then held for the
+	// lifetime of the process, goroutine and socket included. ReadHeaderTimeout
+	// alone also leaves a request body free to trickle forever.
+	//
+	// Nothing this interface serves is long-lived — the largest response is a
+	// rotated log of a couple of megabytes — so the numbers can be short. They
+	// matter because the settings page offers web_bind_all, which moves this
+	// listener off loopback and onto every interface.
 	s.server = &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	return s, nil
 }
