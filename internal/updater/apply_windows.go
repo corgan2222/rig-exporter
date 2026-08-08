@@ -350,8 +350,8 @@ func applyErrorArtifact(path, stem string) (transaction string, ok bool) {
 		!strings.HasSuffix(lowerBase, suffix) {
 		return "", false
 	}
-	token := base[len(start) : len(base)-len(suffix)]
-	if !isUpdateToken(token) {
+	token, ok := tokenBetween(base, start, suffix)
+	if !ok || !isUpdateToken(token) {
 		return "", false
 	}
 	return strings.ToLower(token), true
@@ -1088,13 +1088,33 @@ func updateArtifact(path, stem string) (prefix, kind string, ok bool) {
 		if !strings.HasSuffix(strings.ToLower(base), candidate.suffix) {
 			continue
 		}
-		token := base[len(start) : len(base)-len(candidate.suffix)]
-		if !isUpdateToken(token) {
+		token, ok := tokenBetween(base, start, candidate.suffix)
+		if !ok || !isUpdateToken(token) {
 			return "", "", false
 		}
 		return filepath.Join(filepath.Dir(path), start+strings.ToLower(token)), candidate.kind, true
 	}
 	return "", "", false
+}
+
+// tokenBetween returns what sits between a matched prefix and a matched
+// suffix.
+//
+// That both matched is not enough to slice on. The prefix ends with the same
+// hyphen every suffix begins with, so a name that is exactly prefix+suffix
+// satisfies HasPrefix and HasSuffix while sharing that hyphen between them —
+// and the slice would then be asked for a range whose low bound sits above its
+// high bound, which is a panic rather than an empty string.
+//
+// This program never writes such a name, but it reads names it did not write:
+// RecoverInterruptedApply walks the program directory on every start, and
+// ReadApplyErrors does the same shortly after. Nothing here recovers from a
+// panic, and with -H windowsgui there is no console to print one to.
+func tokenBetween(base, start, suffix string) (string, bool) {
+	if len(base) < len(start)+len(suffix) {
+		return "", false
+	}
+	return base[len(start) : len(base)-len(suffix)], true
 }
 
 func isUpdateToken(token string) bool {
