@@ -20,8 +20,10 @@ package crashlog
 
 import (
 	"fmt"
+	"hash/fnv"
 	neturl "net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -221,7 +223,24 @@ func safeName(host string) string {
 			b.WriteRune('-')
 		}
 	}
-	return strings.Trim(b.String(), "-")
+
+	// The trim can empty a name that was not empty to begin with: a host
+	// written entirely in Cyrillic, Greek or Japanese keeps not one character
+	// this filter allows. Windows permits such names, and localised installs
+	// are exactly the population the report's Locale field exists for.
+	//
+	// A digest rather than "unknown", because the machine part of the name is
+	// the only reason the scheme exists — a folder holding reports from three
+	// PCs all called "unknown" is the folder nobody can sort out. It is short,
+	// it is stable, and it is not a checksum of anything anybody has to trust,
+	// so a non-cryptographic hash is the right size of tool.
+	name := strings.Trim(b.String(), "-")
+	if name == "" {
+		digest := fnv.New32a()
+		_, _ = digest.Write([]byte(host))
+		return "pc-" + strconv.FormatUint(uint64(digest.Sum32()), 16)
+	}
+	return name
 }
 
 // logMarker separates the runtime's output from the application log inside one
