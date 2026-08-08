@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // A session that shut down cleanly leaves an empty file. Reading that as a
@@ -308,5 +309,51 @@ func TestNothingElseIsTakenForAReport(t *testing.T) {
 		if IsReportName(name) {
 			t.Errorf("%q was taken for a crash report", name)
 		}
+	}
+}
+
+// The cut has to land between characters, not inside one.
+//
+// truncate slices by byte against a byte budget, so a multi-byte rune sitting
+// across either offset is halved. What fills the log field is the tail of the
+// application log, and Windows hands device and drive names to this program in
+// the display language — an umlaut in a drive label is the ordinary case on a
+// German or Japanese install, not an exotic one.
+//
+// The broken pair then goes through url.Values.Encode into the prepared issue
+// link, and GitHub renders it as a replacement character in the one field whose
+// job is to be read literally as evidence. The repository already has the
+// correct shape for this: tray.go truncates on runes.
+func TestTruncateCutsBetweenCharacters(t *testing.T) {
+	body := strings.Repeat("Grafikkarte-Zähler-Überlauf bei 87 °C\n", 60)
+
+	bad := 0
+	for limit := 200; limit < 1200; limit++ {
+		got := truncate(body, limit)
+		if !utf8.ValidString(got) {
+			bad++
+			continue
+		}
+		if len(got) > limit {
+			t.Fatalf("truncate(limit=%d) returned %d bytes; backing off to a rune boundary may only shrink the result",
+				limit, len(got))
+		}
+	}
+	if bad != 0 {
+		t.Errorf("%d of 1000 limits produced invalid UTF-8", bad)
+	}
+
+	// The budget that actually ships is the one that matters.
+	if got := truncate(body, logBudget); !utf8.ValidString(got) {
+		t.Errorf("truncate at the shipped logBudget of %d produced invalid UTF-8", logBudget)
+	}
+	if got := truncate(body, panicBudget); !utf8.ValidString(got) {
+		t.Errorf("truncate at the shipped panicBudget of %d produced invalid UTF-8", panicBudget)
+	}
+
+	// A text that fits is returned untouched, budgets or not.
+	const short = "kurz genug, mit Ümlaut"
+	if got := truncate(short, logBudget); got != short {
+		t.Errorf("truncate rewrote a text that fits: %q", got)
 	}
 }
