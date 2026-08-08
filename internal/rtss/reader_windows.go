@@ -56,6 +56,16 @@ func (Reader) Read() (Snapshot, error) {
 		return Snapshot{}, err
 	}
 
+	// MappingSize bounds the entry count and the entry size, but the offset it
+	// reads is not bounded against the region that was actually mapped — and
+	// the header it reads is written by another process. RTSSSharedMemoryV2 is
+	// a session-local name with no Global\ prefix, so anything running as this
+	// user can create it first and put whatever it likes in that header. Copying
+	// past the region is an access violation, not an error return.
+	if committed := winapi.CommittedBytes(addr); committed > 0 && size > committed {
+		size = committed
+	}
+
 	// Copy before parsing: RTSS keeps writing to this memory, and Parse must
 	// not hand out strings that alias a mapping we are about to unmap.
 	buf := make([]byte, size)
