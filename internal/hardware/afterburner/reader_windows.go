@@ -55,7 +55,7 @@ func (Reader) Read() (Snapshot, error) {
 
 	// The size derived from the header reserves room for the GPU array, which
 	// can overshoot the real mapping. Clamp to what is actually committed.
-	if committed := committedBytes(addr); committed > 0 && size > committed {
+	if committed := winapi.CommittedBytes(addr); committed > 0 && size > committed {
 		size = committed
 	}
 
@@ -67,12 +67,6 @@ func (Reader) Read() (Snapshot, error) {
 	return Parse(buf)
 }
 
-// committedBytes reports how large the mapped region really is, or 0 when it
-// cannot be determined.
-func committedBytes(addr uintptr) int {
-	var info windows.MemoryBasicInformation
-	if err := windows.VirtualQuery(addr, &info, unsafe.Sizeof(info)); err != nil {
-		return 0
-	}
-	return int(info.RegionSize)
-}
+// The clamp above used to have its own copy of this. It now lives in
+// internal/winapi next to OpenFileMapping, because the RTSS reader needs the
+// same guard against the same class of header and had been written without it.
