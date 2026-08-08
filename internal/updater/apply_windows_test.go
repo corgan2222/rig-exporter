@@ -1388,3 +1388,73 @@ func assertEventOrder(t *testing.T, events []string, ordered ...string) {
 			strings.Join(events, "\n  "), strings.Join(ordered, "\n  "))
 	}
 }
+
+// A file named prefix+suffix with nothing in between must be refused, not
+// crash the program.
+//
+// The prefix ends with the same hyphen every suffix begins with, so such a
+// name satisfies HasPrefix and HasSuffix at once while sharing that hyphen
+// between them — and the token slice then asks for base[21:20].
+//
+// This program never writes such a name: prepareApply builds every one as
+// prefix+token, and a token that is empty or carries a separator is rejected
+// before it is used. The file has to arrive from somewhere else — left behind
+// by an older build, copied by hand, or written by anyone who can put a file
+// next to the executable.
+//
+// What makes it worth a guard is where the name is read. RecoverInterruptedApply
+// runs on every start before anything else comes up, and ReadApplyErrors runs a
+// couple of seconds after the tray appears. Nothing in this program recovers
+// from a panic, and under -H windowsgui there is no console to print it to, so
+// the process would vanish without a window and without a log line — and the
+// next start would find the same file and do it again.
+func TestArtifactNamesWithNoTokenAreRefused(t *testing.T) {
+	const stem = "rig-exporter"
+
+	// Every suffix updateArtifact knows, with no token in front of it.
+	for _, name := range []string{
+		".rig-exporter-update-helper.exe.partial",
+		".rig-exporter-update-backup.exe.partial",
+		".rig-exporter-update-stage.exe.partial",
+		".rig-exporter-update-plan.json.partial",
+		".rig-exporter-update-helper.exe",
+		".rig-exporter-update-backup.exe",
+		".rig-exporter-update-stage.exe",
+		".rig-exporter-update-helper-ready.json",
+		".rig-exporter-update-ready.json",
+		".rig-exporter-update-plan.json",
+	} {
+		t.Run("updateArtifact/"+name, func(t *testing.T) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Fatalf("updateArtifact(%q) panicked: %v", name, recovered)
+				}
+			}()
+			if _, _, ok := updateArtifact(name, stem); ok {
+				t.Errorf("updateArtifact(%q) accepted a name carrying no token", name)
+			}
+		})
+	}
+
+	t.Run("applyErrorArtifact", func(t *testing.T) {
+		const name = ".rig-exporter-update-plan.json.error.txt"
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				t.Fatalf("applyErrorArtifact(%q) panicked: %v", name, recovered)
+			}
+		}()
+		if _, ok := applyErrorArtifact(name, stem); ok {
+			t.Errorf("applyErrorArtifact(%q) accepted a name carrying no token", name)
+		}
+	})
+
+	// The well-formed names must still be accepted, or the guard has simply
+	// turned the feature off.
+	const token = "0123456789abcdef01234567"
+	if _, kind, ok := updateArtifact(".rig-exporter-update-"+token+"-plan.json", stem); !ok || kind != "plan" {
+		t.Errorf("updateArtifact rejected a well-formed plan name: ok=%v kind=%q", ok, kind)
+	}
+	if got, ok := applyErrorArtifact(".rig-exporter-update-"+token+"-plan.json.error.txt", stem); !ok || got != token {
+		t.Errorf("applyErrorArtifact rejected a well-formed name: ok=%v token=%q", ok, got)
+	}
+}
