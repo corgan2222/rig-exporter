@@ -485,6 +485,12 @@ SmartScreen und die Rechteabfrage dort stattfinden, wo man sie sieht.
 PawnIO wird nicht mitgeliefert. Es steht unter GPL-2.0, die Module unter
 LGPL-2.1; installiert wird es vom Nutzer, dieses Programm sucht es nur.
 
+Die Module kommen aus einem **festen** Release von PawnIO.Modules, nicht aus dem
+jeweils neuesten. Sie werden einmal geladen und unter
+`%APPDATA%\rig-exporter\modules` behalten. Eine neue Modulversion kommt damit mit
+einer neuen rig-exporter-Version und nicht von selbst — was bei signiertem Code,
+der in einem Kerneltreiber landet, die richtige Richtung ist.
+
 **CPU-Temperatur gibt es sonst nur mit Afterburner.** Das ist keine Bequemlichkeit:
 Ryzen liefert Tctl über den SMU, Intel über ein MSR, und beides liegt in Ring 0.
 Kein Programm ohne Kerneltreiber kommt daran — deshalb bringt Afterburner einen

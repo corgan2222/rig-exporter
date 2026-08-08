@@ -27,7 +27,14 @@ import (
 // That makes fetching them safer than the usual download, not riskier.
 const (
 	// ModulesURL is the published archive of signed modules.
-	ModulesURL = "https://github.com/namazso/PawnIO.Modules/releases/latest/download/release_0_2_10.zip"
+	//
+	// Pinned to the tag rather than resolved through /releases/latest/:
+	// upstream names every asset after its own tag, so a floating latest would
+	// look for release_0_2_10.zip inside a release that only ever holds
+	// release_0_2_11.zip. Moving to a newer module set is a deliberate edit
+	// here, which is what it should be for signed code that ends up in a
+	// kernel driver.
+	ModulesURL = "https://github.com/namazso/PawnIO.Modules/releases/download/0.2.10/release_0_2_10.zip"
 
 	// maxArchiveBytes caps the download. The archive is about 62 KB.
 	maxArchiveBytes = 8 << 20
