@@ -12,11 +12,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/sys/windows/registry"
 )
 
 const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
+
+// exePath resolves the running executable once.
+//
+// It cannot change while the process lives, but os.Executable followed by
+// EvalSymlinks opens the file every time, and with Defender in the path that
+// measured 840 µs on Windows 10. Enabled runs from Status(), which runs on
+// every measurement tick — a program that presents itself as system monitoring
+// should not be the most expensive item in its own measurement.
+//
+// Only the path is kept. The registry is still read on every call, because an
+// entry removed outside rig-exporter has to become visible rather than be
+// believed from the configuration file.
+var exePath = sync.OnceValues(executablePath)
 
 // BackgroundFlag is passed to the copy Windows starts at logon.
 //
@@ -36,7 +50,7 @@ func command(exe string) string {
 // Windows. A stale entry pointing at a different path counts as disabled, so
 // moving the exe shows up in the UI as "off" instead of silently not working.
 func Enabled(valueName string) (bool, error) {
-	exe, err := executablePath()
+	exe, err := exePath()
 	if err != nil {
 		return false, err
 	}
@@ -79,7 +93,7 @@ func Set(valueName string, enabled bool) error {
 		return nil
 	}
 
-	exe, err := executablePath()
+	exe, err := exePath()
 	if err != nil {
 		return err
 	}
