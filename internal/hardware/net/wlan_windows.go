@@ -72,8 +72,17 @@ const (
 // because Windows reports them differently; on the overwhelmingly common
 // single-radio machine the first connected interface is the right one.
 func wifiSignalPercent(_ string) float64 {
-	if err := wlanapi.Load(); err != nil {
-		return 0
+	// Load answers whether wlanapi.dll is there, not whether these four symbols
+	// are, and LazyProc.Call panics on a symbol that is missing. A machine with
+	// no wireless at all is the ordinary case here, so a missing symbol is
+	// simply "no signal" like every other way this can come up empty.
+	for _, p := range []*windows.LazyProc{
+		procWlanOpenHandle, procWlanCloseHandle, procWlanEnumInterfaces,
+		procWlanQueryInterface, procWlanFreeMemory,
+	} {
+		if p.Find() != nil {
+			return 0
+		}
 	}
 
 	var handle windows.Handle
