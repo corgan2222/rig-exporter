@@ -322,9 +322,9 @@ var homePath = regexp.MustCompile(`(?i)([A-Z]:[\\/]+Users[\\/]+)([^\\/\s"']+)`)
 // that cannot be acted on, which is a different way of being useless.
 //
 // Applied to the kept file as well as to the prepared link, and that correction
-// came from outside: the issue form asks the sender to attach
-// crash-<timestamp>.log, so a guarantee that held only for the URL would have
-// been a guarantee about the wrong artefact. Scrubbing the file costs nothing —
+// came from outside: the issue form asks the sender to attach the kept report
+// itself, so a guarantee that held only for the URL would have been a guarantee
+// about the wrong artefact. Scrubbing the file costs nothing —
 // on the machine that wrote it, C:\Users\%USER%\… says everything the real
 // account name would.
 func Scrub(text string) string {

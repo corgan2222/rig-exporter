@@ -110,6 +110,30 @@ func TestTheFormDeclaresTheLabels(t *testing.T) {
 	}
 }
 
+// The field ids are checked; the description text was not — and the text is
+// what the sender reads.
+//
+// A form that asks for a file which does not exist costs exactly the field the
+// answer is in: somebody looks next to the configuration for the name they were
+// given, finds a differently named file, and either attaches it unsure or
+// leaves the box empty. Checked against the constants rather than against a
+// second copy of the name, so this cannot drift again.
+func TestTheFormAsksForTheNameThisPackageWrites(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(formPath, issueTemplate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+
+	if !strings.Contains(text, reportPrefix) || !strings.Contains(text, reportMarker) {
+		t.Errorf("the form does not name the report this package writes (%s…%s)",
+			reportPrefix, reportMarker)
+	}
+	if strings.Contains(text, legacyPrefix+"<timestamp>") {
+		t.Error("the form still asks for the name the rename took away")
+	}
+}
+
 // Where the form renders the field itself, ours must not add a second fence.
 func TestFieldsTheFormRendersCarryNoFenceFromHere(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join(formPath, issueTemplate))

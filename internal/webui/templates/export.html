@@ -42,6 +42,10 @@
         </label>
       </div>
       {{ if .HasPassword }}
+      <!-- Gesagt, bevor es passiert. Wer Host oder Port aendert, verliert das
+           gespeicherte Passwort — das ist Absicht und sieht ohne diesen Satz
+           wie ein Datenverlust aus. -->
+      <p class="note indent">{{ .T "settings.secretMoves" }}</p>
       <div class="check">
         <input type="checkbox" name="clear_password" id="clear_password" value="1">
         <label for="clear_password" style="margin:0"><span class="name">{{ .T "settings.mqtt.clearPass" }}</span></label>
@@ -216,6 +220,9 @@
                placeholder="{{ if .HasInfluxToken }}{{ .T "settings.keepSecret" }}{{ else }}{{ .T "settings.influx.tokenNone" }}{{ end }}">
       </label>
       {{ if .HasInfluxToken }}
+      <!-- Wie beim Broker: eine neue URL ist eine neue Datenbank, und das Token
+           gehoert zu der, fuer die es eingegeben wurde. -->
+      <p class="note indent">{{ .T "settings.secretMoves" }}</p>
       <div class="check">
         <input type="checkbox" name="clear_influx_token" id="clear_influx_token" value="1">
         <label for="clear_influx_token" style="margin:0"><span class="name">{{ .T "settings.influx.clearToken" }}</span></label>
