@@ -415,7 +415,15 @@ func TestUnknownBlockIsRejected(t *testing.T) {
 // A blank secret field means "keep what is stored"; clearing it is a separate,
 // deliberate checkbox.
 func TestSecretsSurviveASaveThatDoesNotMentionThem(t *testing.T) {
-	server, ts := newServer(t, func(c *config.Config) { c.MQTTPassword = "s3cret" })
+	// The broker this password belongs to is set up front and left alone. It
+	// used to be moved by the same post, which conflated two rules that are now
+	// separate: blank keeps the secret, and moving the target drops it. Moving
+	// the target is its own test.
+	server, ts := newServer(t, func(c *config.Config) {
+		c.MQTTHost = "broker.example"
+		c.MQTTPort = 1883
+		c.MQTTPassword = "s3cret"
+	})
 
 	post(t, ts.URL, "/save/mqtt", url.Values{
 		"mqtt_enabled":  {"1"},
