@@ -85,9 +85,19 @@ type query struct {
 // mutex, and a mutex that has been copied is a mutex that locks nothing.
 func openQuery(path string) *query {
 	q := &query{}
-	if err := pdh.Load(); err != nil {
-		return q
+	// Load answers whether pdh.dll is there, not whether these six symbols
+	// are, and LazyProc.Call panics on a symbol that is missing. Checking all
+	// six here covers the package: every other call in this file runs only
+	// once open is true, and only this function sets it.
+	for _, p := range []*windows.LazyProc{
+		procOpenQueryW, procAddEnglishCounterW, procCollectQueryData,
+		procGetFormattedCounterValue, procGetFormattedCounterArray, procCloseQuery,
+	} {
+		if p.Find() != nil {
+			return q
+		}
 	}
+
 	if ret, _, _ := procOpenQueryW.Call(0, 0, uintptr(unsafe.Pointer(&q.handle))); ret != success {
 		return q
 	}

@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/corgan2222/rig-exporter/internal/metrics"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // Source collects the network group.
@@ -434,12 +435,16 @@ type mibIfTable2 struct {
 func interfaceStats() (map[uint64]counters, error) {
 	var table *mibIfTable2
 
-	// AF_UNSPEC asks for every address family.
-	status, _, _ := procGetIfTable2.Call(uintptr(unsafe.Pointer(&table)))
-	if status != 0 || table == nil {
-		return nil, fmt.Errorf("GetIfTable2 returned %d", status)
+	// AF_UNSPEC asks for every address family. CallStatus because GetIfTable2
+	// answers with a Win32 error code, where zero is success — the same value
+	// a missing symbol would produce.
+	if err := winapi.CallStatus(procGetIfTable2, uintptr(unsafe.Pointer(&table))); err != nil {
+		return nil, fmt.Errorf("GetIfTable2: %w", err)
 	}
-	defer procFreeMibTable.Call(uintptr(unsafe.Pointer(table)))
+	if table == nil {
+		return nil, fmt.Errorf("GetIfTable2 reported success without a table")
+	}
+	defer func() { _, _ = winapi.Call(procFreeMibTable, uintptr(unsafe.Pointer(table))) }()
 
 	rows := unsafe.Slice(&table.Table[0], int(table.NumEntries))
 	out := make(map[uint64]counters, len(rows))

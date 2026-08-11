@@ -55,11 +55,11 @@ func AttachConsole() bool {
 	if stdoutGoesSomewhere() {
 		return true
 	}
-	if ret, _, _ := procAttachConsole.Call(attachParentProcess); ret == 0 {
+	if ret, _ := Call(procAttachConsole, attachParentProcess); ret == 0 {
 		return false
 	}
 	if !reopenStandardStreams() {
-		procFreeConsole.Call()
+		_, _ = Call(procFreeConsole)
 		return false
 	}
 	return true
@@ -72,7 +72,7 @@ func AllocConsole() bool {
 	if stdoutGoesSomewhere() {
 		return true
 	}
-	if ret, _, _ := procAllocConsole.Call(); ret == 0 {
+	if ret, _ := Call(procAllocConsole); ret == 0 {
 		return false
 	}
 	return reopenStandardStreams()

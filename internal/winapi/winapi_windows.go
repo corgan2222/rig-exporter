@@ -43,7 +43,7 @@ func OpenFileMapping(access uint32, inheritHandle bool, name string) (windows.Ha
 		inherit = 1
 	}
 
-	handle, _, callErr := procOpenFileMappingW.Call(
+	handle, callErr := Call(procOpenFileMappingW,
 		uintptr(access),
 		inherit,
 		uintptr(unsafe.Pointer(namePtr)),
@@ -99,14 +99,14 @@ func CommittedBytes(addr uintptr) int {
 // TickCount is milliseconds since boot, truncated to 32 bits so it can be
 // compared directly against the GetTickCount timestamps RTSS stores.
 func TickCount() uint32 {
-	ret, _, _ := procGetTickCount64.Call()
+	ret, _ := Call(procGetTickCount64)
 	return uint32(ret)
 }
 
 // UptimeHours is how long the machine has been running. Unlike TickCount this
 // keeps the full 64-bit value, so it stays correct past 49 days.
 func UptimeHours() float64 {
-	ret, _, _ := procGetTickCount64.Call()
+	ret, _ := Call(procGetTickCount64)
 	return float64(uint64(ret)) / 1000 / 3600
 }
 
@@ -124,7 +124,7 @@ func IdleSeconds() float64 {
 	info := lastInputInfo{}
 	info.Size = uint32(unsafe.Sizeof(info))
 
-	ret, _, _ := procGetLastInputInfo.Call(uintptr(unsafe.Pointer(&info)))
+	ret, _ := Call(procGetLastInputInfo, uintptr(unsafe.Pointer(&info)))
 	if ret == 0 {
 		return 0
 	}
@@ -135,12 +135,12 @@ func IdleSeconds() float64 {
 // ForegroundPID is the process owning the focused window, or 0 if there is
 // none (locked screen, focus in transition).
 func ForegroundPID() uint32 {
-	hwnd, _, _ := procGetForegroundWindow.Call()
+	hwnd, _ := Call(procGetForegroundWindow)
 	if hwnd == 0 {
 		return 0
 	}
 	var pid uint32
-	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
+	_, _ = Call(procGetWindowThreadProcess, hwnd, uintptr(unsafe.Pointer(&pid)))
 	return pid
 }
 
@@ -148,7 +148,7 @@ func ForegroundPID() uint32 {
 // includes idle time, which is why the caller subtracts it.
 func SystemTimes() (idle, kernel, user uint64, err error) {
 	var idleFT, kernelFT, userFT windows.Filetime
-	ret, _, callErr := procGetSystemTimes.Call(
+	ret, callErr := Call(procGetSystemTimes,
 		uintptr(unsafe.Pointer(&idleFT)),
 		uintptr(unsafe.Pointer(&kernelFT)),
 		uintptr(unsafe.Pointer(&userFT)),
@@ -187,13 +187,13 @@ const smbiosProvider = 0x52534D42
 // slots are filled — without going through WMI, which would mean COM and a
 // service that is not always healthy.
 func SMBIOS() ([]byte, error) {
-	size, _, callErr := procGetSystemFirmwareTable.Call(smbiosProvider, 0, 0, 0)
+	size, callErr := Call(procGetSystemFirmwareTable, smbiosProvider, 0, 0, 0)
 	if size == 0 {
 		return nil, fmt.Errorf("GetSystemFirmwareTable(RSMB): %w", callErr)
 	}
 
 	buf := make([]byte, size)
-	written, _, callErr := procGetSystemFirmwareTable.Call(
+	written, callErr := Call(procGetSystemFirmwareTable,
 		smbiosProvider, 0,
 		uintptr(unsafe.Pointer(&buf[0])),
 		uintptr(len(buf)),
@@ -217,7 +217,7 @@ func MemoryStatus() (loadPercent uint32, totalBytes, availBytes uint64, err erro
 	status := memoryStatusEx{}
 	status.Length = uint32(unsafe.Sizeof(status))
 
-	ret, _, callErr := procGlobalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&status)))
+	ret, callErr := Call(procGlobalMemoryStatusEx, uintptr(unsafe.Pointer(&status)))
 	if ret == 0 {
 		return 0, 0, 0, fmt.Errorf("GlobalMemoryStatusEx: %w", callErr)
 	}
@@ -269,7 +269,7 @@ func DisplayMode() (width, height, refreshHz int, err error) {
 	dm := devModeW{}
 	dm.Size = uint16(unsafe.Sizeof(dm))
 
-	ret, _, callErr := procEnumDisplaySettingsW.Call(
+	ret, callErr := Call(procEnumDisplaySettingsW,
 		0, // primary display of the calling thread
 		uintptr(enumCurrentSettings),
 		uintptr(unsafe.Pointer(&dm)),
@@ -303,7 +303,7 @@ func MessageBox(title, text string, flags uint32) int {
 	if err != nil {
 		return 0
 	}
-	ret, _, _ := procMessageBoxW.Call(
+	ret, _ := Call(procMessageBoxW,
 		0,
 		uintptr(unsafe.Pointer(textPtr)),
 		uintptr(unsafe.Pointer(titlePtr)),
@@ -327,7 +327,7 @@ func OpenURL(target string) error {
 	const swShowNormal = 1
 
 	// ShellExecuteW returns a value greater than 32 on success.
-	ret, _, callErr := procShellExecuteW.Call(
+	ret, callErr := Call(procShellExecuteW,
 		0,
 		uintptr(unsafe.Pointer(verb)),
 		uintptr(unsafe.Pointer(file)),
