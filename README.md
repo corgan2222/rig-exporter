@@ -32,6 +32,11 @@ Es wird nur gemeldet, was der Rechner tatsächlich liefert. Fehlt die Quelle
 einer Gruppe, entstehen dafür gar keine Entities — und sie erscheinen von
 selbst, sobald die Quelle da ist. Jede Gruppe lässt sich einzeln abschalten.
 
+Eine Quelle, die nicht rechtzeitig antwortet, wird für diesen Takt übergangen.
+Die übrigen Messwerte gehen pünktlich hinaus; die ausgefallene Gruppe nennt den
+Grund auf der Statusseite. Dasselbe gilt, wenn eine Quelle abstürzt: sie wird
+abgeschaltet statt das Programm mitzunehmen, und im Protokoll steht, warum.
+
 Quer über alle Gruppen liegt der **Umfang**. Die Gruppen sagen, welche Hardware
 gelesen wird; der Umfang sagt, wie ausführlich. Ein Schieberegler auf der Seite
 **Messwerte** kennt drei Stufen:
