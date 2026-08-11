@@ -1054,14 +1054,26 @@ MQTT zeigt seinen Verbindungszustand auf dieselbe Weise.
 Jede Gruppe wird ein eigenes Measurement, jede Instanz ein eigener Punkt:
 
 ```
-rig,host=corganpc2,game=Cyberpunk2077.exe,resolution=2560x1440 fps=143.2,cpu=24.5,ram=51.3 …
-rig_gpu,host=corganpc2,gpu=0,name=RTX\ 4090 temperature=61,core_clock=2730,vram_used=5750 …
-rig_disk,host=corganpc2,disk=C:,media=NVMe used_percent=77,read=0.4,write=3.6 …
-rig_net,host=corganpc2,nic=Ethernet rx=3.4,tx=0.13 …
+rig,host=corganpc2 fps=143.2,cpu=24.5,ram=51.3,game="Cyberpunk2077.exe",resolution="2560x1440" …
+rig_gpu,host=corganpc2,gpu=0 temperature=61,core_clock=2730,vram_used=5750,name="RTX 4090" …
+rig_disk,host=corganpc2,disk=C: used_percent=77,read=0.4,write=3.6,media="NVMe" …
+rig_net,host=corganpc2,nic=Ethernet rx=3.4,tx=0.13,ip="192.168.1.42" …
 ```
 
-Spiel, Laufwerk und Adapter sind Tags — „durchschnittliche FPS pro Spiel" oder
-„Schreiblast pro Platte" ist damit ein `GROUP BY` statt ein String-Vergleich.
+**Tag ist nur, was das gemessene Ding benennt:** der Rechner und die Instanz —
+Laufwerk, Adapter, Grafikkarte, Speicherbank. „Schreiblast pro Platte" ist damit
+ein `GROUP BY disk`.
+
+**Alles andere ist ein Feld, auch wenn es Text ist** — Spielname, Auflösung,
+IP-Adresse, Treiberversion. In InfluxDB *ist* die Tag-Menge die Kennung der
+Reihe, und ein Text, der sich im Betrieb ändert, würde sie mitziehen: nach einem
+IP-Wechsel liefen `rx_total` und `tx_total` desselben Adapters in einer zweiten
+Reihe weiter, mit eigenen Summen von null an. Ein Spielname als Tag wäre
+zusätzlich für immer im Index — jedes Spiel, das je lief.
+
+Für eine Auswertung „pro Spiel" heißt das ein Feldvergleich statt eines
+`GROUP BY`. Das ist der Preis, und er ist bewusst gezahlt: die Alternative sind
+zerrissene Zählerreihen und ein Index, der mit jedem Spiel wächst.
 
 ---
 
