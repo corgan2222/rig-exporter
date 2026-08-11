@@ -664,7 +664,9 @@ func TestInfluxSplitsGroupsIntoMeasurements(t *testing.T) {
 	}
 
 	core := byMeasurement["rig"]
-	if !strings.Contains(core, "game=Cyberpunk2077.exe") || !strings.Contains(core, "fps=143.2") {
+	// The game name is a string field, not a tag: it changes whenever somebody
+	// starts a different game, and a tag is the series identity.
+	if !strings.Contains(core, `game="Cyberpunk2077.exe"`) || !strings.Contains(core, "fps=143.2") {
 		t.Errorf("core point = %s", core)
 	}
 	if !strings.HasSuffix(core, " 1700000000000000123") {
@@ -702,17 +704,21 @@ func TestInfluxGivesEachInstanceItsOwnPoint(t *testing.T) {
 		}
 	}
 
-	// The drive letter identifies the point; the media type rides along as a
-	// second tag on the same point rather than becoming its own series.
-	if !strings.Contains(out, "media=NVMe") {
-		t.Errorf("the media tag was dropped:\n%s", out)
+	// The drive letter identifies the point; the media type rides along on the
+	// same point as a string field rather than becoming part of its identity.
+	if !strings.Contains(out, `media="NVMe"`) {
+		t.Errorf("the media reading was dropped:\n%s", out)
 	}
 }
 
-func TestInfluxEscapesTagValues(t *testing.T) {
+// Two escapes, because there are two syntaxes. A tag value escapes spaces and
+// commas; a string field is quoted and escapes the quote. Both matter: a host
+// is called whatever somebody named their PC, and a game is called whatever
+// its executable is called.
+func TestInfluxEscapesTagsAndFieldsEachInItsOwnWay(t *testing.T) {
 	var set Set
 	set.Add(
-		Text(Game, "", "Red Dead, Redemption.exe"),
+		Text(Game, "", `Red Dead, "Redemption".exe`),
 		Gauge(FPS, "", 60),
 	)
 
@@ -720,18 +726,33 @@ func TestInfluxEscapesTagValues(t *testing.T) {
 	if !strings.Contains(out, `host=corgan\ pc`) {
 		t.Errorf("host tag was not escaped:\n%s", out)
 	}
-	if !strings.Contains(out, `game=Red\ Dead\,\ Redemption.exe`) {
-		t.Errorf("game tag was not escaped:\n%s", out)
+	if !strings.Contains(out, `game="Red Dead, \"Redemption\".exe"`) {
+		t.Errorf("the game field was not quoted and escaped:\n%s", out)
 	}
 }
 
 // A point consisting only of tags is not valid line protocol.
 func TestInfluxSkipsPointsWithoutFields(t *testing.T) {
+	// An empty reading, which is what "this instance measured nothing" looks
+	// like. A text reading with something in it is no longer fieldless — it
+	// writes a string field now, and a card that reports nothing but its name
+	// used to be dropped from InfluxDB for exactly that reason.
 	var set Set
-	set.Add(Text(GPUName, "0", "RTX 4090"))
+	set.Add(Text(GPUName, "0", ""))
 
 	if out := string(set.Influx("rig", "pc", time.Unix(0, 0))); strings.Contains(out, "rig_gpu") {
 		t.Errorf("a fieldless point was emitted:\n%s", out)
+	}
+}
+
+// And the card that does report its name reaches InfluxDB.
+func TestInfluxCarriesACardThatOnlyKnowsItsName(t *testing.T) {
+	var set Set
+	set.Add(Text(GPUName, "0", "RTX 4090"))
+
+	out := string(set.Influx("rig", "pc", time.Unix(0, 0)))
+	if !strings.Contains(out, "RTX 4090") {
+		t.Errorf("a text-only card never reaches the line protocol:\n%s", out)
 	}
 }
 
