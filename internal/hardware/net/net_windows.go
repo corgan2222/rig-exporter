@@ -33,6 +33,15 @@ type Source struct {
 	last   map[uint64]counters
 	lastAt time.Time
 
+	// lastPrimary is the interface that carried the default route when there
+	// last was one, kept so a moment without a route does not widen the list to
+	// every virtual adapter on the machine. Zero until one has been seen.
+	lastPrimary uint64
+
+	// defaultRoute is the lookup, behind a variable so a test can make it fail
+	// without unplugging anything.
+	defaultRoute func() (uint64, error)
+
 	pinger *Pinger
 }
 
@@ -67,7 +76,7 @@ func (s *Source) Collect(set *metrics.Set) error {
 		s.addPing(set)
 	}
 
-	adapters, err := activeAdapters(s.allAdapters)
+	adapters, err := s.activeAdapters()
 	if err != nil {
 		return err
 	}
@@ -252,23 +261,61 @@ const (
 // Unless all is set, the list is reduced to the interface carrying the default
 // route. That is "the active NIC" in the sense anyone actually means it: the
 // one the machine reaches the network through.
-func activeAdapters(all bool) ([]Adapter, error) {
+func (s *Source) activeAdapters() ([]Adapter, error) {
 	adapters, err := allActiveAdapters()
-	if err != nil || all {
+	if err != nil || s.allAdapters {
 		return adapters, err
 	}
+	return s.chooseAdapters(adapters)
+}
 
-	primary, err := defaultRouteLUID()
-	if err != nil {
-		// Without a default route there is nothing better to pick, so fall
-		// back to reporting everything rather than nothing.
-		return adapters, nil
+// chooseAdapters narrows the list to the one carrying the default route.
+//
+// When the route cannot be found it reports the interface that carried it last,
+// rather than falling back to all of them. The old comment here said there was
+// "nothing better to pick"; there is, and picking everything is expensive in a
+// way that is not obvious from this function.
+//
+// Every FriendlyName becomes an instance, and every instance gets a *retained*
+// discovery message. Measured on one development machine: ten interfaces pass
+// the "up, not loopback, has IPv4" filter — one physical card, six Hyper-V
+// switches, Tailscale, ZeroTier and an Npcap loopback — none of which go down
+// when the cable does. At ten catalogued readings each, five seconds without a
+// cable published ninety entities that outlive the outage, outlive Home
+// Assistant forgetting them, and come back on every restart.
+//
+// This does not stop orphans in general: any newly seen instance produces them,
+// which is deliberate — see announceNew, where a drive unplugged for an
+// afternoon must not cost anybody their history. It stops the one path that
+// produces them by the dozen.
+func (s *Source) chooseAdapters(adapters []Adapter) ([]Adapter, error) {
+	lookup := s.defaultRoute
+	if lookup == nil {
+		lookup = defaultRouteLUID
 	}
+
+	primary, err := lookup()
+	if err == nil {
+		s.lastPrimary = primary
+	} else if s.lastPrimary == 0 {
+		// Nothing was ever chosen, so there is nothing to hold on to. Reporting
+		// every virtual adapter here would create exactly the entities this
+		// avoids, so it reports none and lets the source error say why.
+		return nil, fmt.Errorf("no default route, and no adapter seen carrying one yet: %w", err)
+	}
+
 	for _, adapter := range adapters {
-		if adapter.LUID == primary {
+		if adapter.LUID == s.lastPrimary {
 			return []Adapter{adapter}, nil
 		}
 	}
+	if err != nil {
+		return nil, fmt.Errorf("no default route, and the last known adapter is gone: %w", err)
+	}
+	// The route points at an interface this list does not hold — a tunnel that
+	// is up without an address of the kind collected here, for instance. The
+	// full list is the honest answer then: a route exists, it just is not one of
+	// these.
 	return adapters, nil
 }
 

@@ -250,6 +250,26 @@ Ein Rechner mit Hyper-V, WSL, VPN und Capture-Treiber hat sonst schnell ein
 Dutzend Interfaces, und das eine, das zählt, geht darin unter. Umschaltbar über
 **Alle Adapter statt nur dem aktiven**.
 
+Fällt die Default-Route weg — Kabel gezogen, WLAN abgerissen —, wird weiter der
+zuletzt aktive Adapter gemeldet, nicht auf alle umgeschaltet. Das ist Absicht:
+virtuelle Adapter gehen nicht mit herunter, wenn die physische Karte ausfällt.
+Auf einer Maschine mit sechs Hyper-V-Switches, Tailscale und ZeroTier hätten
+fünf Sekunden ohne Kabel neunzig Entities angelegt — jede mit einer *retained*
+Discovery-Nachricht, die den Ausfall überlebt. Gibt es noch gar keinen zuletzt
+aktiven Adapter, meldet die Gruppe für diesen Takt nichts und nennt den Grund
+auf der Anzeigeseite.
+
+**Was trotzdem bleiben kann.** Wechselt der Rechner den aktiven Adapter dauerhaft
+— beim Andocken von WLAN auf Ethernet, oder wenn ein VPN die Route übernimmt —,
+entsteht für den neuen eine Entity, und die alte bleibt. Das ist gewollt: eine
+externe Platte, die einen Nachmittag abgezogen ist, soll niemandem seinen
+Verlauf kosten, und dieselbe Regel gilt für Adapter. Wer aufräumen will, geht in
+dieser Reihenfolge vor — sonst kommt die Entity beim nächsten Start zurück:
+
+1. die retained Discovery auf dem Broker löschen (leere Nachricht auf dasselbe
+   Topic, z. B. mit `mosquitto_pub -r -n -t <topic>`),
+2. danach die Entity in Home Assistant entfernen.
+
 Ping und Paketverlust laufen in einem eigenen Takt, unabhängig vom
 Sendeintervall: eine Runde gegen einen nicht erreichbaren Host dauert Sekunden
 und darf die Messschleife nicht blockieren. Ziel ist standardmäßig das

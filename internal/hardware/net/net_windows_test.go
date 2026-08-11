@@ -3,6 +3,7 @@
 package net
 
 import (
+	"errors"
 	"math"
 	"testing"
 )
@@ -63,5 +64,85 @@ func TestLinkMbitRejectsTheUnknownSentinel(t *testing.T) {
 func TestTheUnknownSentinelFallsBackToTheAssumedLimit(t *testing.T) {
 	if packetRateLimit(linkMbit(math.MaxUint64)) != packetRateLimit(0) {
 		t.Error("the sentinel disabled the plausibility filter")
+	}
+}
+
+// Losing the default route must not widen the adapter list.
+//
+// Measured on the development machine: ten interfaces pass the "up, not
+// loopback, has IPv4" filter — one physical card, six Hyper-V switches,
+// Tailscale, ZeroTier and an Npcap loopback. At ten catalogued readings each
+// that is 100 entities instead of 10, and 90 of them are retained discovery
+// messages that survive the cable being plugged back in, survive Home Assistant
+// forgetting them, and come back on every restart. For a five second outage.
+func TestTheLastAdapterIsKeptWhenTheDefaultRouteGoes(t *testing.T) {
+	ethernet := Adapter{Name: "Ethernet 2", LUID: 1}
+	virtual := []Adapter{
+		{Name: "vEthernet (WLAN)", LUID: 2},
+		{Name: "Tailscale", LUID: 3},
+	}
+	all := append([]Adapter{ethernet}, virtual...)
+
+	s := &Source{}
+	route := uint64(1)
+	s.defaultRoute = func() (uint64, error) { return route, nil }
+
+	// A normal tick picks the one carrying the default route.
+	got, err := s.chooseAdapters(all)
+	if err != nil || len(got) != 1 || got[0].LUID != 1 {
+		t.Fatalf("with a route: %+v (err %v), want only Ethernet 2", got, err)
+	}
+
+	// Cable out: no route to be found.
+	route = 0
+	s.defaultRoute = func() (uint64, error) { return 0, errors.New("network unreachable") }
+
+	got, err = s.chooseAdapters(all)
+	if err != nil {
+		t.Fatalf("without a route: %v", err)
+	}
+	if len(got) != 1 || got[0].LUID != 1 {
+		t.Errorf("without a route: %+v, want the last known adapter only", got)
+	}
+}
+
+// A cold start with no route at all has nothing to fall back on. Reporting
+// every virtual adapter would create exactly the entities this avoids, so it
+// reports none and says why — the source error path already carries that to the
+// status page.
+func TestNoAdapterIsReportedBeforeARouteWasEverSeen(t *testing.T) {
+	s := &Source{}
+	s.defaultRoute = func() (uint64, error) { return 0, errors.New("network unreachable") }
+
+	got, err := s.chooseAdapters([]Adapter{
+		{Name: "vEthernet (WLAN)", LUID: 2},
+		{Name: "Tailscale", LUID: 3},
+	})
+
+	if len(got) != 0 {
+		t.Errorf("adapters = %+v, want none before a route was ever seen", got)
+	}
+	if err == nil {
+		t.Error("no reason was given for reporting nothing")
+	}
+}
+
+// The remembered adapter has to be dropped when it really is gone, or a card
+// that was removed would be reported forever.
+func TestTheRememberedAdapterIsDroppedOnceItIsGone(t *testing.T) {
+	s := &Source{}
+	s.defaultRoute = func() (uint64, error) { return 1, nil }
+	if _, err := s.chooseAdapters([]Adapter{{Name: "Ethernet 2", LUID: 1}}); err != nil {
+		t.Fatal(err)
+	}
+
+	s.defaultRoute = func() (uint64, error) { return 0, errors.New("network unreachable") }
+	got, err := s.chooseAdapters([]Adapter{{Name: "Tailscale", LUID: 3}})
+
+	if len(got) != 0 {
+		t.Errorf("adapters = %+v, want none: the remembered card is not there", got)
+	}
+	if err == nil {
+		t.Error("no reason was given for reporting nothing")
 	}
 }
