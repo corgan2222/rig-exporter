@@ -12,6 +12,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // PingResult is one completed round of echoes.
@@ -224,18 +226,22 @@ const (
 // IcmpSendEcho needs no elevation and no raw socket, which is why it is used
 // rather than assembling ICMP packets by hand.
 func echo(address uint32) (float64, error) {
-	handle, _, err := procIcmpCreateFile.Call()
-	if handle == uintptr(windows.InvalidHandle) {
+	// Zero counts as failure alongside INVALID_HANDLE_VALUE. IcmpCreateFile
+	// reports failure with the latter, but a missing symbol comes back as a
+	// plain zero — and zero was falling through into IcmpSendEcho as if it
+	// were a handle.
+	handle, err := winapi.Call(procIcmpCreateFile)
+	if handle == 0 || handle == uintptr(windows.InvalidHandle) {
 		return 0, fmt.Errorf("IcmpCreateFile: %w", err)
 	}
-	defer procIcmpCloseHandle.Call(handle)
+	defer func() { _, _ = winapi.Call(procIcmpCloseHandle, handle) }()
 
 	payload := make([]byte, echoPayloadSize)
 	// The reply buffer holds the reply structure plus the echoed payload, and
 	// Windows wants room for an error message on top.
 	replyBuf := make([]byte, unsafe.Sizeof(icmpEchoReply{})+echoPayloadSize+8)
 
-	replies, _, callErr := procIcmpSendEcho.Call(
+	replies, callErr := winapi.Call(procIcmpSendEcho,
 		handle,
 		uintptr(address),
 		uintptr(unsafe.Pointer(&payload[0])),
@@ -294,7 +300,12 @@ func bestRoute() (mibIPForwardRow2, error) {
 	var source sockaddrInet
 	var route mibIPForwardRow2
 
-	status, _, _ := procGetBestRoute2.Call(
+	// CallStatus rather than Call: GetBestRoute2 answers with a Win32 error
+	// code, so zero is success — and a missing symbol yields zero too. Judged
+	// by the return value alone it used to hand back the untouched, all-zero
+	// route, which reached the caller as "no default gateway" rather than as
+	// the absent API it was.
+	err := winapi.CallStatus(procGetBestRoute2,
 		0, 0,
 		0,
 		uintptr(unsafe.Pointer(&destination)),
@@ -302,8 +313,8 @@ func bestRoute() (mibIPForwardRow2, error) {
 		uintptr(unsafe.Pointer(&route)),
 		uintptr(unsafe.Pointer(&source)),
 	)
-	if status != 0 {
-		return mibIPForwardRow2{}, fmt.Errorf("GetBestRoute2 returned %d", status)
+	if err != nil {
+		return mibIPForwardRow2{}, fmt.Errorf("GetBestRoute2: %w", err)
 	}
 	return route, nil
 }
