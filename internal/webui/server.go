@@ -259,16 +259,11 @@ type pageData struct {
 	HasDataToken   bool
 	HasInfluxToken bool
 	DiskInclude    string
-	EntityCount    int
 	// RecorderYAML is the ready-to-paste Home Assistant recorder block for
 	// exactly the entities this machine publishes.
 	RecorderYAML string
 	// Measurements is the tree, the slider and the estimate.
 	Measurements measurementsData
-	// The two sensor sets, for the box that says what each one contains.
-	// ExtendedSet holds what the extended set adds, not the whole of it.
-	StandardSet []setEntry
-	ExtendedSet []setEntry
 }
 
 // T translates an interface string into the active language.
@@ -314,21 +309,6 @@ type endpoint struct {
 	Label string
 	Path  string
 	URL   string
-}
-
-// setEntry is one measurement in the sensor-set listing: the identifier a
-// dashboard keys on, and the name a person reads.
-type setEntry struct {
-	ID    string
-	Label string
-}
-
-func setEntries(defs []metrics.Definition, lang i18n.Lang) []setEntry {
-	out := make([]setEntry, 0, len(defs))
-	for _, d := range defs {
-		out = append(out, setEntry{ID: d.ID, Label: d.Name.In(lang)})
-	}
-	return out
 }
 
 // worthKeeping names the measurements whose history earns the room it takes in
@@ -429,11 +409,8 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		HasDataToken:    cfg.DataToken != "",
 		HasInfluxToken:  cfg.InfluxToken != "",
 		DiskInclude:     strings.Join(cfg.DiskInclude, ", "),
-		EntityCount:     len(status.Snapshot.Entities()),
 		RecorderYAML:    recorderSnippet(cfg, status.Snapshot),
 		Measurements:    measurementsFor(status, lang),
-		StandardSet:     setEntries(metrics.PresetDefinitions(metrics.PresetBasic), lang),
-		ExtendedSet:     setEntries(addedByExtended(), lang),
 	}
 }
 
@@ -1250,18 +1227,4 @@ func formInt(r *http.Request, field string, fallback int) int {
 		return fallback
 	}
 	return n
-}
-
-// addedByExtended is what the extended rung carries beyond the basic one.
-//
-// The page puts the two lists side by side, so repeating the basic rung in
-// both would say nothing.
-func addedByExtended() []metrics.Definition {
-	out := make([]metrics.Definition, 0, len(metrics.All))
-	for _, d := range metrics.All {
-		if !metrics.PresetContains(metrics.PresetBasic, d.ID) {
-			out = append(out, d)
-		}
-	}
-	return out
 }
