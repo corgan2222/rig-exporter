@@ -35,7 +35,15 @@ const (
 )
 
 const (
-	helperReadyTimeout   = 10 * time.Second
+	helperReadyTimeout = 10 * time.Second
+	// helperMarkerMaxAge is when a leftover marker stops being believed.
+	//
+	// Orders of magnitude above helperReadyTimeout on purpose: the handshake
+	// takes seconds, so anything beyond this is a file nobody cleaned up.
+	// Generous by choice — discarding a marker too early would push aside a
+	// helper that is genuinely running, while discarding one too late only
+	// means waiting once more.
+	helperMarkerMaxAge   = 30 * time.Minute
 	parentExitTimeout    = 2 * time.Minute
 	newReadyTimeout      = 45 * time.Second
 	processStopTimeout   = 5 * time.Second
@@ -540,6 +548,19 @@ func activeApplyHelper(ops applyOps, plan applyPlan) (bool, error) {
 		return false, nil
 	}
 	if marker.Version != plan.ExpectedVersion || marker.PID <= 0 {
+		return false, nil
+	}
+	// A marker older than any handshake could take does not describe a running
+	// helper any more. It describes a pid, and Windows may well have handed
+	// that pid to somebody else since — a service running as SYSTEM, which
+	// OpenProcess then refuses to open. The time was in the file all along and
+	// nothing ever read it; not reading it was the whole fault.
+	//
+	// IsZero is not optional. The field has been written since the beginning,
+	// so a marker without one is truncated or hand-made, and a missing time
+	// must not read as infinitely old — that would let a second process start
+	// over a live update.
+	if !marker.ReadyAt.IsZero() && time.Since(marker.ReadyAt) > helperMarkerMaxAge {
 		return false, nil
 	}
 	return ops.ProcessMatches(marker.PID, plan.HelperPath)
@@ -1610,6 +1631,26 @@ func (windowsApplyOps) FileExists(path string) (bool, error) {
 
 func (windowsApplyOps) FileSHA256(path string) (string, error) { return fileSHA256(path) }
 
+// notOurProcess reports whether an OpenProcess failure answers the question
+// being asked — is this pid our update helper — with a plain no.
+//
+// Two failures mean exactly that. ERROR_INVALID_PARAMETER is Windows for "no
+// such process". ERROR_ACCESS_DENIED is what a pid that has since been handed
+// to a service running as SYSTEM gives back, and a process we are not allowed
+// to look at is certainly not the helper we started. Only the first counted,
+// and the second became a hard error that travelled up through
+// RecoverInterruptedApply into the start-failed dialog — for good, because the
+// marker stays and the pid stays taken.
+//
+// A separate function so the decision can be tested. Opening a real process we
+// are forbidden to open is not something a test can arrange reliably: on an
+// elevated machine the open succeeds and the failure moves one line further
+// down.
+func notOurProcess(err error) bool {
+	return errors.Is(err, windows.ERROR_INVALID_PARAMETER) ||
+		errors.Is(err, windows.ERROR_ACCESS_DENIED)
+}
+
 func (windowsApplyOps) ProcessMatches(pid int, executable string) (bool, error) {
 	if pid <= 0 {
 		return false, nil
@@ -1617,10 +1658,10 @@ func (windowsApplyOps) ProcessMatches(pid int, executable string) (bool, error) 
 	handle, err := windows.OpenProcess(
 		windows.SYNCHRONIZE|windows.PROCESS_QUERY_LIMITED_INFORMATION,
 		false, uint32(pid))
-	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
-		return false, nil
-	}
 	if err != nil {
+		if notOurProcess(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	defer windows.CloseHandle(handle)
