@@ -169,8 +169,14 @@ func (s *Source) readStatic() {
 // power information API reports the base frequency and never moves off it.
 // When the counter is unavailable, that static value is still better than
 // nothing.
+// clocksFn is the power information call, as a variable so a test can hand this
+// function the answer a hypervisor gives without needing a hypervisor. The
+// trigger cannot be produced on real hardware — CallNtPowerInformation answers
+// with the truth here — so the seam is what makes the guard checkable at all.
+var clocksFn = clocks
+
 func (s *Source) collectClock(set *metrics.Set) {
-	nominal, max, powerErr := clocks()
+	nominal, max, _ := clocksFn()
 	if s.baseMHz == 0 {
 		s.baseMHz = max
 	}
@@ -184,11 +190,18 @@ func (s *Source) collectClock(set *metrics.Set) {
 			current = s.baseMHz * percent / 100
 		}
 	}
+	// A zero is not a clock. The power information call can return success and
+	// still report CurrentMhz = 0 on every core, which hypervisors regularly do
+	// — and then there is nothing to publish, exactly as when the call itself
+	// failed. Leaving it out is the same rule cpu_clock_base has had all along;
+	// these two lacked it, and a published 0 MHz cannot be told apart from a
+	// measurement afterwards.
+	//
+	// The old code reassigned current = nominal here, which could never change
+	// anything: the counter branch above needs percent > 0 and baseMHz > 0, so
+	// current <= 0 already means current == nominal.
 	if current <= 0 {
-		if powerErr != nil {
-			return
-		}
-		current = nominal
+		return
 	}
 
 	set.Add(metrics.Gauge(metrics.CPUClock, "", current))
