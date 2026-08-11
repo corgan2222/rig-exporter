@@ -119,7 +119,10 @@ func TestInfluxEndpointServesLineProtocol(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("status = %d", code)
 	}
-	if !strings.HasPrefix(body, "rig,host=corganpc2,") {
+	// The host tag and then the fields. No comma after it: the core point's
+	// only tag is the host now that text readings are fields rather than part
+	// of the series identity.
+	if !strings.HasPrefix(body, "rig,host=corganpc2 ") {
 		t.Errorf("line protocol:\n%s", body)
 	}
 	if !strings.HasSuffix(strings.TrimSpace(body), "1700000000000000000") {

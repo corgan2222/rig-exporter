@@ -153,11 +153,28 @@ func (s Set) Influx(measurement, host string, at time.Time) []byte {
 					field+"_"+rank+"_"+escapeTag(r.Def.PromLabel)+`="`+escapeFieldString(row.Label)+`"`)
 			}
 		case KindText:
-			// Empty tag values are invalid line protocol.
+			// A string field, not a tag — the same choice the table labels
+			// above make, for the same reason and one more.
+			//
+			// In InfluxDB the tag set is the identity of the series. Text that
+			// moves at runtime therefore splits it: an adapter that changes its
+			// address starts a second series, with its own lifetime totals for
+			// the cumulative counters sitting on that very point, and a rate
+			// derived across the change tears. The same shape applies to a
+			// driver version on the GPU point.
+			//
+			// And a field is what makes a point a record at all. ram_module is
+			// text with an instance and the only RAM definition that has one,
+			// so every {ram, slot} point used to consist of tags alone and was
+			// dropped as invalid — InfluxDB quietly lost a catalogued reading
+			// that JSON and Prometheus both carry.
+			//
+			// Nothing is written for empty text: a missing value is left out
+			// rather than sent as an empty string, which would claim something.
 			if r.Text == "" {
 				continue
 			}
-			point.tags = append(point.tags, field+"="+escapeTag(r.Text))
+			point.fields = append(point.fields, field+`="`+escapeFieldString(r.Text)+`"`)
 		case KindBool:
 			point.fields = append(point.fields, field+"="+strconv.FormatBool(r.Bool))
 		default:
@@ -170,8 +187,13 @@ func (s Set) Influx(measurement, host string, at time.Time) []byte {
 
 	for _, key := range order {
 		point := points[key]
-		// A point with no fields is not a valid record, which is what a group
-		// consisting only of text readings would produce.
+		// A point with no fields is not a valid record. That used to be the
+		// fate of every instance whose readings were all text; now it means an
+		// instance whose readings were all missing, which is nothing to send.
+		//
+		// Per instance, not per group — the key is {group, instance}, and the
+		// comment here said group for as long as the case it described was the
+		// wrong one.
 		if len(point.fields) == 0 {
 			continue
 		}

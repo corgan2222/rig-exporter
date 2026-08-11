@@ -117,7 +117,10 @@ func TestWritesLineProtocolToTheV2API(t *testing.T) {
 	if got.auth != "Token tok3n" {
 		t.Errorf("authorization = %q", got.auth)
 	}
-	if !strings.HasPrefix(got.body, "rig,host=corganpc2,") || !strings.Contains(got.body, "fps=143.2") {
+	// The host tag and then the fields. No comma after it: the core point's
+	// only tag is the host now that text readings are fields rather than part
+	// of the series identity.
+	if !strings.HasPrefix(got.body, "rig,host=corganpc2 ") || !strings.Contains(got.body, "fps=143.2") {
 		t.Errorf("body = %q", got.body)
 	}
 }
