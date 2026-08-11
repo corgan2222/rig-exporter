@@ -319,8 +319,11 @@ rig-exporter gibt sich deshalb beim Start ein stderr zurück und zeigt auf
 landet damit auf der Platte statt im Nichts — auch die Panik einer Goroutine,
 die kein `recover` je auffangen könnte.
 
-Eine Sitzung, die sich ordentlich beendet, leert die Datei wieder. Ist beim
-nächsten Start etwas darin, war der letzte Lauf keiner:
+Eine Sitzung, die sich ordentlich beendet, leert die Datei wieder — und zwar
+jede geplante Beendigung, nicht nur die über das Tray. Ein Update, das an seinen
+Helfer übergibt, und ein Startabbruch mit Fehlerdialog hinterlassen deshalb
+keinen Absturzbericht. Ist beim nächsten Start etwas darin, war der letzte Lauf
+keiner:
 
 | Inhalt | Bedeutung |
 |---|---|

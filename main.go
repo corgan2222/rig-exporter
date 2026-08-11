@@ -39,6 +39,15 @@ import (
 const singleInstanceMutex = `Local\rig-exporter-single-instance`
 
 func main() {
+	// The exit code is returned rather than taken here, because os.Exit runs no
+	// deferred function and executes no line after itself. Every early exit in
+	// realMain used to be an os.Exit, and each one of them walked past the point
+	// where the crash record is emptied — so a session that ended exactly as
+	// designed was read as a crash at the next start.
+	os.Exit(realMain())
+}
+
+func realMain() int {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	probe := flag.Bool("probe", false, "print one reading in every export format and exit")
 	background := flag.Bool("background", false, "start without opening the interface, as the autostart entry does")
@@ -52,9 +61,9 @@ func main() {
 	// single-instance path itself.
 	if *applyUpdate != "" {
 		if err := updater.RunApplyHelper(*applyUpdate); err != nil {
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	// Anything that prints has to find somewhere to print first. This binary is
@@ -65,13 +74,13 @@ func main() {
 
 		if *showVersion {
 			fmt.Printf("%s %s\n", config.AppName, config.VersionString())
-			return
+			return 0
 		}
 		if err := runProbeTo(*configPath, attached); err != nil {
 			fmt.Fprintln(os.Stderr, "probe:", err)
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	// The language of a dialog shown before the configuration is read comes
@@ -85,12 +94,14 @@ func main() {
 	if err != nil {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
-		os.Exit(1)
+		return 1
 	}
 	if !first {
 		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.alreadyRunning"),
 			winapi.MBOK|winapi.MBIconInformation|winapi.MBSetForeground)
-		return
+		// Zero, as before this function returned a code at all: a second start
+		// that steps aside for the first did what it was supposed to.
+		return 0
 	}
 
 	// From here on the process has a standard error again, pointed at a file.
@@ -110,26 +121,64 @@ func main() {
 		crashes, _ = crashlog.Arm(dir, config.Version, config.Build, logPath)
 	}
 
-	// Recovery runs while this process owns the ordinary instance mutex, which
-	// serializes competing manual starts. The intended replacement launch
-	// carries a ready marker and must be allowed to prove itself instead.
-	if *readyMarker == "" {
-		mustExit, err := updater.RecoverInterruptedApply()
-		if err != nil {
+	// Everything from here on is the session, and every way out of it is a
+	// planned one — that is what endSession relies on.
+	return endSession(crashes, func() int {
+		// Recovery runs while this process owns the ordinary instance mutex,
+		// which serializes competing manual starts. The intended replacement
+		// launch carries a ready marker and must be allowed to prove itself
+		// instead.
+		if *readyMarker == "" {
+			mustExit, err := updater.RecoverInterruptedApply()
+			if err != nil {
+				winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
+					winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
+				return 1
+			}
+			// The updater handed over to a running helper. That is a full
+			// success, and it used to be the way out that left a record behind
+			// and put a crash banner on the next start after every update.
+			if mustExit {
+				return 0
+			}
+		}
+
+		if err := run(*configPath, *background, *readyMarker, crashes); err != nil {
 			winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 				winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
-			os.Exit(1)
+			return 1
 		}
-		if mustExit {
-			return
-		}
-	}
+		return 0
+	})
+}
 
-	if err := run(*configPath, *background, *readyMarker, crashes); err != nil {
-		winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
-			winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
-		os.Exit(1)
-	}
+// endSession runs the session and empties the crash record afterwards.
+//
+// The whole detection rests on one thing: a record that still has content at
+// the next start belongs to a session that did not finish. So every ending that
+// was planned has to empty it, and only a crash may leave it behind.
+//
+// Deliberately not a defer, and that is the entire point of this function. A
+// deferred call also runs while a panic is unwinding — it would empty the
+// record in the moment between the fault and the runtime writing the stack into
+// it, and the kept report would arrive with a stack and no session header:
+// no version, no build, no pid. Those are exactly the fields a bug report is
+// worth reading for. Returning normally is the only way past this line.
+func endSession(crashes sessionRecord, session func() int) int {
+	code := session()
+	crashes.Disarm()
+	_ = crashes.Close()
+	return code
+}
+
+// sessionRecord is the part of the crash recorder that endSession needs, which
+// is only the ending. Named as an interface because when to empty the record is
+// a decision about control flow, and a test of that decision should not have to
+// redirect the standard error of the process running it — which is what arming
+// a real recorder does, and it does not give the handle back.
+type sessionRecord interface {
+	Disarm()
+	Close() error
 }
 
 // configuredLanguage reads just the language out of the configuration, for the
@@ -540,11 +589,10 @@ func run(configPath string, background bool, readyMarker string, crashes *crashl
 	})
 	trayUI.Run() // blocks until the user picks Beenden
 
-	// Reaching this line is what "ended on purpose" means. Emptying the record
-	// here is the whole detection: anything found at the next start was left by
-	// a session that never got this far.
-	crashes.Disarm()
-	_ = crashes.Close()
+	// The crash record is emptied by endSession, on the way out of every planned
+	// ending rather than only this one. It used to be emptied here, which was
+	// right for the ending that goes through the tray and silently wrong for the
+	// three that do not.
 	return nil
 }
 
