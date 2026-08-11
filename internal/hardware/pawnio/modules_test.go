@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -51,6 +53,35 @@ func TestOnlyReleaseHostsServeModules(t *testing.T) {
 		if got := checkModuleHost(parsed) == nil; got != want {
 			t.Errorf("checkModuleHost(%q) accepted=%v, want %v", raw, got, want)
 		}
+	}
+}
+
+// The published URL has to name one release, not two.
+//
+// Upstream names every asset after its own tag: release_0_2_10.zip exists in
+// tag 0.2.10 and nowhere else. A floating /releases/latest/ combined with a
+// versioned asset name therefore resolves to a 404 the moment upstream ships
+// the next release — and it fails in the shape that costs the most to
+// diagnose, because an installation that already cached the module keeps
+// working. It looks like one broken machine rather than one broken constant.
+func TestModulesURLNamesOneRelease(t *testing.T) {
+	parsed, err := url.Parse(ModulesURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	asset := regexp.MustCompile(`release_(\d+)_(\d+)_(\d+)\.zip$`).FindStringSubmatch(parsed.Path)
+	if asset == nil {
+		t.Fatalf("ModulesURL does not end in a versioned asset name: %s", ModulesURL)
+	}
+	if strings.Contains(parsed.Path, "/releases/latest/") {
+		t.Errorf("ModulesURL pairs a floating release with the pinned asset %s: %s",
+			asset[0], ModulesURL)
+	}
+
+	tag := asset[1] + "." + asset[2] + "." + asset[3]
+	if want := "/releases/download/" + tag + "/"; !strings.Contains(parsed.Path, want) {
+		t.Errorf("asset %s does not sit under %s: %s", asset[0], want, ModulesURL)
 	}
 }
 

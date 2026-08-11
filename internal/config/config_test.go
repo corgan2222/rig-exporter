@@ -574,3 +574,46 @@ func TestTheHandPickedListsAreTidiedUp(t *testing.T) {
 		t.Errorf("removed = %v, want nothing at all", cfg.Measurements.Removed)
 	}
 }
+
+// On the very first start, Load has to hand back the configuration it just
+// wrote — not the one it had before writing it.
+//
+// Save takes its Config by value and normalizes that copy, so the file gets a
+// resolved preset while the caller keeps one that never had it. Everything
+// downstream that reads Measurements.Preset directly then disagrees with the
+// file for the rest of the session: the ladder on the measurements page reads
+// the empty string and shows the lowest rung, while the selection resolves
+// through the fallback and ticks every extended box.
+//
+// Comparing the returned value against a second Load is the whole test. The
+// second one reads the file, so the two can only agree if Load normalized.
+func TestTheFirstStartReturnsWhatItWrote(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+
+	created, isNew, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !isNew {
+		t.Fatal("Load did not report the file as created")
+	}
+	if created.Measurements.Preset == "" {
+		t.Error("Load returned an unnormalized config: Measurements.Preset is empty")
+	}
+
+	fromFile, isNew, err := Load(path)
+	if err != nil {
+		t.Fatalf("second Load: %v", err)
+	}
+	if isNew {
+		t.Fatal("the second Load created the file again")
+	}
+	if created.Measurements.Preset != fromFile.Measurements.Preset {
+		t.Errorf("in memory preset = %q, on disk = %q",
+			created.Measurements.Preset, fromFile.Measurements.Preset)
+	}
+	if created.SensorSet != fromFile.SensorSet {
+		t.Errorf("in memory sensor set = %q, on disk = %q",
+			created.SensorSet, fromFile.SensorSet)
+	}
+}

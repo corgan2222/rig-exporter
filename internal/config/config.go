@@ -593,6 +593,11 @@ func Load(path string) (Config, bool, error) {
 
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
+		// Normalized here and not left to Save, which takes its Config by
+		// value and would resolve only its own copy: the file would carry a
+		// preset and the caller would not. Both returns from this function
+		// have to hand back the same thing, and the one below already does.
+		cfg.Normalize()
 		if err := Save(path, cfg); err != nil {
 			return cfg, false, err
 		}

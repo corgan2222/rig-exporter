@@ -485,6 +485,12 @@ SmartScreen und die Rechteabfrage dort stattfinden, wo man sie sieht.
 PawnIO wird nicht mitgeliefert. Es steht unter GPL-2.0, die Module unter
 LGPL-2.1; installiert wird es vom Nutzer, dieses Programm sucht es nur.
 
+Die Module kommen aus einem **festen** Release von PawnIO.Modules, nicht aus dem
+jeweils neuesten. Sie werden einmal geladen und unter
+`%APPDATA%\rig-exporter\modules` behalten. Eine neue Modulversion kommt damit mit
+einer neuen rig-exporter-Version und nicht von selbst — was bei signiertem Code,
+der in einem Kerneltreiber landet, die richtige Richtung ist.
+
 **CPU-Temperatur gibt es sonst nur mit Afterburner.** Das ist keine Bequemlichkeit:
 Ryzen liefert Tctl über den SMU, Intel über ein MSR, und beides liegt in Ring 0.
 Kein Programm ohne Kerneltreiber kommt daran — deshalb bringt Afterburner einen
@@ -939,10 +945,15 @@ einem anderen Rechner zugreifen kann. Standardmäßig **aus**.
 | `/metrics` | Prometheus Text Exposition |
 | `/influx` | InfluxDB Line Protocol |
 | `/health` | Liveness-Check, nie tokenpflichtig |
-| `/` | Übersicht der aktiven Endpunkte |
+| `/` | Übersicht der aktiven Endpunkte, tokenpflichtig wie die Daten |
 
 Optionaler Token, geprüft als `Authorization: Bearer <token>` oder `?token=`.
 Ohne Token kann jeder im Netz die Werte lesen.
+
+Ist ein Token gesetzt, schweigt der Port auch für die Übersichtsseite: sie nennt
+Version und Node-ID, und das sind genau die Angaben, die einem Fremden sagen,
+ob sich ein zweiter Blick lohnt. Nur `/health` antwortet weiter ohne Token —
+ein Liveness-Check, der ein Geheimnis braucht, prüft nichts.
 
 Läuft der Server, stehen die fertigen Adressen als anklickbare Links auf der
 Anzeige und im Einstellungsblock. Sie tragen die IP-Adresse der Schnittstelle,

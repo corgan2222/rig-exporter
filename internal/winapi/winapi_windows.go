@@ -57,6 +57,45 @@ func OpenFileMapping(access uint32, inheritHandle bool, name string) (windows.Ha
 	return windows.Handle(handle), nil
 }
 
+// CommittedBytes reports how large a mapped region really is, or 0 when it
+// cannot be determined.
+//
+// This belongs next to OpenFileMapping because every caller of that pair faces
+// the same problem: the size to copy comes from a header inside the mapping,
+// and the mapping is written by another process. A header that asks for more
+// than was mapped is not a theory — the shared memory names are per-session and
+// unqualified, so any process running as the same user can create one first and
+// decide what the header says. Reading past the region is an access violation,
+// which Go cannot recover from and which under -H windowsgui ends the program
+// without a window or a log line.
+//
+// Both readers had a copy of this. One of them applied it and the other did
+// not, which is the whole reason it now lives here.
+func CommittedBytes(addr uintptr) int {
+	var info windows.MemoryBasicInformation
+	if err := windows.VirtualQuery(addr, &info, unsafe.Sizeof(info)); err != nil {
+		return 0
+	}
+
+	// VirtualQuery succeeds for memory that was never mapped: it answers for
+	// the free region the address falls in, and address 0 lands in a free
+	// region of some two gigabytes. Returning that would hand a caller a clamp
+	// that clamps nothing. Only committed pages describe bytes anybody may
+	// read.
+	if info.State != windows.MEM_COMMIT {
+		return 0
+	}
+
+	// RegionSize counts from the base of the region, and the base can sit
+	// below addr — VirtualQuery rounds down to the containing page. What the
+	// caller may read is what is left from addr to the end of the region.
+	end := info.BaseAddress + info.RegionSize
+	if end <= addr {
+		return 0
+	}
+	return int(end - addr)
+}
+
 // TickCount is milliseconds since boot, truncated to 32 bits so it can be
 // compared directly against the GetTickCount timestamps RTSS stores.
 func TickCount() uint32 {

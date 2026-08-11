@@ -256,3 +256,41 @@ func TestMalformedTableTerminates(t *testing.T) {
 		t.Fatal("Parse did not terminate on a malformed table")
 	}
 }
+
+// SMBIOS spells "the size is unknown" 0xFFFF, and that is not a size.
+//
+// The value is neither 0 nor 0x7FFF, so it reaches the kilobyte branch — the
+// top bit is set, as it is in every value with 0xFF in the high byte — and
+// (0xFFFF & 0x7FFF) / 1024 comes out as 31. A module the firmware refused to
+// measure would be published as a 31 MB one and summed into the total, which
+// is worse than leaving it out: a missing field says nothing, a plausible
+// number says something wrong.
+//
+// Firmware that reports this is not exotic. It turns up on virtual machines,
+// and this program says out loud which hypervisor it is running under.
+func TestAModuleOfUnknownSizeIsLeftOutRatherThanGuessed(t *testing.T) {
+	var b builder
+	b.add(typePhysicalMemoryArray, memoryArray(2))
+	b.add(typeMemoryDevice, memoryDevice(16384, 0x1A, 3200, 3200),
+		"DIMM 0", "P0 CHANNEL A", "Corsair", "CMK32GX4M2D3200")
+
+	unknown := memoryDevice(0, 0x1A, 3200, 3200)
+	binary.LittleEndian.PutUint16(unknown[deviceSize:], 0xFFFF)
+	b.add(typeMemoryDevice, unknown,
+		"DIMM 1", "P0 CHANNEL B", "Corsair", "CMK32GX4M2D3200")
+
+	info, err := Parse(b.end())
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(info.Modules) != 1 {
+		t.Fatalf("modules = %d, want 1 — a size the firmware called unknown was invented: %+v",
+			len(info.Modules), info.Modules)
+	}
+	if got := info.Modules[0].SizeMB; got != 16384 {
+		t.Errorf("SizeMB = %d, want 16384", got)
+	}
+	if info.TotalMB != 16384 {
+		t.Errorf("TotalMB = %d, want 16384; an invented module was summed in", info.TotalMB)
+	}
+}

@@ -63,11 +63,28 @@ func New(cfg config.Config, log *slog.Logger) *Server {
 	mux.HandleFunc("GET "+PathJSON, s.guard(cfg.JSONEnabled, s.handleJSON))
 	mux.HandleFunc("GET "+PathPrometheus, s.guard(cfg.PrometheusEnabled, s.handlePrometheus))
 	mux.HandleFunc("GET "+PathInflux, s.guard(cfg.InfluxPullEnabled, s.handleInflux))
-	mux.HandleFunc("GET /", s.handleIndex)
+	// The index goes through the same guard as everything else. It names the
+	// version, the node id and which formats are switched on, and it confirms
+	// in writing that a token is required — which tells an unauthenticated
+	// caller that the host is worth a second look. Somebody who sets a token
+	// expects the port to be quiet without one, and this listener defaults to
+	// 0.0.0.0.
+	//
+	// enabled is true because the index is not a format that can be switched
+	// off, and authorized() lets everything through when no token is
+	// configured, so an installation without one is served exactly as before.
+	mux.HandleFunc("GET /", s.guard(true, s.handleIndex))
 
+	// The same four deadlines the web interface sets, and they matter more
+	// here: that listener defaults to loopback, this one defaults to 0.0.0.0.
+	// Without an idle deadline a keep-alive connection is never reaped, and
+	// /health needs no token, so the request that holds one open is free.
 	s.server = &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	return s
 }

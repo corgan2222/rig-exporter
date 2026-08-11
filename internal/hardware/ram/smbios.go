@@ -148,10 +148,19 @@ func parseModule(s structure) (Module, bool) {
 	}
 	le := binary.LittleEndian
 
-	// A size of zero means the slot is empty.
+	// SMBIOS gives the size field four meanings, and three of them are not a
+	// size. Order matters here: 0xFFFF also has the top bit set, so it has to
+	// be recognised before the kilobyte branch or it would be quietly divided
+	// into 31 MB.
 	size := uint64(le.Uint16(s.formatted[deviceSize:]))
 	switch {
 	case size == 0:
+		// The slot is empty. Firmware still describes it.
+		return Module{}, false
+	case size == 0xFFFF:
+		// The firmware does not know. Reporting a module without a size would
+		// be a smaller lie than reporting a wrong one, but the module is only
+		// worth listing for its size, so it is left out entirely.
 		return Module{}, false
 	case size == 0x7FFF:
 		// Too large for the 15 bit field; the real value is in the extended one.
@@ -162,6 +171,13 @@ func parseModule(s structure) (Module, bool) {
 	case size&0x8000 != 0:
 		// The top bit means the value is in kilobytes, not megabytes.
 		size = (size & 0x7FFF) / 1024
+	}
+
+	// The kilobyte branch rounds down, so a module under one megabyte lands
+	// here as zero. No such module exists, but the check costs a line and it
+	// keeps "we have a module of no size" from ever being published.
+	if size == 0 {
+		return Module{}, false
 	}
 
 	module := Module{

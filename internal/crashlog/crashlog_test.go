@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // A session that shut down cleanly leaves an empty file. Reading that as a
@@ -307,6 +308,104 @@ func TestNothingElseIsTakenForAReport(t *testing.T) {
 	} {
 		if IsReportName(name) {
 			t.Errorf("%q was taken for a crash report", name)
+		}
+	}
+}
+
+// The cut has to land between characters, not inside one.
+//
+// truncate slices by byte against a byte budget, so a multi-byte rune sitting
+// across either offset is halved. What fills the log field is the tail of the
+// application log, and Windows hands device and drive names to this program in
+// the display language — an umlaut in a drive label is the ordinary case on a
+// German or Japanese install, not an exotic one.
+//
+// The broken pair then goes through url.Values.Encode into the prepared issue
+// link, and GitHub renders it as a replacement character in the one field whose
+// job is to be read literally as evidence. The repository already has the
+// correct shape for this: tray.go truncates on runes.
+func TestTruncateCutsBetweenCharacters(t *testing.T) {
+	body := strings.Repeat("Grafikkarte-Zähler-Überlauf bei 87 °C\n", 60)
+
+	bad := 0
+	for limit := 200; limit < 1200; limit++ {
+		got := truncate(body, limit)
+		if !utf8.ValidString(got) {
+			bad++
+			continue
+		}
+		if len(got) > limit {
+			t.Fatalf("truncate(limit=%d) returned %d bytes; backing off to a rune boundary may only shrink the result",
+				limit, len(got))
+		}
+	}
+	if bad != 0 {
+		t.Errorf("%d of 1000 limits produced invalid UTF-8", bad)
+	}
+
+	// The budget that actually ships is the one that matters.
+	if got := truncate(body, logBudget); !utf8.ValidString(got) {
+		t.Errorf("truncate at the shipped logBudget of %d produced invalid UTF-8", logBudget)
+	}
+	if got := truncate(body, panicBudget); !utf8.ValidString(got) {
+		t.Errorf("truncate at the shipped panicBudget of %d produced invalid UTF-8", panicBudget)
+	}
+
+	// A text that fits is returned untouched, budgets or not.
+	const short = "kurz genug, mit Ümlaut"
+	if got := truncate(short, logBudget); got != short {
+		t.Errorf("truncate rewrote a text that fits: %q", got)
+	}
+}
+
+// A machine name that survives nothing must still name a machine.
+//
+// safeName keeps [A-Za-z0-9-] and trims hyphens off both ends, so a host
+// written entirely in Cyrillic, Greek or Japanese trims to nothing. The
+// empty-host fallback sits before that trim and never sees the result, so the
+// report came out as rig-exporter__crashreport_… — the machine part missing
+// from a naming scheme whose only purpose is telling machines apart.
+//
+// Windows permits non-ASCII computer names, and localised installs are the
+// population the report's Locale field exists to serve.
+func TestSafeNameAlwaysNamesTheMachine(t *testing.T) {
+	for _, host := range []string{"СЕРВЕР", "パソコン", "Σ", "---", "___"} {
+		got := safeName(host)
+		if got == "" {
+			t.Errorf("safeName(%q) = %q; the report would lose the machine", host, got)
+		}
+		if strings.Trim(got, "-") == "" {
+			t.Errorf("safeName(%q) = %q, which is only separators", host, got)
+		}
+	}
+
+	// Two different machines must not collapse onto one name, or a folder of
+	// reports from several PCs is exactly the folder the scheme exists to
+	// avoid.
+	if a, b := safeName("СЕРВЕР"), safeName("パソコン"); a == b {
+		t.Errorf("two different machines both became %q", a)
+	}
+
+	// Stable across calls: the name goes into a file name, not a session id.
+	if a, b := safeName("СЕРВЕР"), safeName("СЕРВЕР"); a != b {
+		t.Errorf("safeName is not stable: %q then %q", a, b)
+	}
+
+	// The ordinary case is untouched, and a genuinely empty host keeps the
+	// answer it always had.
+	if got := safeName("corgan-pc3"); got != "corgan-pc3" {
+		t.Errorf("safeName(%q) = %q", "corgan-pc3", got)
+	}
+	if got := safeName(""); got != "unknown" {
+		t.Errorf("safeName(\"\") = %q, want unknown", got)
+	}
+
+	// Whatever it produces has to survive the round trip, or the report cannot
+	// be recognised as one afterwards.
+	for _, host := range []string{"СЕРВЕР", "corgan-pc3", ""} {
+		name := ReportName(host, time.Date(2026, 8, 8, 3, 4, 5, 0, time.UTC))
+		if !IsReportName(name) {
+			t.Errorf("ReportName(%q) produced %q, which IsReportName rejects", host, name)
 		}
 	}
 }
