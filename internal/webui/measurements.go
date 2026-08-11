@@ -276,19 +276,17 @@ const maxValueWidth = 34
 
 // readingText renders one reading for the column on the right.
 //
-// A ranked list has to go through TableText: its Value is a nested object meant
-// for JSON, and printing that with fmt puts "map[apps:[{firefox.exe 3.39} …]]"
-// on the page, which is what it did.
+// Through formatValue, which is the one rendering both pages use: a reading
+// must not look different depending on where it is read. This function used to
+// print through fmt.Sprint, which is %v, which for a float is %g — and %g never
+// asks the catalogue. That produced "45 °C" here against "45.0 °C" on the
+// dashboard, "ON" (the MQTT payload) against "1", and "1e+06" against
+// "1000000" for anything past the exponent cliff.
+//
+// What stays here is the only thing this page needs on top: the column has a
+// width, and a ranked list does not fit in it.
 func readingText(r metrics.Reading) string {
-	var text string
-	if r.Def.Kind == metrics.KindTable {
-		text = r.TableText()
-	} else {
-		text = fmt.Sprint(r.Value())
-		if r.Def.Unit != "" {
-			text += " " + r.Def.Unit
-		}
-	}
+	text := formatValue(r)
 
 	// Cut on runes rather than bytes: a degree sign is two of the latter.
 	if runes := []rune(text); len(runes) > maxValueWidth {
