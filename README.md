@@ -1606,6 +1606,15 @@ Hardware-Quellen — die brauchen die Hardware, die sie beschreiben. Sie werden
 mit `-probe` gegen den echten Rechner geprüft. Auch das Tray-Menü und das
 Icon-Werkzeug sind nur manuell verifiziert.
 
+**Der Race Detector läuft hier nicht.** `go test -race` braucht cgo, und dieses
+Projekt baut ohne (`CGO_ENABLED=0`, kein C-Compiler nötig). Der Aufruf bricht mit
+`-race requires cgo` ab. Nebenläufigkeit ist damit werkzeugseitig ungeprüft:
+Aussagen darüber kommen aus dem Lesen des Codes, nicht aus einer Messung. Das
+Programm betreibt Messschleife, MQTT-Publisher, Webserver, Tray und Updater
+nebeneinander, also ist das eine echte Lücke und keine Formalie. Wer sie
+schließen will, braucht mingw-w64 auf der Maschine oder einen CI-Lauf auf
+`windows-latest`.
+
 `go vet` läuft im Build-Skript mit `-unsafeptr=false`: das Mappen fremder
 Shared-Memory-Blöcke braucht eine `uintptr`-Konvertierung, die vet nicht
 beurteilen kann. Strukturen, deren Größe exakt zur Windows-Definition passen
