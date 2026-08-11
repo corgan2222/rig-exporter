@@ -23,6 +23,12 @@ import (
 )
 
 // NVML return codes that matter here.
+//
+// nvmlErrorNotSupported is never compared against, on purpose. A card that does
+// not expose a value and a call that failed are treated the same way: the
+// reading is left out. Naming the code keeps the reader from concluding that
+// the distinction was overlooked — it was considered and found not to make a
+// difference to anything this program does.
 const (
 	nvmlSuccess           = 0
 	nvmlErrorNotSupported = 3
@@ -61,7 +67,12 @@ type nvml struct {
 
 	dll *windows.LazyDLL
 
-	init          proc
+	init proc
+	// shutdown is resolved and never called. nvmlShutdown is deliberately not
+	// invoked: NVML is initialised once and left running for the lifetime of
+	// the process, the same decision ADLX documents at adlx_windows.go. It is
+	// resolved so the day somebody needs it, the reason it is unused is written
+	// down here rather than rediscovered.
 	shutdown      proc
 	deviceCount   proc
 	deviceByIndex proc

@@ -1,9 +1,7 @@
 package metrics
 
 import (
-	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,12 +25,6 @@ func (s Set) JSON() map[string]any {
 		out[r.Key()] = r.Value()
 	}
 	return out
-}
-
-// MarshalJSON keeps the document stable between collections by sorting keys,
-// which encoding/json already does for maps.
-func (s Set) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.JSON())
 }
 
 // Prometheus renders the set as a text exposition.
@@ -240,15 +232,4 @@ func escapeTag(s string) string {
 // and therefore only needs the quote and the backslash itself dealt with.
 func escapeFieldString(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s)
-}
-
-// Keys lists every reading key in the set, sorted. Used by the MQTT publisher
-// to work out which entities are new since the last collection.
-func (s Set) Keys() []string {
-	out := make([]string, 0, len(s.Readings))
-	for _, r := range s.Readings {
-		out = append(out, r.Key())
-	}
-	sort.Strings(out)
-	return out
 }

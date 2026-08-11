@@ -65,19 +65,6 @@ func AttachConsole() bool {
 	return true
 }
 
-// AllocConsole makes a console of this process's own, for when there is no
-// parent to borrow one from. It is separate from AttachConsole because it is a
-// deliberate act with a visible window, not a fallback to slip into silently.
-func AllocConsole() bool {
-	if stdoutGoesSomewhere() {
-		return true
-	}
-	if ret, _ := Call(procAllocConsole); ret == 0 {
-		return false
-	}
-	return reopenStandardStreams()
-}
-
 // stdoutGoesSomewhere reports whether writes already have a destination.
 //
 // An invalid or null handle is what a GUI binary starts with; anything else —

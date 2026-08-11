@@ -7,7 +7,6 @@ var catalogue = map[string]Text{
 	"nav.status":        {DE: "Anzeige", EN: "Dashboard"},
 	"nav.capture":       {DE: "Datengewinnung", EN: "Data capture"},
 	"nav.export":        {DE: "Export & Anzeige", EN: "Export & display"},
-	"nav.settings":      {DE: "Einstellungen", EN: "Settings"},
 	"page.status":       {DE: "Anzeige", EN: "Dashboard"},
 	"page.capture":      {DE: "Datengewinnung", EN: "Data capture"},
 	"nav.measurements":  {DE: "Messwerte", EN: "Measurements"},
@@ -73,7 +72,6 @@ var catalogue = map[string]Text{
 	"status.paused":     {DE: "Export pausiert", EN: "Export paused"},
 	"status.noExport":   {DE: "Kein Export aktiv", EN: "No export target active"},
 	"status.offline":    {DE: "Oberfläche getrennt", EN: "Interface disconnected"},
-	"status.updated":    {DE: "Aktualisiert", EN: "Updated"},
 
 	"rtss.unavailable": {DE: "RTSS nicht verfügbar", EN: "RTSS unavailable"},
 	"rtss.connected":   {DE: "verbunden", EN: "connected"},
@@ -164,7 +162,6 @@ var catalogue = map[string]Text{
 	"settings.saved":      {DE: "Einstellungen gespeichert und übernommen.", EN: "Settings saved and applied."},
 	"settings.failed":     {DE: "Speichern fehlgeschlagen", EN: "Saving failed"},
 	"settings.save":       {DE: "Speichern & übernehmen", EN: "Save and apply"},
-	"settings.saveHint":   {DE: "Betroffene Verbindungen werden bei Bedarf neu aufgebaut.", EN: "Affected connections are rebuilt where needed."},
 	"settings.keepSecret": {DE: "gespeichert – leer lassen zum Behalten", EN: "stored — leave blank to keep"},
 	// Vor dem Speichern gesagt, nicht danach. Ohne diesen Satz sieht das
 	// Fallenlassen wie ein Datenverlust aus, dabei ist es genau die Regel, die
@@ -291,31 +288,14 @@ var catalogue = map[string]Text{
 	"settings.sensors.setMinimal":  {DE: "Minimal", EN: "Minimal"},
 	"settings.sensors.setStandard": {DE: "Standard", EN: "Standard"},
 	"settings.sensors.setExtended": {DE: "Erweitert", EN: "Extended"},
-	"settings.sensors.setHint": {
-		DE: "Gilt über alle Gruppen hinweg: die Schalter darunter sagen, welche Hardware gelesen wird, diese Auswahl, wie ausführlich.",
-		EN: "Applies across all groups: the switches below say which hardware is read, this says how much detail of it.",
-	},
-	"settings.sensors.setWhat":         {DE: "Was steckt in den beiden?", EN: "What is in each?"},
-	"settings.sensors.setExtendedAdds": {DE: "Erweitert ergänzt", EN: "Extended adds"},
-	"settings.sensors.setStandardWhat": {
-		DE: "Was man sich ansieht, wenn man wissen will, wie es dem Rechner geht: Temperatur, Auslastung, freier Platz, Durchsatz.",
-		EN: "What you look at to see how the machine is doing: temperature, load, free space, throughput.",
-	},
-	"settings.sensors.setExtendedWhat": {
-		DE: "Aufbau und Feinheiten: Taktraten, Speicherriegel, Last je Thread, Anzeigemodus, Zustand von RTSS. Nützlich beim Suchen, im Alltag selten.",
-		EN: "Inventory and fine detail: clock rates, memory modules, per-thread load, display mode, the state of RTSS. Useful when hunting a problem, rarely otherwise.",
-	},
 
 	// Settings, sensor groups.
 	"settings.sensors.title": {DE: "Sensorquellen", EN: "Sensor sources"},
-	"settings.sensors.nav":   {DE: "Sensoren", EN: "Sensors"},
 	"settings.sensors.intro": {
 		DE: "Welche Hardware überhaupt gelesen wird. Fehlt die Datenquelle, entstehen dafür gar keine Entities — und sie tauchen von selbst auf, sobald die Quelle da ist. Welche einzelnen Werte davon gesendet werden, steht unter",
 		EN: "Which hardware is read at all. Where the source is missing, no entities are created — and they appear by themselves once it is there. Which individual values are sent is decided under",
 	},
 	"settings.sensors.toMeasurements": {DE: "Messwerte", EN: "Measurements"},
-	"settings.sensors.entityCount":    {DE: "Aktuell", EN: "Currently"},
-	"settings.sensors.entities":       {DE: "Entities", EN: "entities"},
 	"settings.sensors.gpu":            {DE: "Grafikkarte — Temperatur, Takt, VRAM, Auslastung, Lüfter, Leistung", EN: "Graphics card — temperature, clocks, VRAM, load, fan, power"},
 	"settings.sensors.gpuHint": {
 		DE: "Quelle ist MSI Afterburner (NVIDIA, AMD, Intel), ersatzweise NVML aus dem NVIDIA-Treiber. Ohne beides gibt es keine GPU-Werte — Windows selbst liefert weder Temperatur noch Takt.",
@@ -367,7 +347,6 @@ var catalogue = map[string]Text{
 			"or the executable being replaced underneath it. If none of those happened, that is exactly " +
 			"the bug worth reporting.",
 	},
-	"crash.summary":  {DE: "Fehler", EN: "Fault"},
 	"crash.happened": {DE: "Sitzung begann", EN: "Session started"},
 	"crash.view":     {DE: "Bericht ansehen", EN: "View the record"},
 	"crash.download": {DE: "Bericht herunterladen", EN: "Download the record"},
@@ -466,43 +445,20 @@ var catalogue = map[string]Text{
 	},
 	"settings.sensors.topProcsCount":    {DE: "Wie viele je Liste", EN: "How many per list"},
 	"settings.sensors.topProcsInterval": {DE: "Messintervall (ms)", EN: "Sampling interval (ms)"},
-	"settings.sensors.topProcsIntervalHint": {
-		DE: "Eigener Takt, unabhängig vom Auslesen. Minimum 2000 ms.",
-		EN: "Its own schedule, independent of the collection loop. Minimum 2000 ms.",
-	},
-	"settings.sensors.pingIntervalHint": {
-		DE: "Die Messung läuft unabhängig vom Sendeintervall in einem eigenen Takt.",
-		EN: "The probe runs on its own schedule, independent of the publish interval.",
-	},
 
-	// Settings, capture rates.
-	"settings.capture.title": {DE: "Erfassung", EN: "Capture"},
-	"settings.capture.nav":   {DE: "Erfassung", EN: "Capture"},
-	"settings.capture.poll":  {DE: "Auslese-Intervall (ms)", EN: "Read interval (ms)"},
-	"settings.capture.pollHint": {
-		DE: "Wie oft die Hardware abgefragt wird. Bestimmt, wie flüssig Tray und diese Seite laufen; kostet etwas CPU.",
-		EN: "How often the hardware is read. Sets how smoothly the tray and this page update, at a little CPU cost.",
-	},
-	"settings.capture.publish": {DE: "Sendeintervall im Spiel (ms)", EN: "Publish interval in game (ms)"},
-	"settings.capture.publishHint": {
-		DE: "Wie oft die Messwerte exportiert werden, solange ein Spiel Bilder liefert. Wird auf das Auslese-Intervall aufgerundet und darf nicht kleiner sein.",
-		EN: "How often readings are exported while a game is delivering frames. Rounded up to the read interval, and never shorter than it.",
-	},
+	// Settings, capture rates. Only the labels and the one hint the measurements
+	// page still shows: the capture settings moved onto that page and the help
+	// text for the read, publish and idle intervals was dropped there. The
+	// translations for those are in the history if anyone wants them back.
+	"settings.capture.poll":        {DE: "Auslese-Intervall (ms)", EN: "Read interval (ms)"},
+	"settings.capture.publish":     {DE: "Sendeintervall im Spiel (ms)", EN: "Publish interval in game (ms)"},
 	"settings.capture.publishIdle": {DE: "Sendeintervall im Leerlauf (ms)", EN: "Publish interval when idle (ms)"},
-	"settings.capture.publishIdleHint": {
-		DE: "Gilt, solange kein Spiel läuft. Ein Rechner im Leerlauf hat nichts zu sagen, wofür sich jede Sekunde eine Zeile in der Datenbank lohnt.",
-		EN: "Applies while no game is running. An idle machine has nothing to say that is worth a database row every second.",
-	},
-	"settings.capture.decimals": {DE: "Berechne Nachkommastellen", EN: "Calculate decimal places"},
+	"settings.capture.decimals":    {DE: "Berechne Nachkommastellen", EN: "Calculate decimal places"},
 	"settings.capture.decimalsHint": {
 		DE: "Ausgeschaltet werden alle Zahlen ganzzahlig gesendet. Ein Wert muss sich dann um eine ganze Einheit bewegen, bevor er überhaupt als geändert zählt — und was sich nicht ändert, kostet in Home Assistant keinen Speicher.",
 		EN: "Switched off, every number is sent whole. A value then has to move by a full unit before it counts as changed at all — and what does not change costs no storage in Home Assistant.",
 	},
 	"settings.capture.idle": {DE: "Idle-Timeout (ms)", EN: "Idle timeout (ms)"},
-	"settings.capture.idleHint": {
-		DE: "So lange darf ein Spiel kein Bild rendern, bevor es als beendet gilt.",
-		EN: "How long a game may render nothing before it counts as closed.",
-	},
 
 	// Settings, application.
 	"settings.app.title":        {DE: "Anwendung", EN: "Application"},
@@ -552,7 +508,6 @@ var catalogue = map[string]Text{
 	"tray.display":         {DE: "Anzeige", EN: "Display"},
 	"tray.load":            {DE: "Auslastung", EN: "Load"},
 	"tray.noGame":          {DE: "kein Spiel aktiv", EN: "no game running"},
-	"tray.export":          {DE: "Export", EN: "Export"},
 	"tray.noExport":        {DE: "Kein Export aktiv – siehe Einstellungen", EN: "No export target — see settings"},
 	"tray.rtssDownload":    {DE: "RivaTuner Statistics Server herunterladen…", EN: "Download RivaTuner Statistics Server…"},
 	"tray.rtssDownloadTip": {DE: "Öffnet die RTSS-Downloadseite im Browser", EN: "Opens the RTSS download page in the browser"},

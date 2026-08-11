@@ -722,12 +722,12 @@ func (c *Config) Normalize() {
 }
 
 func (c *Config) normalizeSensors() {
-	// Anything unrecognised means extended, including the empty string an
-	// older configuration file leaves behind: a setting nobody chose should
-	// report more rather than silently less.
-	if c.SensorSet != SensorSetStandard {
-		c.SensorSet = SensorSetExtended
-	}
+	// SensorSet is not normalised here. It used to be, with the rule "anything
+	// unrecognised means extended" — but PresetForSensorSet, the only thing
+	// that reads it, already tests for standard and treats every other value
+	// the same way. And normalizeMeasurements overwrites the field from the
+	// resolved preset two lines later regardless. The rule was correct and
+	// changed nothing.
 	c.normalizeMeasurements()
 
 	c.PingTarget = strings.TrimSpace(c.PingTarget)
@@ -813,11 +813,6 @@ func (c Config) InfluxWriteURL() string {
 	query.Set("bucket", c.InfluxBucket)
 	query.Set("precision", "ns")
 	return c.InfluxURL + "/api/v2/write?" + query.Encode()
-}
-
-// AnyExportEnabled reports whether the snapshot goes anywhere at all.
-func (c Config) AnyExportEnabled() bool {
-	return c.MQTTEnabled || c.DataServerEnabled || c.InfluxPushEnabled
 }
 
 // snapToPoll rounds a publish interval up to a whole number of reads.
