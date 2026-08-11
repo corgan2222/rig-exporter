@@ -99,6 +99,10 @@ type App struct {
 	reader  rtss.Reader
 	updates updateController
 
+	// applyMu serialises ApplyConfig against itself. Separate from mu because
+	// mu is released halfway through, so it cannot keep two saves apart.
+	applyMu sync.Mutex
+
 	mu        sync.RWMutex
 	cfg       config.Config
 	collector *collector.Collector
@@ -516,6 +520,18 @@ func (a *App) SetAutostart(enabled bool) error {
 // retires the old Home Assistant entities first, so renaming a PC does not
 // leave a permanently unavailable device behind.
 func (a *App) ApplyConfig(newCfg config.Config) error {
+	// One at a time, and held across the whole thing rather than only across the
+	// state swap.
+	//
+	// a.mu cannot do this job: it is released in the middle so the broker calls
+	// below do not run under a write lock. Two saves arriving together would
+	// otherwise interleave between writing the file and applying it — the file
+	// ending up with one configuration and the running program with the other,
+	// with nothing to say which. The settings page produces exactly that from
+	// two browser tabs.
+	a.applyMu.Lock()
+	defer a.applyMu.Unlock()
+
 	newCfg.Normalize()
 
 	if err := config.Save(a.cfgPath, newCfg); err != nil {

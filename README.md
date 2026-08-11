@@ -1611,14 +1611,22 @@ Hardware-Quellen — die brauchen die Hardware, die sie beschreiben. Sie werden
 mit `-probe` gegen den echten Rechner geprüft. Auch das Tray-Menü und das
 Icon-Werkzeug sind nur manuell verifiziert.
 
-**Der Race Detector läuft hier nicht.** `go test -race` braucht cgo, und dieses
-Projekt baut ohne (`CGO_ENABLED=0`, kein C-Compiler nötig). Der Aufruf bricht mit
-`-race requires cgo` ab. Nebenläufigkeit ist damit werkzeugseitig ungeprüft:
-Aussagen darüber kommen aus dem Lesen des Codes, nicht aus einer Messung. Das
-Programm betreibt Messschleife, MQTT-Publisher, Webserver, Tray und Updater
-nebeneinander, also ist das eine echte Lücke und keine Formalie. Wer sie
-schließen will, braucht mingw-w64 auf der Maschine oder einen CI-Lauf auf
-`windows-latest`.
+**Der Race Detector läuft getrennt:**
+
+```powershell
+.\build.ps1 -Race
+```
+
+Er braucht cgo und damit einen C-Compiler, während der ausgelieferte Build
+bewusst ohne baut (`CGO_ENABLED=0`). Deshalb steht er hinter einem eigenen
+Schalter statt in `-Check`: der Lauf verdoppelt die Dauer und hängt an einem
+Werkzeug, das zum Bauen niemand braucht. Gefunden wird ein mingw-w64 automatisch
+unter `C:\msys64\ucrt64` oder `C:\msys64\mingw64`, sonst muss `gcc` im PATH sein.
+
+Das Programm betreibt Messschleife, MQTT-Publisher, Webserver, Tray und Updater
+nebeneinander, also lohnt der Lauf. Er beweist allerdings nur, dass die
+vorhandenen Tests kein Rennen ausgelöst haben — was kein Test erreicht, bleibt
+ungeprüft.
 
 `go vet` läuft im Build-Skript mit `-unsafeptr=false`: das Mappen fremder
 Shared-Memory-Blöcke braucht eine `uintptr`-Konvertierung, die vet nicht

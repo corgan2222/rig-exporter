@@ -7,6 +7,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	neturl "net/url"
 	"os"
@@ -644,12 +645,34 @@ func Save(path string, cfg Config) error {
 		return fmt.Errorf("encode config: %w", err)
 	}
 
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return fmt.Errorf("write %s: %w", tmp, err)
+	// A name of its own per save, not the fixed path + ".tmp".
+	//
+	// Two saves at once used to meet in that one file: the first would still be
+	// holding it open while the second wrote it, and on Windows the rename then
+	// fails with "The process cannot access the file" or "Access is denied".
+	// Both saves lost, and the user got a message about file permissions for
+	// what was really two browser tabs — or one impatient double click.
+	//
+	// In the same directory, because the rename below has to stay on one volume
+	// to be atomic.
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temporary config: %w", err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+	tmpName := tmp.Name()
+
+	_, writeErr := tmp.Write(append(raw, '\n'))
+	closeErr := tmp.Close()
+	if writeErr != nil || closeErr != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("write %s: %w", tmpName, errors.Join(writeErr, closeErr))
+	}
+	if err := os.Chmod(tmpName, 0o600); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("secure %s: %w", tmpName, err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
 	return nil

@@ -3,6 +3,7 @@
 package app
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -230,4 +231,78 @@ func (s *slowTarget) Export(collector.Snapshot) error {
 
 func (s *slowTarget) Status() export.Status {
 	return export.Status{Name: "slow", Label: "Slow"}
+}
+
+// Two saves at once. Finding 8 says ApplyConfig is not guarded against itself,
+// and until now that was a reading rather than a measurement — nothing drove it
+// from two goroutines. The settings page can: two browser tabs, or one impatient
+// double click on Save.
+//
+// Runs under the race detector to mean anything (.\build.ps1 -Race). Without it
+// this passes whatever the answer is.
+func TestConcurrentConfigChanges(t *testing.T) {
+	application, _ := newTestApp(t, 1000, 1000)
+	application.Start()
+	defer application.Stop()
+
+	var wg sync.WaitGroup
+	for i := range 4 {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			cfg := application.Config()
+			// Different values per goroutine, so an interleaving has something
+			// to disagree about rather than writing the same bytes twice.
+			cfg.PollIntervalMs = 500 + n*100
+			cfg.PublishIntervalMs = 1000 + n*100
+			cfg.IdlePublishIntervalMs = 2000 + n*100
+			if err := application.ApplyConfig(cfg); err != nil {
+				t.Errorf("ApplyConfig: %v", err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Whichever goroutine won, the interval has to be one of the four that were
+	// offered. Only the poll interval is checked: Normalize rounds the publish
+	// intervals up to a multiple of it, so those are derived values and not
+	// evidence of anything.
+	got := application.Config().PollIntervalMs
+	if (got-500)%100 != 0 || got < 500 || got > 800 {
+		t.Errorf("poll interval = %d, want one of 500, 600, 700, 800", got)
+	}
+}
+
+// A save while the loop is running and the status is being read, which is the
+// shape the web interface produces on every page load. Finding 9 says the write
+// lock is held across blocking broker calls; this is what would show it.
+func TestASaveWhileTheLoopAndTheInterfaceAreBusy(t *testing.T) {
+	application, _ := newTestApp(t, 250, 250)
+	application.Start()
+	defer application.Stop()
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = application.Status()
+			}
+		}
+	})
+
+	for i := range 3 {
+		cfg := application.Config()
+		cfg.PollIntervalMs = 250 + i*50
+		if err := application.ApplyConfig(cfg); err != nil {
+			t.Errorf("ApplyConfig: %v", err)
+		}
+	}
+
+	close(stop)
+	wg.Wait()
 }
