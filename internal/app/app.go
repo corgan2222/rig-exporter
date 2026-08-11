@@ -578,10 +578,20 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 		retireUnselected(liveRunners, newCfg)
 	}
 
-	if oldCfg.Autostart != newCfg.Autostart {
-		if err := autostart.Set(config.AppName, newCfg.Autostart); err != nil {
-			a.log.Error("autostart update failed", "error", err)
-		}
+	// Unconditionally, the way SetAutostart from the tray has always done it.
+	//
+	// The old condition compared the configuration against the configuration,
+	// and the page shows the registry: Status calls autostart.Enabled, which
+	// checks the Run value against the path this executable is at right now. So
+	// a moved or freshly downloaded binary makes the page say off while
+	// config.json still says on — and ticking the box then changes nothing,
+	// because old and new agree. That is precisely the case somebody is trying
+	// to repair when they tick it.
+	//
+	// One registry write per save is the price. It is idempotent, and two ways
+	// to the same switch that follow two different rules is worse.
+	if err := autostart.Set(config.AppName, newCfg.Autostart); err != nil {
+		a.log.Error("autostart update failed", "error", err)
 	}
 
 	// The one-off cleanup of the previous application name's entities has now

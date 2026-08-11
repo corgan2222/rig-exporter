@@ -657,8 +657,18 @@ func (c *Config) Normalize() {
 	if c.DeviceName == "" {
 		c.DeviceName = hostname()
 	}
+	// Asked before the slug, not after. Slug("") returns "pc", so once it has
+	// run, a node id nobody set and a "pc" somebody deliberately typed are the
+	// same three letters. The node id is part of every ObjectID, UniqueID and
+	// DeviceIdentifier on this machine, so getting that wrong replaces every
+	// entity — and Normalize runs on every Load and every Save, not only on a
+	// first start, so it did not even need one.
+	//
+	// The old condition also carried a dead half: Slug(c.DeviceName) != ""
+	// could never be false, because Slug returns "pc" for anything unusable.
+	explicit := strings.TrimSpace(c.NodeID) != ""
 	c.NodeID = Slug(c.NodeID)
-	if c.NodeID == "pc" && Slug(c.DeviceName) != "" {
+	if !explicit {
 		c.NodeID = Slug(c.DeviceName)
 	}
 
