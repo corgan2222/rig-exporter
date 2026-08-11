@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,6 +89,15 @@ type Publisher struct {
 	updateGeneration        uint64
 	updatePublished         uint64
 	stopUpdates             func()
+	// republish forces the next pass to announce every entity again, even ones
+	// already in announced. Separate from that map on purpose: whether the
+	// broker needs telling again is a fact about this connection, and what is
+	// retained out there is not.
+	republish bool
+	// legacyCleared records that the one-off retirement of the previous
+	// application name's entities completed. Read by the caller that owns the
+	// flag in the configuration, so it is only cleared once it really happened.
+	legacyCleared bool
 	// pendingRetire holds entities to retire that could not be retired yet
 	// because the broker was unreachable at the time. Somebody who narrows the
 	// sensor set while the broker is down still means it.
@@ -144,7 +154,10 @@ func (p *Publisher) forgetAnnouncementsIfURLChanged(webURL string) {
 		p.log.Info("interface address changed, re-announcing the device link",
 			"from", p.announcedURL, "to", webURL, "entities", len(p.announced))
 	}
-	p.announced = map[string]EntityRef{}
+	// Announce again, and keep the list of what is out there — the same
+	// distinction onConnect makes. The entities have not gone anywhere; only
+	// the address inside their payload is stale.
+	p.republish = true
 	p.updateAnnounced = false
 	p.announcedURL = webURL
 }
@@ -250,10 +263,17 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	p.connected = true
 	p.lastError = ""
 	p.updateError = ""
-	// Forget what was announced, so discovery is republished. A Home Assistant
-	// that was reinstalled or had its retained messages purged then picks the
-	// device up again without restarting rig-exporter.
-	p.announced = map[string]EntityRef{}
+	// Republish discovery, but do not forget what is out there.
+	//
+	// This used to empty p.announced, which had the right effect for the wrong
+	// reason: republishing is wanted — a Home Assistant that was reinstalled or
+	// had its retained messages purged picks the device up again — but that
+	// list is not a record of what this connection did. It is the record of
+	// which retained messages lie on the broker, and those outlive the
+	// connection and the process. Emptying it left RetireUnselected blind: a
+	// drive unplugged after a reconnect had no reference left to retire, and
+	// unticking its group cleared nothing.
+	p.republish = true
 	p.updateAnnounced = false
 	p.updateSubscribed = false
 	p.commonAvailable = false
@@ -276,7 +296,10 @@ func (p *Publisher) onConnect(client mqtt.Client) {
 	// away must not undo an announcement made a moment later.
 	p.flushPendingRetire(client)
 	if p.cfg.LegacyCleanupPending {
-		p.clearLegacyDiscovery(client)
+		// The error is logged inside and reported through LegacyCleanupDone,
+		// which is what decides whether the flag may come off. A failed pass
+		// leaves it set so the next connection tries again.
+		_ = p.clearLegacyDiscovery(client)
 	}
 	if p.updates != nil {
 		if err := p.syncUpdateChannel(client); err != nil {
@@ -355,6 +378,10 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 	webURL := p.currentWebURL()
 	p.forgetAnnouncementsIfURLChanged(webURL)
 
+	p.mu.RLock()
+	republish := p.republish
+	p.mu.RUnlock()
+
 	for _, reading := range snap.Entities() {
 		if !announceable(reading) {
 			continue
@@ -365,7 +392,7 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 		p.mu.RLock()
 		_, known := p.announced[key]
 		p.mu.RUnlock()
-		if known {
+		if known && !republish {
 			continue
 		}
 
@@ -385,6 +412,21 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 			}
 		}
 
+		// And the same entity under the identity this machine was renamed away
+		// from, for as long as one is on record. Same mechanism, one level up:
+		// there the key changed shape, here the node id or the prefix did.
+		//
+		// This is what makes a rename survive an absent broker. The publisher
+		// that knew the old identity was stopped the moment the name changed,
+		// so the old topics can only be emptied by whoever comes after it —
+		// and that one reads the old identity off the configuration.
+		for _, topic := range p.previousTopicsFor(reading) {
+			if err := publish(client, topic, nil, 1, true); err != nil {
+				p.log.Warn("could not retire an entity of the previous identity",
+					"topic", topic, "error", err)
+			}
+		}
+
 		topic, payload, err := discoveryMessage(p.cfg, webURL, reading)
 		if err != nil {
 			return err
@@ -398,6 +440,14 @@ func (p *Publisher) announceNew(client mqtt.Client, snap collector.Snapshot) err
 		p.mu.Unlock()
 
 		p.log.Debug("entity announced", "topic", topic)
+	}
+
+	// Only after a complete pass. A run that gave up halfway would otherwise
+	// leave the rest of the entities unannounced until something else changed.
+	if republish {
+		p.mu.Lock()
+		p.republish = false
+		p.mu.Unlock()
 	}
 	return nil
 }
@@ -767,11 +817,28 @@ func (p *Publisher) ClearDiscovery() {
 	}
 	clearUpdate := p.updates != nil
 	p.updateAnnounced = false
-	p.mu.Unlock()
-
 	if client == nil || !connected {
+		// Queued, the way Retire does it, instead of returning in silence.
+		//
+		// This runs when the node id or the topic prefix changes. A rename
+		// while the broker happened to be restarting used to leave every old
+		// retained message where it was, and Home Assistant then kept a second,
+		// permanently unavailable device — one that survives being deleted by
+		// hand, because the retained config brings it back at the next restart.
+		// Only emptying the topics with an MQTT client helped.
+		p.pendingRetire = append(p.pendingRetire, refs...)
+		if clearUpdate {
+			p.pendingRetire = append(p.pendingRetire,
+				EntityRef{component: "update", key: updateKey})
+		}
+		p.announced = map[string]EntityRef{}
+		p.mu.Unlock()
+		p.log.Warn("discovery cannot be cleared while the broker is away, queued instead",
+			"node_id", p.cfg.NodeID, "entities", len(refs))
 		return
 	}
+	p.announced = map[string]EntityRef{}
+	p.mu.Unlock()
 	for _, ref := range refs {
 		topic := p.cfg.DiscoveryTopic(ref.component, ref.key)
 		if err := publish(client, topic, nil, 1, true); err != nil {
@@ -799,15 +866,89 @@ var legacyKeys = []struct{ component, key string }{
 	{"sensor", "cpu"}, {"sensor", "ram"}, {"binary_sensor", "rtss"},
 }
 
-func (p *Publisher) clearLegacyDiscovery(client mqtt.Client) {
+// clearLegacyDiscovery retires them and says whether it got through.
+//
+// It used to stop at the first failing topic and return nothing, so the caller
+// could not tell a clean pass from half of one — and cleared the flag that
+// remembers to try again either way. One refused publish then left up to seven
+// retained messages of the previous name on the broker for good: a dead device
+// carrying sensor.fps, sensor.cpu and binary_sensor.rtss, and nothing left that
+// would ever come back for it.
+//
+// Carrying on past a failure is the point. These eight topics are independent
+// of each other; giving up on the rest because one was refused only widens the
+// damage.
+func (p *Publisher) clearLegacyDiscovery(client mqtt.Client) error {
+	var failed []string
 	for _, entity := range legacyKeys {
 		topic := p.cfg.LegacyDiscoveryTopic(entity.component, entity.key)
 		if err := publish(client, topic, nil, 1, true); err != nil {
 			p.log.Warn("legacy cleanup failed", "topic", topic, "error", err)
-			return
+			failed = append(failed, topic)
 		}
 	}
+	if len(failed) > 0 {
+		return fmt.Errorf("legacy cleanup left %d of %d topics behind: %s",
+			len(failed), len(legacyKeys), strings.Join(failed, ", "))
+	}
+
+	p.mu.Lock()
+	p.legacyCleared = true
+	p.mu.Unlock()
+
 	p.log.Info("legacy entities retired", "count", len(legacyKeys))
+	return nil
+}
+
+// previousTopicsFor is where one reading's discovery message would lie under
+// the identity this machine was renamed away from.
+//
+// Both the current and every earlier shape of the key, because a rename and a
+// key migration can be pending at the same time — somebody who updates and
+// renames in one sitting.
+//
+// It covers the entities that still exist. One that was announced under the old
+// name and is gone by the time the broker returns cannot be reached this way;
+// what is on record is an identity, not a list of entities. That is the honest
+// limit of the mechanism, and it is the far smaller half of the problem.
+func (p *Publisher) previousTopicsFor(reading metrics.Reading) []string {
+	if p.cfg.PreviousNodeID == "" {
+		return nil
+	}
+
+	previous := p.cfg
+	previous.NodeID = p.cfg.PreviousNodeID
+	if p.cfg.PreviousTopicPrefix != "" {
+		previous.TopicPrefix = p.cfg.PreviousTopicPrefix
+	}
+	if p.cfg.PreviousDiscoveryPrefix != "" {
+		previous.DiscoveryPrefix = p.cfg.PreviousDiscoveryPrefix
+	}
+
+	component := reading.Def.Component()
+	topics := []string{previous.DiscoveryTopic(component, reading.Key())}
+	for _, legacy := range reading.LegacyKeys() {
+		topics = append(topics, previous.DiscoveryTopic(component, legacy))
+	}
+	return topics
+}
+
+// PreviousIdentityCleared reports whether the entities of the identity this
+// machine was renamed away from have been retired, so the note about it may
+// come off the configuration.
+func (p *Publisher) PreviousIdentityCleared() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.cfg.PreviousNodeID != "" && !p.republish && len(p.announced) > 0
+}
+
+// LegacyCleanupDone reports whether the one-off retirement of the previous
+// application name's entities has completed. The flag that remembers to do it
+// lives in the configuration, and this is what says it may finally come off.
+func (p *Publisher) LegacyCleanupDone() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.legacyCleared
 }
 
 // Stop announces offline and closes the connection.

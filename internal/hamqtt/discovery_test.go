@@ -85,13 +85,19 @@ func TestAMovedAddressMakesTheNextPassAnnounceAgain(t *testing.T) {
 	// The same address changes nothing: re-announcing every second would flood
 	// the broker with messages that say what it already knows.
 	p.forgetAnnouncementsIfURLChanged("http://127.0.0.1:8787")
-	if len(p.announced) != 1 {
-		t.Error("an unchanged address dropped the announcements anyway")
+	if p.republish {
+		t.Error("an unchanged address triggered a re-announcement anyway")
 	}
 
 	p.forgetAnnouncementsIfURLChanged("http://127.0.0.1:48352")
-	if len(p.announced) != 0 {
-		t.Error("the announcements survived a changed address")
+	if !p.republish {
+		t.Error("a changed address did not make the next pass announce again")
+	}
+	// And the list of what lies retained on the broker is kept. It used to be
+	// emptied here, which announced again by forgetting — and forgetting is
+	// what left RetireUnselected with nothing to retire.
+	if len(p.announced) != 1 {
+		t.Error("the record of what is retained on the broker was thrown away")
 	}
 	if p.announcedURL != "http://127.0.0.1:48352" {
 		t.Errorf("announcedURL = %q, want the new address", p.announcedURL)
