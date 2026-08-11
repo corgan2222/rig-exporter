@@ -553,6 +553,16 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 
 	if rebuild || identityChanged {
 		if identityChanged {
+			// Written down before the old publisher is asked to clear, and kept
+			// whether or not it manages to. It is the only thing that still
+			// knows where the old retained messages lie once that publisher is
+			// gone, and the publisher built below reads it back.
+			newCfg.PreviousNodeID = oldCfg.NodeID
+			newCfg.PreviousTopicPrefix = oldCfg.TopicPrefix
+			newCfg.PreviousDiscoveryPrefix = oldCfg.DiscoveryPrefix
+			a.mu.Lock()
+			a.cfg = newCfg
+			a.mu.Unlock()
 			clearDiscovery(oldRunners)
 		}
 		for _, r := range oldRunners {
@@ -594,9 +604,33 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 		a.log.Error("autostart update failed", "error", err)
 	}
 
-	// The one-off cleanup of the previous application name's entities has now
-	// either happened or will never be needed again.
-	if newCfg.LegacyCleanupPending {
+	// The one-off cleanup of the previous application name's entities may now
+	// come off the list — but only once a publisher has reported that it got
+	// through all eight topics.
+	//
+	// It used to be cleared here regardless. A migrated installation whose
+	// broker was unreachable at boot therefore lost the reminder the first time
+	// anything at all was saved — a language switch was enough — and the eight
+	// retained messages of the old name stayed on the broker for good, as a
+	// dead device carrying sensor.fps, sensor.cpu and binary_sensor.rtss.
+	// The note about the previous identity comes off the same way: once a
+	// publisher has announced a full round under the new name, every entity
+	// that still exists has had its old topic emptied alongside.
+	if newCfg.PreviousNodeID != "" && previousIdentityCleared(a.runners) {
+		newCfg.PreviousNodeID = ""
+		newCfg.PreviousTopicPrefix = ""
+		newCfg.PreviousDiscoveryPrefix = ""
+		a.mu.Lock()
+		a.cfg.PreviousNodeID = ""
+		a.cfg.PreviousTopicPrefix = ""
+		a.cfg.PreviousDiscoveryPrefix = ""
+		a.mu.Unlock()
+		if err := config.Save(a.cfgPath, newCfg); err != nil {
+			a.log.Warn("could not clear the previous identity", "error", err)
+		}
+	}
+
+	if newCfg.LegacyCleanupPending && legacyCleanupDone(a.runners) {
 		newCfg.LegacyCleanupPending = false
 		a.mu.Lock()
 		a.cfg.LegacyCleanupPending = false
@@ -695,6 +729,37 @@ func droppedBySelfUsage(oldCfg, newCfg config.Config, snap collector.Snapshot) [
 		}
 	}
 	return dropped
+}
+
+// previousIdentityCleared reports whether a publisher has got through a full
+// round of announcements, which is when the old identity's topics were emptied
+// along with them.
+func previousIdentityCleared(runners []*runner) bool {
+	for _, r := range runners {
+		if publisher, ok := r.target.(*hamqtt.Publisher); ok {
+			if publisher.PreviousIdentityCleared() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// legacyCleanupDone reports whether a publisher has finished retiring the
+// entities of the previous application name.
+//
+// No publisher means no answer, and no answer means the reminder stays: an
+// installation with MQTT switched off has nothing that could ever do this, and
+// forgetting the flag would make switching MQTT on later miss it.
+func legacyCleanupDone(runners []*runner) bool {
+	for _, r := range runners {
+		if publisher, ok := r.target.(*hamqtt.Publisher); ok {
+			if publisher.LegacyCleanupDone() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // clearDiscovery retires the Home Assistant entities of the old identity.

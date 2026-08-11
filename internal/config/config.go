@@ -218,6 +218,23 @@ type Config struct {
 	// discovery topics have been emptied.
 	LegacyCleanupPending bool `json:"legacy_cleanup_pending"`
 
+	// PreviousNodeID and its two companions name the identity this machine last
+	// published under, kept until the retained messages of that identity have
+	// been emptied.
+	//
+	// They are written to disk on purpose. Renaming while the broker happens to
+	// be away used to leave the old retained discovery messages where they
+	// were, and Home Assistant then keeps a second, permanently unavailable
+	// device — one that survives being deleted by hand, because the retained
+	// config brings it back at the next restart. Queuing the retirements in
+	// memory does not help: the publisher that knows the old identity is
+	// stopped and discarded in the same breath. Written down, the next
+	// publisher can finish the job whenever the broker returns, across a
+	// restart of the program or the machine.
+	PreviousNodeID          string `json:"previous_node_id,omitempty"`
+	PreviousTopicPrefix     string `json:"previous_topic_prefix,omitempty"`
+	PreviousDiscoveryPrefix string `json:"previous_discovery_prefix,omitempty"`
+
 	// PollIntervalMs is how often the hardware is read. It sets how smoothly
 	// the tray and the settings page move.
 	PollIntervalMs int `json:"poll_interval_ms"`
