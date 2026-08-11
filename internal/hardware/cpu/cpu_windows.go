@@ -22,6 +22,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/hardware/afterburner"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/pdh"
+	"github.com/corgan2222/rig-exporter/internal/winapi"
 )
 
 // Source collects the CPU group.
@@ -333,7 +334,7 @@ const allProcessorGroups = 0xFFFF
 // logicalProcessors counts the logical processors across all processor groups,
 // which matters on machines with more than 64 of them.
 func logicalProcessors() uint32 {
-	count, _, _ := procGetActiveProcessorCount.Call(allProcessorGroups)
+	count, _ := winapi.Call(procGetActiveProcessorCount, allProcessorGroups)
 	return uint32(count)
 }
 
@@ -346,13 +347,16 @@ const relationProcessorCore = 0
 // own size field rather than a fixed stride.
 func physicalCores() int {
 	var size uint32
-	procGetLogicalProcessorInformationEx.Call(relationProcessorCore, 0, uintptr(unsafe.Pointer(&size)))
+	// The first call is expected to fail with ERROR_INSUFFICIENT_BUFFER; only
+	// the size it writes matters, and a missing symbol leaves it at zero.
+	_, _ = winapi.Call(procGetLogicalProcessorInformationEx,
+		relationProcessorCore, 0, uintptr(unsafe.Pointer(&size)))
 	if size == 0 {
 		return 0
 	}
 
 	buf := make([]byte, size)
-	ret, _, _ := procGetLogicalProcessorInformationEx.Call(
+	ret, _ := winapi.Call(procGetLogicalProcessorInformationEx,
 		relationProcessorCore,
 		uintptr(unsafe.Pointer(&buf[0])),
 		uintptr(unsafe.Pointer(&size)),
@@ -400,15 +404,15 @@ func clocks() (current, max float64, err error) {
 	info := make([]processorPowerInformation, count)
 	size := uint32(uintptr(count) * unsafe.Sizeof(info[0]))
 
-	// A non-zero NTSTATUS means the call failed.
-	status, _, _ := procCallNtPowerInformation.Call(
+	// A non-zero NTSTATUS means the call failed, and zero would also be what a
+	// missing symbol returned — hence CallNTStatus rather than a bare Call.
+	if err := winapi.CallNTStatus(procCallNtPowerInformation,
 		processorInformationLevel,
 		0, 0,
 		uintptr(unsafe.Pointer(&info[0])),
 		uintptr(size),
-	)
-	if status != 0 {
-		return 0, 0, fmt.Errorf("CallNtPowerInformation returned 0x%x", status)
+	); err != nil {
+		return 0, 0, fmt.Errorf("CallNtPowerInformation: %w", err)
 	}
 
 	var sum float64
@@ -448,14 +452,13 @@ func processorPerformance() ([]processorTimes, error) {
 	size := uint32(uintptr(count) * unsafe.Sizeof(out[0]))
 
 	var returned uint32
-	status, _, _ := procNtQuerySystemInformation.Call(
+	if err := winapi.CallNTStatus(procNtQuerySystemInformation,
 		systemProcessorPerformanceInformation,
 		uintptr(unsafe.Pointer(&out[0])),
 		uintptr(size),
 		uintptr(unsafe.Pointer(&returned)),
-	)
-	if status != 0 {
-		return nil, fmt.Errorf("NtQuerySystemInformation returned 0x%x", status)
+	); err != nil {
+		return nil, fmt.Errorf("NtQuerySystemInformation: %w", err)
 	}
 
 	if actual := int(returned) / int(unsafe.Sizeof(out[0])); actual < len(out) {
