@@ -194,6 +194,7 @@ func selectionFor(cfg config.Config) map[string]bool {
 // configuration asks for.
 func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger) (*collector.Collector, *sensors) {
 	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
+	c.SetPollInterval(cfg.PollIntervalMs)
 	c.ReportVersion(config.VersionString())
 	c.ReportSelfUsage(cfg.SelfUsageEnabled)
 	// Registered whatever the graphics group is set to, because the frame rate
@@ -543,6 +544,11 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 	if rebuildSensors {
 		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log)
 	}
+	// Set whether or not the sensors were rebuilt: the poll interval is not one
+	// of the switches sensorsChanged watches, so changing only the interval
+	// would otherwise leave every source on the deadline derived from the old
+	// one.
+	a.collector.SetPollInterval(newCfg.PollIntervalMs)
 	newSensors := a.sensors
 	a.mu.Unlock()
 

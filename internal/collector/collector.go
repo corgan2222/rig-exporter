@@ -154,8 +154,14 @@ type FrameRate func() (float64, bool)
 type Collector struct {
 	rtss    RTSSSource
 	system  SystemSource
-	sources []Source
+	sources []*guardedSource
 	log     *slog.Logger
+
+	// sourceDeadline is how long one source may take. Zero means it is derived
+	// from the poll interval on every collection, which is what production
+	// does; tests set it outright.
+	sourceDeadline time.Duration
+	pollMs         int
 
 	// frames stands in for RTSS when RTSS has no rendering application, and
 	// frameOrigin names what supplied the number.
@@ -212,11 +218,32 @@ func New(rtssSource RTSSSource, system SystemSource, idleMs int, log *slog.Logge
 	return &Collector{rtss: rtssSource, system: system, idleMs: uint32(idleMs), log: log}
 }
 
+// deadline is how long a single source may take this collection.
+//
+// Derived from the poll interval rather than fixed, so it scales with what the
+// user asked for: a five-second interval gives a source two and a half seconds,
+// a 500 ms interval gives it 250 ms. An unknown interval falls back to the
+// default poll rate rather than to no limit at all.
+func (c *Collector) deadline() time.Duration {
+	if c.sourceDeadline > 0 {
+		return c.sourceDeadline
+	}
+	poll := c.pollMs
+	if poll <= 0 {
+		poll = 1000
+	}
+	return time.Duration(poll) * time.Millisecond / defaultSourceDeadlineShare
+}
+
+// SetPollInterval tells the collector how much time one tick has, which is what
+// the per-source deadline is derived from.
+func (c *Collector) SetPollInterval(ms int) { c.pollMs = ms }
+
 // AddSource registers an optional sensor group.
 func (c *Collector) AddSource(sources ...Source) {
 	for _, s := range sources {
 		if s != nil {
-			c.sources = append(c.sources, s)
+			c.sources = append(c.sources, &guardedSource{Source: s})
 		}
 	}
 }
@@ -232,11 +259,12 @@ func (c *Collector) Collect() Snapshot {
 	snap.Set.Origin = originWindows
 	c.collectSystem(&snap)
 
+	deadline := c.deadline()
 	for _, source := range c.sources {
 		// Everything a source adds is stamped with what supplied it. A source
 		// backed by more than one program overrides this as it goes.
-		snap.Set.Origin = originOf(source)
-		if err := source.Collect(&snap.Set); err != nil {
+		snap.Set.Origin = originOf(source.Source)
+		if err := source.collect(&snap.Set, deadline, c.log); err != nil {
 			snap.SourceErrors[source.Group()] = err.Error()
 			c.log.Debug("source unavailable", "group", source.Group(), "error", err)
 		}

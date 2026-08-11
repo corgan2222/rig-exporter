@@ -3,7 +3,10 @@ package collector
 import (
 	"errors"
 	"log/slog"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/rtss"
@@ -419,5 +422,174 @@ func TestAGenuineZeroIdleTimeIsStillPublished(t *testing.T) {
 	}
 	if reading.Number != 0 {
 		t.Errorf("idle_time = %v, want 0", reading.Number)
+	}
+}
+
+// blockingSource stops inside Collect until the test lets it go, which is what
+// a drive that has stopped answering does to the tick.
+type blockingSource struct {
+	group    metrics.Group
+	entered  chan struct{}
+	release  chan struct{}
+	calls    atomic.Int32
+	readings []metrics.Reading
+}
+
+func (s *blockingSource) Group() metrics.Group { return s.group }
+
+func (s *blockingSource) Collect(set *metrics.Set) error {
+	if s.calls.Add(1) == 1 {
+		close(s.entered)
+	}
+	<-s.release
+	set.Add(s.readings...)
+	return nil
+}
+
+// The tick drives every source. One that does not answer must not hold it, or
+// nothing is exported at all while a single drive is asleep.
+func TestASourceThatBlocksDoesNotHoldTheTick(t *testing.T) {
+	slow := &blockingSource{
+		group:   metrics.GroupDisk,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	t.Cleanup(func() { close(slow.release) })
+
+	c := newCollector(fakeRTSS{}, newSystem())
+	c.sourceDeadline = 50 * time.Millisecond
+	c.AddSource(slow)
+	c.AddSource(fakeSource{
+		group:    metrics.GroupNet,
+		readings: []metrics.Reading{metrics.Gauge(metrics.NetLinkSpeed, "Ethernet", 1000)},
+	})
+
+	done := make(chan Snapshot, 1)
+	go func() { done <- c.Collect() }()
+
+	select {
+	case snap := <-done:
+		// The source after the blocked one still ran.
+		if _, ok := snap.Find(metrics.NetLinkSpeed.ID, "Ethernet"); !ok {
+			t.Error("the sources behind the blocked one were skipped")
+		}
+		if snap.SourceErrors[metrics.GroupDisk] == "" {
+			t.Error("the blocked source was not recorded as unavailable")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Collect blocked on a source that never answered")
+	}
+}
+
+// And it is not started again while it is still in there. One goroutine stuck
+// in a Win32 call is a leak; one per tick is a leak that grows.
+func TestASourceStillStuckIsNotStartedAgain(t *testing.T) {
+	slow := &blockingSource{
+		group:   metrics.GroupDisk,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	t.Cleanup(func() { close(slow.release) })
+
+	c := newCollector(fakeRTSS{}, newSystem())
+	c.sourceDeadline = 50 * time.Millisecond
+	c.AddSource(slow)
+
+	c.Collect()
+	<-slow.entered
+	c.Collect()
+	c.Collect()
+
+	if got := slow.calls.Load(); got != 1 {
+		t.Errorf("the stuck source was entered %d times, want 1", got)
+	}
+}
+
+// panickingSource is a vendor library having a bad day.
+type panickingSource struct{ calls atomic.Int32 }
+
+func (s *panickingSource) Group() metrics.Group { return metrics.GroupGPU }
+
+func (s *panickingSource) Collect(*metrics.Set) error {
+	s.calls.Add(1)
+	panic("the vendor library dereferenced nothing")
+}
+
+// A panic in one source must not take the process. Linked with -H windowsgui it
+// takes the web server, MQTT and the tray with it, and says nothing.
+func TestAPanickingSourceDoesNotTakeTheProcess(t *testing.T) {
+	bad := &panickingSource{}
+	c := newCollector(fakeRTSS{}, newSystem())
+	c.AddSource(bad)
+	c.AddSource(fakeSource{
+		group:    metrics.GroupNet,
+		readings: []metrics.Reading{metrics.Gauge(metrics.NetLinkSpeed, "Ethernet", 1000)},
+	})
+
+	snap := c.Collect()
+
+	if _, ok := snap.Find(metrics.NetLinkSpeed.ID, "Ethernet"); !ok {
+		t.Error("the sources behind the panicking one were skipped")
+	}
+	detail := snap.SourceErrors[metrics.GroupGPU]
+	if detail == "" {
+		t.Fatal("the panic was not recorded")
+	}
+	if !strings.Contains(detail, "dereferenced nothing") {
+		t.Errorf("recorded detail = %q, want the panic message in it", detail)
+	}
+}
+
+// And it is switched off afterwards. A source that panics every tick is a
+// program running broken in silence, which is what catching the panic would
+// otherwise create.
+func TestAPanickingSourceIsSwitchedOff(t *testing.T) {
+	bad := &panickingSource{}
+	c := newCollector(fakeRTSS{}, newSystem())
+	c.AddSource(bad)
+
+	for range 3 {
+		snap := c.Collect()
+		if snap.SourceErrors[metrics.GroupGPU] == "" {
+			t.Fatal("the disabled source stopped reporting why it is gone")
+		}
+	}
+
+	if got := bad.calls.Load(); got != 1 {
+		t.Errorf("the panicking source ran %d times, want 1", got)
+	}
+}
+
+// readingSource answers only when the set does not already carry the value,
+// which is how the cheapest source wins in this program.
+type readingSource struct {
+	group metrics.Group
+	saw   bool
+}
+
+func (s *readingSource) Group() metrics.Group { return s.group }
+
+func (s *readingSource) Collect(set *metrics.Set) error {
+	_, s.saw = set.Find(metrics.NetLinkSpeed.ID, "Ethernet")
+	return nil
+}
+
+// The guard around each source must not cost a source its view of what the
+// earlier ones supplied. "The cheapest source wins" is built on exactly that:
+// the expensive source writes only what the cheap one did not.
+func TestASourceStillSeesWhatTheEarlierOnesSupplied(t *testing.T) {
+	late := &readingSource{group: metrics.GroupGPU}
+
+	c := newCollector(fakeRTSS{}, newSystem())
+	c.AddSource(fakeSource{
+		group:    metrics.GroupNet,
+		readings: []metrics.Reading{metrics.Gauge(metrics.NetLinkSpeed, "Ethernet", 1000)},
+	})
+	c.AddSource(late)
+
+	c.Collect()
+
+	if !late.saw {
+		t.Error("a later source could not see the earlier source's reading")
 	}
 }
