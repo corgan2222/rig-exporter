@@ -49,7 +49,8 @@ body:
     attributes:
       label: The full report
       description: >-
-        rig-exporter writes it as `crash-<timestamp>.log` next to the
+        rig-exporter writes it as
+        `rig-exporter_<machine>_crashreport_<date>_<time>.log` next to the
         configuration, and from 1.9.4 links it at the bottom of the
         **Export & display** page — one click to open it there. Drag the file
         into this box, or paste it. The link that opened this page cannot carry
