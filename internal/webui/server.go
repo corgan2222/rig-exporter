@@ -126,7 +126,10 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 	// matter because the settings page offers web_bind_all, which moves this
 	// listener off loopback and onto every interface.
 	s.server = &http.Server{
-		Handler:           mux,
+		// Wrapped, not registered per route: a route added later would
+		// otherwise be a hole nobody notices, and this one is easy to forget
+		// because the missing check has no symptom until somebody uses it.
+		Handler:           sameSite(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -556,6 +559,9 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := s.app.Config()
+	// What was there before the form was applied. Config returns a copy, so
+	// this is a real snapshot and not a second view of the same struct.
+	previous := cfg
 	switch block {
 	case "mqtt":
 		cfg.MQTTEnabled = r.FormValue("mqtt_enabled") != ""
@@ -568,6 +574,13 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		// An empty password field means "keep what is stored", so the page
 		// never has to round-trip the secret.
 		cfg.MQTTPassword = updateSecret(r, "mqtt_password", "clear_password", cfg.MQTTPassword)
+		// Unless the broker moved. The password was entered for one broker,
+		// and carrying it to another is how a save that never showed the
+		// secret still manages to send it somewhere new. Host and port
+		// together are the target: a different port is a different broker.
+		if cfg.MQTTHost != previous.MQTTHost || cfg.MQTTPort != previous.MQTTPort {
+			cfg.MQTTPassword = enteredSecret(r, "mqtt_password")
+		}
 
 	case "ha":
 		cfg.DeviceName = strings.TrimSpace(r.FormValue("device_name"))
@@ -591,6 +604,12 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.InfluxBucket = strings.TrimSpace(r.FormValue("influx_bucket"))
 		cfg.InfluxMeasurement = strings.TrimSpace(r.FormValue("influx_measurement"))
 		cfg.InfluxToken = updateSecret(r, "influx_token", "clear_influx_token", cfg.InfluxToken)
+		// The same rule as for the broker. The push carries this token in an
+		// Authorization header on every interval, so the URL is the whole
+		// question of who receives it.
+		if cfg.InfluxURL != previous.InfluxURL {
+			cfg.InfluxToken = enteredSecret(r, "influx_token")
+		}
 
 	case "sensors":
 		cfg.GPUEnabled = r.FormValue("gpu_enabled") != ""
@@ -735,6 +754,17 @@ func updateSecret(r *http.Request, field, clearField, current string) string {
 	default:
 		return current
 	}
+}
+
+// enteredSecret is what this request actually carried, and nothing else.
+//
+// Used where the target moved. "Blank keeps what is stored" is right while the
+// target stays put and wrong the moment it does not: a secret was entered for
+// one broker or one database, and taking it along to a new address is how a
+// page that never shows a secret still manages to send it somewhere new. Whoever
+// moves the target types the secret again, or there is none.
+func enteredSecret(r *http.Request, field string) string {
+	return strings.TrimSpace(r.FormValue(field))
 }
 
 func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {

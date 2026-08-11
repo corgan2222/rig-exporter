@@ -166,10 +166,17 @@ var catalogue = map[string]Text{
 	"settings.save":       {DE: "Speichern & übernehmen", EN: "Save and apply"},
 	"settings.saveHint":   {DE: "Betroffene Verbindungen werden bei Bedarf neu aufgebaut.", EN: "Affected connections are rebuilt where needed."},
 	"settings.keepSecret": {DE: "gespeichert – leer lassen zum Behalten", EN: "stored — leave blank to keep"},
-	"settings.noSecret":   {DE: "nicht gesetzt", EN: "not set"},
-	"settings.jumpTo":     {DE: "Direkt zu", EN: "Jump to"},
-	"settings.unchanged":  {DE: "keine Änderungen", EN: "no changes"},
-	"settings.unsaved":    {DE: "ungespeicherte Änderungen", EN: "unsaved changes"},
+	// Vor dem Speichern gesagt, nicht danach. Ohne diesen Satz sieht das
+	// Fallenlassen wie ein Datenverlust aus, dabei ist es genau die Regel, die
+	// verhindert, dass eine geaenderte Adresse das Geheimnis mitnimmt.
+	"settings.secretMoves": {
+		DE: "Zieht das Ziel um, wird das Gespeicherte nicht mitgenommen: Adresse ändern heißt neu eingeben.",
+		EN: "The stored secret does not travel: change the address and it has to be entered again.",
+	},
+	"settings.noSecret":  {DE: "nicht gesetzt", EN: "not set"},
+	"settings.jumpTo":    {DE: "Direkt zu", EN: "Jump to"},
+	"settings.unchanged": {DE: "keine Änderungen", EN: "no changes"},
+	"settings.unsaved":   {DE: "ungespeicherte Änderungen", EN: "unsaved changes"},
 
 	// Settings, MQTT.
 	"settings.mqtt.title":     {DE: "MQTT — Push an Home Assistant", EN: "MQTT — push to Home Assistant"},
