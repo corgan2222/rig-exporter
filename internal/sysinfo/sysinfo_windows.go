@@ -145,11 +145,13 @@ func (p *Provider) ForegroundPID() uint32 { return winapi.ForegroundPID() }
 // TickCount is the millisecond tick RTSS timestamps are measured against.
 func (p *Provider) TickCount() uint32 { return winapi.TickCount() }
 
-// IdleSeconds is how long the user has not touched keyboard or mouse.
-func (p *Provider) IdleSeconds() float64 { return winapi.IdleSeconds() }
+// IdleSeconds is how long the user has not touched keyboard or mouse, and
+// whether it could be read.
+func (p *Provider) IdleSeconds() (float64, bool) { return winapi.IdleSeconds() }
 
-// UptimeHours is how long the machine has been running.
-func (p *Provider) UptimeHours() float64 { return winapi.UptimeHours() }
+// UptimeHours is how long the machine has been running, and whether it could
+// be read.
+func (p *Provider) UptimeHours() (float64, bool) { return winapi.UptimeHours() }
 
 // WindowsVersion describes the operating system, e.g. "Windows 10 Pro 22H2
 // (19045.7548)". Empty when it could not be determined.

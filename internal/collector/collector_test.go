@@ -112,7 +112,9 @@ type fakeSystem struct {
 	foreground uint32
 	tick       uint32
 	idle       float64
+	idleOK     bool
 	uptime     float64
+	uptimeOK   bool
 
 	osVersion    string
 	processes    int
@@ -127,8 +129,8 @@ func (f *fakeSystem) Memory() (sysinfo.Memory, error)   { return f.memory, nil }
 func (f *fakeSystem) Display() (sysinfo.Display, error) { return f.display, f.displayErr }
 func (f *fakeSystem) ForegroundPID() uint32             { return f.foreground }
 func (f *fakeSystem) TickCount() uint32                 { return f.tick }
-func (f *fakeSystem) IdleSeconds() float64              { return f.idle }
-func (f *fakeSystem) UptimeHours() float64              { return f.uptime }
+func (f *fakeSystem) IdleSeconds() (float64, bool)      { return f.idle, f.idleOK }
+func (f *fakeSystem) UptimeHours() (float64, bool)      { return f.uptime, f.uptimeOK }
 func (f *fakeSystem) WindowsVersion() string            { return f.osVersion }
 func (f *fakeSystem) Hypervisor() string                { return f.hypervisor }
 func (f *fakeSystem) ProcessCount() (int, error)        { return f.processes, f.processesErr }
@@ -144,7 +146,9 @@ func newSystem() *fakeSystem {
 		processes: 312,
 		tick:      10_000,
 		idle:      12, // whole seconds: the idle reading has no decimals
+		idleOK:    true,
 		uptime:    3.25,
+		uptimeOK:  true,
 	}
 }
 
@@ -371,5 +375,49 @@ func TestPartialSourceResultsAreKept(t *testing.T) {
 	}
 	if got.SourceErrors[metrics.GroupDisk] == "" {
 		t.Error("the partial failure was not recorded")
+	}
+}
+
+// A zero idle time means "somebody is at the machine right now", which is what
+// presence automations in Home Assistant turn on. It must not be what a failed
+// read looks like — a missing value is left out, not zeroed.
+func TestAnUnreadableIdleTimeIsLeftOutRatherThanZeroed(t *testing.T) {
+	system := newSystem()
+	system.idleOK = false
+
+	got := newCollector(fakeRTSS{}, system).Collect()
+
+	if _, ok := got.Find(metrics.IdleTime.ID, ""); ok {
+		t.Error("idle_time was published although it could not be read")
+	}
+}
+
+// The same for uptime, where a zero claims the machine just booted.
+func TestAnUnreadableUptimeIsLeftOutRatherThanZeroed(t *testing.T) {
+	system := newSystem()
+	system.uptimeOK = false
+
+	got := newCollector(fakeRTSS{}, system).Collect()
+
+	if _, ok := got.Find(metrics.Uptime.ID, ""); ok {
+		t.Error("uptime was published although it could not be read")
+	}
+}
+
+// The counter-check, and the reason this needs a separate flag rather than a
+// sentinel: a real zero has to reach the export. Somebody who just moved the
+// mouse has an idle time of zero seconds, and that is a reading.
+func TestAGenuineZeroIdleTimeIsStillPublished(t *testing.T) {
+	system := newSystem()
+	system.idle, system.idleOK = 0, true
+
+	got := newCollector(fakeRTSS{}, system).Collect()
+
+	reading, ok := got.Find(metrics.IdleTime.ID, "")
+	if !ok {
+		t.Fatal("a genuine idle time of zero was dropped")
+	}
+	if reading.Number != 0 {
+		t.Errorf("idle_time = %v, want 0", reading.Number)
 	}
 }
