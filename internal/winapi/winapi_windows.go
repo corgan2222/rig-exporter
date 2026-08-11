@@ -103,11 +103,22 @@ func TickCount() uint32 {
 	return uint32(ret)
 }
 
-// UptimeHours is how long the machine has been running. Unlike TickCount this
-// keeps the full 64-bit value, so it stays correct past 49 days.
-func UptimeHours() float64 {
+// UptimeHours is how long the machine has been running, and whether it could be
+// read. Unlike TickCount this keeps the full 64-bit value, so it stays correct
+// past 49 days.
+//
+// The second result exists because zero is a real answer: a machine that just
+// booted has been up for nearly zero hours. Without it a failed call published
+// "just rebooted", which is a claim rather than a gap.
+func UptimeHours() (float64, bool) {
 	ret, _ := Call(procGetTickCount64)
-	return float64(uint64(ret)) / 1000 / 3600
+	if ret == 0 {
+		// GetTickCount64 cannot fail; it can only be missing, and Call answers
+		// zero for that. A genuine zero would mean the machine booted during
+		// this instruction.
+		return 0, false
+	}
+	return float64(uint64(ret)) / 1000 / 3600, true
 }
 
 // lastInputInfo mirrors LASTINPUTINFO.
@@ -116,20 +127,24 @@ type lastInputInfo struct {
 	Time uint32
 }
 
-// IdleSeconds is how long ago the user last touched keyboard or mouse.
+// IdleSeconds is how long ago the user last touched keyboard or mouse, and
+// whether it could be read.
 //
 // The counter is per-session and stops while the workstation is locked, which
-// is exactly what makes it useful as a presence signal in Home Assistant.
-func IdleSeconds() float64 {
+// is exactly what makes it useful as a presence signal in Home Assistant — and
+// exactly why the second result matters. Zero seconds idle means somebody is at
+// the machine right now, so a failed read that answered zero told every presence
+// automation the opposite of the truth.
+func IdleSeconds() (float64, bool) {
 	info := lastInputInfo{}
 	info.Size = uint32(unsafe.Sizeof(info))
 
 	ret, _ := Call(procGetLastInputInfo, uintptr(unsafe.Pointer(&info)))
 	if ret == 0 {
-		return 0
+		return 0, false
 	}
 	// Both values wrap after ~49 days; unsigned subtraction survives that.
-	return float64(TickCount()-info.Time) / 1000
+	return float64(TickCount()-info.Time) / 1000, true
 }
 
 // ForegroundPID is the process owning the focused window, or 0 if there is

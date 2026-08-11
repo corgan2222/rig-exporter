@@ -128,8 +128,12 @@ type SystemSource interface {
 	Display() (sysinfo.Display, error)
 	ForegroundPID() uint32
 	TickCount() uint32
-	IdleSeconds() float64
-	UptimeHours() float64
+	// IdleSeconds and UptimeHours report whether they could be read at all.
+	// Zero is a real answer for both — nobody has touched the machine for zero
+	// seconds while they are using it, and a machine that just booted has been
+	// up for nearly zero hours — so a failure cannot be signalled by the value.
+	IdleSeconds() (float64, bool)
+	UptimeHours() (float64, bool)
 	WindowsVersion() string
 	// Hypervisor names the virtualisation platform, empty on real hardware.
 	Hypervisor() string
@@ -366,10 +370,16 @@ func (c *Collector) collectSystem(snap *Snapshot) {
 		metrics.Gauge(metrics.DisplayHeight, "", float64(display.Height)),
 	)
 
-	snap.Add(
-		metrics.Gauge(metrics.IdleTime, "", c.system.IdleSeconds()),
-		metrics.Gauge(metrics.Uptime, "", c.system.UptimeHours()),
-	)
+	// Added only when they were read. Both have zero as a legitimate value, so
+	// publishing a failure as zero does not merely lose a reading — it asserts
+	// the opposite: idle_time zero means somebody is at the machine, which is
+	// what presence automations in Home Assistant switch on.
+	if idle, ok := c.system.IdleSeconds(); ok {
+		snap.Add(metrics.Gauge(metrics.IdleTime, "", idle))
+	}
+	if uptime, ok := c.system.UptimeHours(); ok {
+		snap.Add(metrics.Gauge(metrics.Uptime, "", uptime))
+	}
 
 	// Not a machine reading: this is the program saying which build produced
 	// everything else, so it is credited to the program rather than to Windows.
