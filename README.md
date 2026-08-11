@@ -503,6 +503,13 @@ jeweils neuesten. Sie werden einmal geladen und unter
 einer neuen rig-exporter-Version und nicht von selbst — was bei signiertem Code,
 der in einem Kerneltreiber landet, die richtige Richtung ist.
 
+Das Laden hält die Messung nicht auf. Es läuft neben der Messschleife, und
+solange nichts geladen ist, liefert diese Quelle nichts — alle anderen Werte
+kommen unverändert weiter. Scheitert es, etwa weil gerade kein Netz da ist,
+wird es später erneut versucht: zuerst nach einer Minute, dann in wachsendem
+Abstand bis zu einer Stunde. Ein Laptop, der ins WLAN zurückkehrt, braucht
+dafür keinen Neustart des Programms.
+
 **CPU-Temperatur gibt es sonst nur mit Afterburner.** Das ist keine Bequemlichkeit:
 Ryzen liefert Tctl über den SMU, Intel über ein MSR, und beides liegt in Ring 0.
 Kein Programm ohne Kerneltreiber kommt daran — deshalb bringt Afterburner einen
