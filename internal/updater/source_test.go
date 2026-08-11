@@ -174,7 +174,7 @@ func TestReleaseSourceStagesOnlyAnAuthenticRelease(t *testing.T) {
 	}
 
 	target := filepath.Join(t.TempDir(), "rig-exporter.exe")
-	if err := source.Stage(context.Background(), release, target); err != nil {
+	if err := source.Stage(context.Background(), release, target, func(float64) {}); err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
 	got, err := os.ReadFile(target)
@@ -223,7 +223,7 @@ func TestReleaseSourceRejectsATamperedArchive(t *testing.T) {
 	}
 	provider.data[1] = append(provider.data[1], byte('x'))
 
-	err = source.Stage(context.Background(), release, filepath.Join(t.TempDir(), "rig-exporter.exe"))
+	err = source.Stage(context.Background(), release, filepath.Join(t.TempDir(), "rig-exporter.exe"), func(float64) {})
 	if err == nil {
 		t.Fatal("Stage accepted an archive whose checksum no longer matches")
 	}
@@ -246,7 +246,66 @@ func TestReleaseSourceRejectsAnInvalidChecksumSignature(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("Latest = found:%v err:%v", found, err)
 	}
-	if err := source.Stage(context.Background(), release, filepath.Join(t.TempDir(), "rig-exporter.exe")); err == nil {
+	if err := source.Stage(context.Background(), release, filepath.Join(t.TempDir(), "rig-exporter.exe"), func(float64) {}); err == nil {
 		t.Fatal("Stage accepted checksums with an invalid ECDSA signature")
+	}
+}
+
+// The library offers no progress hook, so the count comes from the reader this
+// package already wraps around the download for its size limit.
+func TestTheDownloadReportsHowFarItGot(t *testing.T) {
+	provider := &fakeProvider{data: map[int64][]byte{1: []byte("0123456789")}}
+	release := &selfupdate.Release{AssetID: 1, AssetByteSize: 10}
+
+	var seen []float64
+	progress := &progressReporter{}
+	progress.set(func(percent float64) { seen = append(seen, percent) })
+	source := limitedSource{Source: provider, maxBytes: 1024, progress: progress}
+
+	reader, err := source.DownloadReleaseAsset(context.Background(), release, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	buf := make([]byte, 5)
+	if _, err := io.ReadFull(reader, buf); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(reader, buf); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(seen) < 2 || seen[0] != 50 || seen[len(seen)-1] != 100 {
+		t.Errorf("progress = %v, want it to pass 50 and end at 100", seen)
+	}
+}
+
+// The checksum file is downloaded through the same call, and it is a few
+// hundred bytes against an asset of megabytes. Counting it against the asset
+// size would run the bar to some meaningless number and back.
+func TestOnlyTheReleaseAssetIsCounted(t *testing.T) {
+	provider := &fakeProvider{data: map[int64][]byte{
+		1: []byte("0123456789"),
+		2: []byte("checksums"),
+	}}
+	release := &selfupdate.Release{AssetID: 1, AssetByteSize: 10}
+
+	var seen []float64
+	progress := &progressReporter{}
+	progress.set(func(percent float64) { seen = append(seen, percent) })
+	source := limitedSource{Source: provider, maxBytes: 1024, progress: progress}
+
+	reader, err := source.DownloadReleaseAsset(context.Background(), release, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	if _, err := io.ReadAll(reader); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(seen) != 0 {
+		t.Errorf("progress = %v, want nothing reported for the validation asset", seen)
 	}
 }

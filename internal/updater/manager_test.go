@@ -19,6 +19,8 @@ type fakeReleaseSource struct {
 	stageErr    error
 	stageStart  chan struct{}
 	stageFinish chan struct{}
+	// onStage stands in for what the real source does while it downloads.
+	onStage func(report func(float64))
 
 	mu          sync.Mutex
 	staged      []Release
@@ -29,7 +31,10 @@ func (s *fakeReleaseSource) Latest(context.Context) (Release, bool, error) {
 	return s.latest, s.found, s.latestErr
 }
 
-func (s *fakeReleaseSource) Stage(_ context.Context, release Release, target string) error {
+func (s *fakeReleaseSource) Stage(_ context.Context, release Release, target string, report func(float64)) error {
+	if s.onStage != nil {
+		s.onStage(report)
+	}
 	if s.stageStart != nil {
 		close(s.stageStart)
 	}
@@ -347,5 +352,84 @@ func TestTheSummaryDropsTheInstallInstructions(t *testing.T) {
 	}
 	if strings.Contains(summary, "Installing") || strings.Contains(summary, "administrator rights") {
 		t.Errorf("the summary still carries the install instructions: %q", summary)
+	}
+}
+
+// The progress bar in Home Assistant never moved: update_percentage was
+// serialised into the payload and never given a value. Anything the staging
+// run reports has to reach the state, and the subscribers with it.
+func TestTheProgressOfAStagingRunReachesTheState(t *testing.T) {
+	source := &fakeReleaseSource{
+		found:  true,
+		latest: Release{Version: "1.6.4", Size: 12 << 20},
+		onStage: func(report func(float64)) {
+			report(25)
+			report(75)
+		},
+	}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+	manager.opts.TempRoot = t.TempDir()
+	done := make(chan struct{})
+	manager.opts.RequestRestart = func() { close(done) }
+	t.Cleanup(manager.Stop)
+
+	var mu sync.Mutex
+	var seen []float64
+	unsubscribe := manager.Subscribe(func(s State) {
+		if s.UpdatePercentage != nil {
+			mu.Lock()
+			seen = append(seen, *s.UpdatePercentage)
+			mu.Unlock()
+		}
+	})
+	t.Cleanup(unsubscribe)
+
+	if err := manager.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if err := manager.RequestInstall(); err != nil {
+		t.Fatalf("RequestInstall: %v", err)
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the install never finished")
+	}
+
+	mu.Lock()
+	got := append([]float64(nil), seen...)
+	mu.Unlock()
+	if len(got) < 2 || got[0] != 25 || got[1] != 75 {
+		t.Errorf("progress reported = %v, want it to start 25, 75", got)
+	}
+}
+
+// And it has to go away again. A bar left at 100 claims an update is running.
+func TestTheProgressIsClearedWhenTheStagingEnds(t *testing.T) {
+	source := &fakeReleaseSource{
+		found:   true,
+		latest:  Release{Version: "1.6.4", Size: 12 << 20},
+		onStage: func(report func(float64)) { report(100) },
+	}
+	manager := newTestManager(source, &fakeApplyPreparer{})
+	manager.opts.TempRoot = t.TempDir()
+	done := make(chan struct{})
+	manager.opts.RequestRestart = func() { close(done) }
+	t.Cleanup(manager.Stop)
+
+	if err := manager.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if err := manager.RequestInstall(); err != nil {
+		t.Fatalf("RequestInstall: %v", err)
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the install never finished")
+	}
+
+	if p := manager.State().UpdatePercentage; p != nil {
+		t.Errorf("UpdatePercentage = %v after the install, want nil", *p)
 	}
 }
