@@ -15,6 +15,13 @@ permissions:
 
 jobs:
   draft:
+    # Push only. This job holds contents: write, and without the guard it also
+    # ran on every pull_request_target — rewriting the draft release whenever
+    # anybody opened or updated a pull request, which is not what a draft of the
+    # next release is for. The mirror image of the label guard below; taking the
+    # same condition as that one would be the opposite mistake, leaving the
+    # draft to run on pull requests and never on a merge to main.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
