@@ -11,6 +11,7 @@ package net
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -170,6 +171,26 @@ func (s *Source) addPing(set *metrics.Set) {
 	}
 }
 
+// linkMbit converts a reported link speed into megabits per second.
+//
+// Written by hand for one value. Windows uses all-ones in ReceiveLinkSpeed to
+// mean "speed unknown", and dividing that produces 18446744073709.55 Mbit/s —
+// which slips past everything downstream because it is not too small, it is
+// enormous. The measurement then claims a speed nobody reported, and
+// packetRateLimit builds a ceiling of 3.6e16 packets a second on it, which
+// switches off the very filter that keeps a broken driver's counters out.
+//
+// Zero here is not the same sin as a published zero. This is a field of an
+// internal struct rather than a reading, and both readers already understand
+// zero as "unknown": Collect leaves the measurement out, and packetRateLimit
+// falls back to its assumed ten gigabit.
+func linkMbit(raw uint64) float64 {
+	if raw == math.MaxUint64 {
+		return 0
+	}
+	return float64(raw) / 1_000_000
+}
+
 // packetRateLimit is the most packets per second a link could physically
 // carry, using the smallest Ethernet frame.
 //
@@ -288,7 +309,7 @@ func allActiveAdapters() ([]Adapter, error) {
 			Name:     strings.TrimSpace(windows.UTF16PtrToString(entry.FriendlyName)),
 			Kind:     adapterKind(entry.IfType),
 			IP:       firstUnicastAddress(entry),
-			LinkMbit: float64(entry.ReceiveLinkSpeed) / 1_000_000,
+			LinkMbit: linkMbit(entry.ReceiveLinkSpeed),
 			LUID:     luidValue(entry),
 		}
 		if adapter.Name == "" || adapter.IP == "" {
