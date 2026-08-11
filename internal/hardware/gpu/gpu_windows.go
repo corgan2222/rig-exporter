@@ -139,9 +139,6 @@ func vendorOf(name string) string {
 	return ""
 }
 
-// SourceName is what produced the most recent readings, empty when none did.
-func (s *Source) SourceName() string { return s.lastSource }
-
 // afterburnerSensor maps a definition onto the sensor name suffixes
 // Afterburner might use for it. Names differ between vendors and driver
 // versions, so each entry lists every spelling seen in the wild.

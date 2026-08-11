@@ -37,6 +37,15 @@ const (
 	minHeaderSize = 20
 
 	// Entry field offsets, from MAHM_SHARED_MEMORY_ENTRY.
+	//
+	// The full layout is listed, not only the fields that are read. These are
+	// the description of somebody else's memory: entryMinSize and
+	// gpuEntryMinSize are derived from the last offset in each block, so
+	// dropping an unread one either breaks that arithmetic or turns the size
+	// into a magic number nobody can check against the struct. offGPUID is the
+	// clearest case — it points at a stable PCI id (VEN_10DE&DEV_1E87&SUBSYS_…)
+	// that would make a better instance key than the card name, which is why it
+	// is written down rather than removed.
 	entryNameLen     = 260 // MAX_PATH
 	offEntryName     = 0
 	offEntryUnits    = entryNameLen
@@ -88,15 +97,16 @@ var (
 const naValue = math.MaxFloat32
 
 // Entry is one sensor reading.
+//
+// Only what is read ends up here. The block carries more per sensor — a unit
+// string, the owning card index, minimum and maximum limits — and decoding it
+// cost a 260-byte scan per sensor per tick for values nothing ever asked for.
+// The offsets below still describe those fields, so adding one back is a line,
+// not an investigation.
 type Entry struct {
 	// Source is the sensor name, e.g. "GPU temperature" or "Core clock".
 	Source string
-	// Units is the unit Afterburner reports, e.g. "°C" or "MHz".
-	Units string
-	Value float64
-	// GPU is the index of the card the sensor belongs to, or -1 for the
-	// machine-wide sensors such as CPU usage and framerate.
-	GPU int
+	Value  float64
 }
 
 // Valid reports whether Afterburner actually measured this sensor.
@@ -106,11 +116,9 @@ func (e Entry) Valid() bool {
 
 // GPU describes one graphics card Afterburner monitors.
 type GPU struct {
-	Index int
 	// Device is the card name, e.g. "NVIDIA GeForce RTX 4090".
 	Device string
 	Family string
-	Driver string
 	// MemoryMB is the amount of graphics memory, when reported.
 	MemoryMB uint64
 }
@@ -230,7 +238,7 @@ func Parse(buf []byte) (Snapshot, error) {
 		if start+entryMinSize > uint64(len(buf)) {
 			break
 		}
-		snap.Entries = append(snap.Entries, parseEntry(buf[start:start+entryMinSize], numGPUs))
+		snap.Entries = append(snap.Entries, parseEntry(buf[start:start+entryMinSize]))
 	}
 
 	if gpuOK {
@@ -239,9 +247,7 @@ func Parse(buf []byte) (Snapshot, error) {
 			if start+gpuEntryMinSize > uint64(len(buf)) {
 				break
 			}
-			gpu := parseGPU(buf[start : start+gpuEntryMinSize])
-			gpu.Index = int(i)
-			snap.GPUs = append(snap.GPUs, gpu)
+			snap.GPUs = append(snap.GPUs, parseGPU(buf[start:start+gpuEntryMinSize]))
 		}
 	}
 	return snap, nil
@@ -271,20 +277,10 @@ func gpuDescriptor(buf []byte, headerSize uint64) (count, size uint64, ok bool) 
 	return 0, 0, false
 }
 
-func parseEntry(b []byte, numGPUs uint64) Entry {
-	le := binary.LittleEndian
-
-	gpu := int(int32(le.Uint32(b[offEntryGPU:])))
-	// Machine-wide sensors carry an index outside the GPU array.
-	if gpu < 0 || (numGPUs > 0 && uint64(gpu) >= numGPUs) {
-		gpu = -1
-	}
-
+func parseEntry(b []byte) Entry {
 	return Entry{
 		Source: cString(b[offEntryName : offEntryName+entryNameLen]),
-		Units:  cString(b[offEntryUnits : offEntryUnits+entryNameLen]),
-		Value:  float64(math.Float32frombits(le.Uint32(b[offEntryData:]))),
-		GPU:    gpu,
+		Value:  float64(math.Float32frombits(binary.LittleEndian.Uint32(b[offEntryData:]))),
 	}
 }
 
@@ -292,7 +288,6 @@ func parseGPU(b []byte) GPU {
 	return GPU{
 		Device:   cString(b[offGPUDevice : offGPUDevice+entryNameLen]),
 		Family:   cString(b[offGPUFamily : offGPUFamily+entryNameLen]),
-		Driver:   cString(b[offGPUDriver : offGPUDriver+entryNameLen]),
 		MemoryMB: uint64(binary.LittleEndian.Uint32(b[offGPUMemAmount:])) / 1024,
 	}
 }

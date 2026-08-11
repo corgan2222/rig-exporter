@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"sort"
 	"sync/atomic"
 )
 
@@ -290,16 +289,4 @@ func SelectedCount() int {
 		}
 	}
 	return count
-}
-
-// SelectedIDs lists them, sorted, for a configuration file and for tests.
-func SelectedIDs() []string {
-	out := []string{}
-	for _, d := range All {
-		if Selected(d.ID) {
-			out = append(out, d.ID)
-		}
-	}
-	sort.Strings(out)
-	return out
 }

@@ -815,11 +815,6 @@ func (c Config) InfluxWriteURL() string {
 	return c.InfluxURL + "/api/v2/write?" + query.Encode()
 }
 
-// AnyExportEnabled reports whether the snapshot goes anywhere at all.
-func (c Config) AnyExportEnabled() bool {
-	return c.MQTTEnabled || c.DataServerEnabled || c.InfluxPushEnabled
-}
-
 // snapToPoll rounds a publish interval up to a whole number of reads.
 // Publishing more often than reading would only repeat the same numbers, and an
 // interval that is not a whole multiple of the read rate would drift against it.

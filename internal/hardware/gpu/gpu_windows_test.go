@@ -232,12 +232,14 @@ func TestAfterburnerUsesDXGIInstancesInsteadOfItsOwnEnumerationOrder(t *testing.
 	}
 	snap := afterburner.Snapshot{
 		GPUs: []afterburner.GPU{
-			{Index: 0, Device: "NVIDIA GeForce RTX 4070 Laptop GPU"},
-			{Index: 1, Device: "Intel(R) Iris(R) Xe Graphics"},
+			{Device: "NVIDIA GeForce RTX 4070 Laptop GPU"},
+			{Device: "Intel(R) Iris(R) Xe Graphics"},
 		},
+		// The card a sensor belongs to is read out of its name, not out of a
+		// field: "GPU1 usage" is Afterburner's first card.
 		Entries: []afterburner.Entry{
-			{Source: "GPU1 usage", Units: "%", Value: 75, GPU: 0},
-			{Source: "GPU2 usage", Units: "%", Value: 25, GPU: 1},
+			{Source: "GPU1 usage", Value: 75},
+			{Source: "GPU2 usage", Value: 25},
 		},
 	}
 

@@ -1023,14 +1023,3 @@ var All = []Definition{
 	CoolingDevice, CoolingLiquidTemperature, CoolingPumpSpeed, CoolingPumpDuty,
 	CoolingFanSpeed, CoolingFanDuty,
 }
-
-// ByGroup returns every definition in one group.
-func ByGroup(group Group) []Definition {
-	var out []Definition
-	for _, d := range All {
-		if d.Group == group {
-			out = append(out, d)
-		}
-	}
-	return out
-}
