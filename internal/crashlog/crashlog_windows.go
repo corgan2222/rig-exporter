@@ -171,7 +171,12 @@ func logSection(logPath string) string {
 	if tail == "" {
 		return ""
 	}
-	return "\n\n--- the application log up to this point ---\n" + tail + "\n"
+	// Through the constant rather than as a literal. Split looks for logMarker,
+	// and two copies of the same string in two files do not hold each other
+	// together — the day one of them changes, Split stops finding the divider,
+	// returns the whole record as the stack, and the issue link puts the trace
+	// and the application log into one field, cut to the stack's budget.
+	return "\n\n" + logMarker + "\n" + tail + "\n"
 }
 
 // prune keeps the newest reports and deletes the rest.
