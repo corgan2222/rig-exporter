@@ -1100,20 +1100,24 @@ type fakeApplyOps struct {
 	files      map[string][]byte
 	events     []string
 
-	waitParentErr    error
-	replacePathErr   map[string]error
-	removeErr        map[string]error
-	detachedErr      map[string]error
-	monitoredErr     map[string]error
-	processPaths     map[int]string
-	process          *fakeMonitoredProcess
-	onStartMonitored func(string, []string)
-	onStartDetached  func(string, []string)
-	applyLockHeld    bool
-	applyLockOwned   bool
-	applyLockName    string
-	openApplyLockErr error
-	applyLockWaitErr error
+	waitParentErr  error
+	replacePathErr map[string]error
+	removeErr      map[string]error
+	detachedErr    map[string]error
+	monitoredErr   map[string]error
+	processPaths   map[int]string
+	// processMatchesErr is what OpenProcess does when the pid now belongs to
+	// somebody we are not allowed to look at — a SYSTEM service that inherited
+	// it. Not the same as "no such process", and that difference is the point.
+	processMatchesErr error
+	process           *fakeMonitoredProcess
+	onStartMonitored  func(string, []string)
+	onStartDetached   func(string, []string)
+	applyLockHeld     bool
+	applyLockOwned    bool
+	applyLockName     string
+	openApplyLockErr  error
+	applyLockWaitErr  error
 
 	detachedPath  string
 	detachedArgs  []string
@@ -1278,6 +1282,9 @@ func (o *fakeApplyOps) FileSHA256(path string) (string, error) {
 }
 
 func (o *fakeApplyOps) ProcessMatches(pid int, executable string) (bool, error) {
+	if o.processMatchesErr != nil {
+		return false, o.processMatchesErr
+	}
 	return cleanPathEqual(o.processPaths[pid], executable), nil
 }
 
