@@ -5,11 +5,13 @@
 #
 #   .\build.ps1            # build
 #   .\build.ps1 -Check     # gofmt, vet, staticcheck, test, then build
+#   .\build.ps1 -Race      # run the tests under the race detector as well
 #   .\build.ps1 -Icon      # draw internal/assets/icon.ico again as well
 
 param(
     [switch]$Check,
     [switch]$Icon,
+    [switch]$Race,
     [string]$Output = "rig-exporter.exe"
 )
 
@@ -75,6 +77,45 @@ if ($Check) {
     # and CI reported success while two tests were red. Whatever this script
     # runs, it has to be able to say no.
     if ($LASTEXITCODE -ne 0) { throw "go test failed" }
+}
+
+# The race detector, behind its own switch rather than inside -Check.
+#
+# It needs cgo, cgo needs a C compiler, and the shipped build deliberately has
+# neither: CGO_ENABLED stays 0 everywhere else in this script, including the
+# build below. Turning it on here changes nothing about the binary, because the
+# detector only ever touches the test executables.
+#
+# Kept out of -Check because it roughly doubles the run and depends on a
+# toolchain that is not required to build this program. It is what makes any
+# claim about concurrency in this repository a measurement rather than a
+# reading — see HANDOVER 5.18.
+if ($Race) {
+    Write-Host "==> go test -race" -ForegroundColor Cyan
+
+    # MSYS2 ships several gcc builds and only the mingw-w64 ones work with Go;
+    # the one under usr\bin links against the MSYS runtime and does not. UCRT is
+    # preferred over the older MSVCRT flavour, and an existing gcc in PATH is
+    # left alone.
+    if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+        $toolchain = @("C:\msys64\ucrt64\bin", "C:\msys64\mingw64\bin") |
+            Where-Object { Test-Path (Join-Path $_ "gcc.exe") } |
+            Select-Object -First 1
+        if (-not $toolchain) {
+            throw "the race detector needs a mingw-w64 gcc; install one or add it to PATH"
+        }
+        Write-Host "   using $toolchain" -ForegroundColor DarkGray
+        $env:PATH = "$toolchain;$env:PATH"
+    }
+
+    $env:CGO_ENABLED = "1"
+    try {
+        go test -race ./...
+        if ($LASTEXITCODE -ne 0) { throw "go test -race found problems" }
+    } finally {
+        # Back off before the build below, which must stay cgo-free.
+        $env:CGO_ENABLED = "0"
+    }
 }
 
 # The build identifier: how many commits deep, and which one. Derived rather
