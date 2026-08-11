@@ -280,9 +280,11 @@ func TestPCIHardwareIDParsing(t *testing.T) {
 }
 
 func TestPlugAndPlayInventoryRemovesSessionDuplicates(t *testing.T) {
+	// Both mirrored entries carry the same subsystem id (SUBSYS_1E8710B0 on the
+	// card this was measured on), which is why it is not the discriminator and
+	// no longer carried. Vendor and device are what the match runs on.
 	adapter := dxgiAdapter{
-		Name: "NVIDIA GeForce RTX 2080", VendorID: 0x10de,
-		DeviceID: 0x1e87, SubSystemID: 0x1e8710b0,
+		Name: "NVIDIA GeForce RTX 2080", VendorID: 0x10de, DeviceID: 0x1e87,
 	}
 	adapters := []dxgiAdapter{adapter, adapter}
 	devices := map[pciAdapterID]plugAndPlayAdapter{{
@@ -303,8 +305,7 @@ func TestPlugAndPlayInventoryRemovesSessionDuplicates(t *testing.T) {
 
 func TestPlugAndPlayInventoryPreservesTwoIdenticalPhysicalCards(t *testing.T) {
 	adapter := dxgiAdapter{
-		Name: "NVIDIA GeForce RTX 4090", VendorID: 0x10de,
-		DeviceID: 0x2684, SubSystemID: 0x00000000,
+		Name: "NVIDIA GeForce RTX 4090", VendorID: 0x10de, DeviceID: 0x2684,
 	}
 	adapters := []dxgiAdapter{adapter, adapter, adapter}
 	devices := map[pciAdapterID]plugAndPlayAdapter{{
@@ -322,8 +323,7 @@ func TestPlugAndPlayInventoryPreservesTwoIdenticalPhysicalCards(t *testing.T) {
 
 func TestPlugAndPlayMatchingDoesNotDependOnOptionalSubsystemID(t *testing.T) {
 	adapters := []dxgiAdapter{{
-		Name: "Intel(R) Iris(R) Xe Graphics", VendorID: 0x8086,
-		DeviceID: 0x46a8, SubSystemID: 0x12345678,
+		Name: "Intel(R) Iris(R) Xe Graphics", VendorID: 0x8086, DeviceID: 0x46a8,
 	}}
 	devices := map[pciAdapterID]plugAndPlayAdapter{{
 		VendorID: 0x8086, DeviceID: 0x46a8,

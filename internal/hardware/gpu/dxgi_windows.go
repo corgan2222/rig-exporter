@@ -43,18 +43,24 @@ const (
 // dxgiAdapter is the stable, Go-sized subset of DXGI_ADAPTER_DESC1 used by the
 // collector. Memory values stay in bytes until they become metric readings so
 // no precision is lost at the Windows boundary.
+//
+// SubSystemID, Revision and DedicatedSystemMemory were carried here and read by
+// nobody. One of them is worth a sentence before it goes.
+//
+// SubSystemID looks like the obvious way to tell mirrored DXGI adapters apart —
+// the board a chip is soldered to, so two entries for one card ought to differ.
+// Measured, they do not: both RTX 2080 entries carry the identical
+// SUBSYS_1E8710B0. It is not the discriminator, and the Plug and Play match is
+// what does that job. Written down so the next person does not measure it again.
 type dxgiAdapter struct {
-	Index                 int
-	Name                  string
-	VendorID              uint32
-	DeviceID              uint32
-	SubSystemID           uint32
-	Revision              uint32
-	DriverVersion         string
-	DedicatedVideoMemory  uint64
-	DedicatedSystemMemory uint64
-	SharedSystemMemory    uint64
-	LUID                  windows.LUID
+	Index                int
+	Name                 string
+	VendorID             uint32
+	DeviceID             uint32
+	DriverVersion        string
+	DedicatedVideoMemory uint64
+	SharedSystemMemory   uint64
+	LUID                 windows.LUID
 }
 
 // dxgiAdapterDesc1 mirrors DXGI_ADAPTER_DESC1 from dxgi.h. SIZE_T is uintptr,
@@ -131,16 +137,13 @@ func dxgiAdapters() ([]dxgiAdapter, error) {
 			continue
 		}
 		adapters = append(adapters, dxgiAdapter{
-			Index:                 int(index),
-			Name:                  name,
-			VendorID:              desc.VendorID,
-			DeviceID:              desc.DeviceID,
-			SubSystemID:           desc.SubSystemID,
-			Revision:              desc.Revision,
-			DedicatedVideoMemory:  uint64(desc.DedicatedVideoMemory),
-			DedicatedSystemMemory: uint64(desc.DedicatedSystemMemory),
-			SharedSystemMemory:    uint64(desc.SharedSystemMemory),
-			LUID:                  desc.LUID,
+			Index:                int(index),
+			Name:                 name,
+			VendorID:             desc.VendorID,
+			DeviceID:             desc.DeviceID,
+			DedicatedVideoMemory: uint64(desc.DedicatedVideoMemory),
+			SharedSystemMemory:   uint64(desc.SharedSystemMemory),
+			LUID:                 desc.LUID,
 		})
 	}
 
