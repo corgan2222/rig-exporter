@@ -247,6 +247,16 @@ func pciHardwareIDField(hardwareID, marker string) (uint32, bool) {
 	return uint32(parsed), err == nil
 }
 
+// limitAdaptersToPlugAndPlay keeps the DXGI adapters that Plug and Play also
+// reports, which is how the mirrored entries DXGI hands out are dropped.
+//
+// The empty-devices branch is not reachable from production: presentPCIAdapters
+// returns an error when it found nothing, and the only caller runs this on
+// err == nil. It stays anyway, and deliberately. Without it an empty map makes
+// every adapter fail the used[id] >= device.Count test against a zero-valued
+// entry, so the function returns nothing — every GPU entity would disappear
+// without a word. Two lines against a silent total loss is a trade worth making
+// for a precondition that lives in another function.
 func limitAdaptersToPlugAndPlay(adapters []dxgiAdapter, devices map[pciAdapterID]plugAndPlayAdapter) []dxgiAdapter {
 	if len(devices) == 0 {
 		out := append([]dxgiAdapter(nil), adapters...)
