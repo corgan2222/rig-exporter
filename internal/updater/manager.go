@@ -98,7 +98,10 @@ type PreparedUpdate struct {
 
 type releaseSource interface {
 	Latest(context.Context) (Release, bool, error)
-	Stage(context.Context, Release, string) error
+	// Stage downloads and verifies the release into target. report is called
+	// with the percentage downloaded so far; it may be called any number of
+	// times, including none at all when the source cannot tell.
+	Stage(ctx context.Context, release Release, target string, report func(float64)) error
 }
 
 type applyPreparer interface {
@@ -388,7 +391,7 @@ func (m *Manager) install(release Release) {
 	defer os.RemoveAll(tempDir)
 
 	stagedPath := filepath.Join(tempDir, "rig-exporter.exe")
-	if err := m.source.Stage(ctx, release, stagedPath); err != nil {
+	if err := m.source.Stage(ctx, release, stagedPath, m.reportProgress); err != nil {
 		m.installFailed(fmt.Errorf("download and verify update %s: %w", release.Version, err))
 		return
 	}
@@ -407,6 +410,15 @@ func (m *Manager) install(release Release) {
 		m.installFailed(fmt.Errorf("prepare update restart: %w", err))
 		return
 	}
+	// The download is over, so the percentage goes with it. The restart below
+	// usually ends the process before anybody reads the state again — but
+	// "usually" is not "always": RequestRestart can be declined, and a bar left
+	// standing at 100 would claim an install is still running.
+	m.mu.Lock()
+	m.state.UpdatePercentage = nil
+	m.mu.Unlock()
+	m.notify()
+
 	m.log.Info("update prepared; restarting", "version", release.Version)
 	m.opts.RequestRestart()
 }
@@ -422,6 +434,26 @@ func fileSHA256(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// reportProgress records how much of the update has been downloaded.
+//
+// Only while an install is actually running. The source calls this from its own
+// goroutine, and a late call after the install finished would otherwise leave a
+// bar standing at some percentage with nothing behind it — which is exactly the
+// claim this field is supposed to stop making.
+func (m *Manager) reportProgress(percent float64) {
+	percent = min(max(percent, 0), 100)
+
+	m.mu.Lock()
+	if !m.state.InProgress {
+		m.mu.Unlock()
+		return
+	}
+	m.state.UpdatePercentage = &percent
+	m.mu.Unlock()
+
+	m.notify()
 }
 
 func (m *Manager) installFailed(err error) {
