@@ -287,7 +287,27 @@ func (r Report) Split() (crash, log string) {
 // because a log line added in two years' time will not remember that its output
 // can end up in a public issue, and the cost of being wrong once is somebody
 // else's broker.
-var secretish = regexp.MustCompile(`(?i)\b(password|passwd|token|secret|apikey|api_key|bearer)\s*[=:]\s*\S+`)
+// The prefix is the whole repair. \b wants a change between a word character
+// and a non-word one, and the underscore is a word character — so between
+// "mqtt_" and "password" there is no boundary, and this could never fire on the
+// three names the credential fields in this project actually have:
+// mqtt_password, influx_token, data_token. \w* in front catches any key that
+// ends in one of the names, and it may only grow backwards: passwordless=true
+// stays untouched.
+//
+// The optional quotes cover the JSON shape "mqtt_password":"hunter2", where a
+// quote stands between the name and the colon. The value stops at a quote, a
+// comma or a brace instead of running to the next space, or the replacement
+// would eat the closing brace and turn valid JSON in the report into rubble.
+//
+// bearer is its own alternative because its form is different: an HTTP header
+// writes "Bearer <token>" with a space, never bearer=<token>. Allowing a space
+// as a separator for all of them would have blacked out sentences like "the
+// token was refused by the broker", which is the sort of line a report is read
+// for.
+var secretish = regexp.MustCompile(
+	`(?i)"?\b(\w*(?:password|passwd|token|secret|apikey|api_key))"?\s*[=:]\s*"?[^"\s,}]+"?` +
+		`|\b(bearer)\s+[^"\s,}]+`)
 
 // urlUserinfo matches the credentials in a URL: scheme://user:pass@host.
 //
@@ -330,13 +350,12 @@ var homePath = regexp.MustCompile(`(?i)([A-Z]:[\\/]+Users[\\/]+)([^\\/\s"']+)`)
 func Scrub(text string) string {
 	text = homePath.ReplaceAllString(text, "${1}%USER%")
 	text = urlUserinfo.ReplaceAllString(text, "${1}<removed>@")
-	return secretish.ReplaceAllStringFunc(text, func(match string) string {
-		key, _, _ := strings.Cut(match, "=")
-		if !strings.Contains(match, "=") {
-			key, _, _ = strings.Cut(match, ":")
-		}
-		return strings.TrimSpace(key) + "=<removed>"
-	})
+	// The key is captured rather than cut back out of the match. Cutting at the
+	// first = or : was right while every shape had one; the header form does
+	// not, and cutting there would have left the whole "Bearer eyJabc" standing
+	// as the key — which is to say, not removed at all. Exactly one of the two
+	// groups takes part in any match, so writing both is how either is kept.
+	return secretish.ReplaceAllString(text, "${1}${2}=<removed>")
 }
 
 // truncate cuts the middle out rather than the end. The first lines name the

@@ -356,10 +356,19 @@ Am Kasten hängen vier Handlungen, und dieselben vier stehen unter
 **Geöffnet, nicht abgeschickt.** Was in dem Bericht steht, ist eine feste Liste:
 Version, Windows-Fassung, Prozessor, Grafikkarte, ob erhöht gelaufen wurde, und
 die Aufzeichnung selbst. Die Konfiguration wird bewusst nicht gelesen, denn dort
-stehen das Broker-Passwort und drei Tokens; Kontoname und alles, was wie ein
-Zugangsdatum aussieht, werden vorher aus dem Text genommen — auch aus der Datei,
-nicht nur aus dem Link. Abgeschickt wird nichts, bevor du es auf der
-GitHub-Seite selbst tust; der Knopf lässt sich unter *Export & Anzeige →
+stehen das Broker-Passwort und drei Tokens.
+
+Vor dem Ablegen wird der Bericht gewaschen — auch die **Datei**, nicht nur der
+Link. Ersetzt durch `<removed>` werden: der eigene Benutzerpfad, Zugangsdaten
+in URLs (`tcp://name:passwort@broker`), und jeder Schlüssel, dessen Name auf
+`password`, `passwd`, `token`, `secret`, `apikey` oder `api_key` endet — also
+auch `mqtt_password` und `influx_token`, in der Form `name=wert` wie in JSON.
+Dazu ein `Bearer <wert>` in einem Kopfzeilenfeld.
+
+**Lies den Bericht trotzdem, bevor du ihn anhängst.** Die Wäsche ist eine
+Rückfallsicherung für den Fall, dass irgendwann eine Logzeile dazukommt, die an
+all das nicht denkt — keine Garantie. Abgeschickt wird nichts, bevor du es auf
+der GitHub-Seite selbst tust; der Knopf lässt sich unter *Export & Anzeige →
 Anwendung* auch ganz abschalten.
 
 Angeboten wird das auch für eine Sitzung, die einfach verschwunden ist, nicht
