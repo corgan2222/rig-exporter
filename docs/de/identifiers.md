@@ -48,7 +48,7 @@ braucht das kein Migrationsflag und kein Gedächtnis.
 
 ## Wo Home Assistant die Werte einsortiert
 
-67 Messwerte stehen im Hauptbereich, 48 unter **Diagnose**, 7 werden gar nicht
+67 Messwerte stehen im Hauptbereich, 48 unter **Diagnose**, 8 werden gar nicht
 als Entität veröffentlicht. Gezählt über den vollen Katalog — was auf einem
 bestimmten Rechner ankommt, hängt an seiner Hardware und an der Auswahl.
 Die Regel dahinter:

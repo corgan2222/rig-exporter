@@ -68,7 +68,7 @@ nur, was auch wirklich passiert.
 Hinter der Version steht, woher das Binary kommt:
 
 ```
-rig-exporter 1.10.1+<commits>.<hash>
+rig-exporter 1.10.2+<commits>.<hash>
 ```
 
 Commit-Anzahl aus `git rev-list --count`, Kurz-Hash aus `git rev-parse --short`,

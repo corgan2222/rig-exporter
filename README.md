@@ -25,7 +25,7 @@ exist nowhere else.
 * **Frames per second, frame time and the running game.** This is the point of
   the program. A general-purpose hardware monitor does not report them at all,
   and they are the part that says what a gaming PC is actually doing.
-* **Far fewer entities in Home Assistant.** Each of the 122 measurements is
+* **Far fewer entities in Home Assistant.** Each of the 123 measurements is
   ticked on its own, with three presets as a starting point. What arrives is
   what you chose, not everything the machine can say.
 * **One executable.** A single Go binary, around 18 MB. No installer, no

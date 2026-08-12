@@ -31,7 +31,7 @@ dorthin, wo Sie es sehen wollen.
 
 -   :material-tune: **Sie entscheiden, was gesendet wird**
 
-    122 Messwerte im Katalog, jeder einzeln abwählbar. Drei Voreinstellungen
+    123 Messwerte im Katalog, jeder einzeln abwählbar. Drei Voreinstellungen
     von „nur die Kacheln" bis „alles".
 
 -   :material-eye-off: **Nur was wirklich da ist**

@@ -141,6 +141,20 @@
         </div>
       </details>
 
+      <!-- The last line on the page, and the only one that leaves the machine.
+           Both badges are worn on the line itself rather than hidden in the
+           tooltip: whoever switches this on has to know before they click that
+           it is alpha and that it talks to Steam's store. What exactly is sent
+           and what comes back is behind the question mark. -->
+      <div class="check">
+        <input type="checkbox" name="game_id_enabled" id="game_id_enabled" value="1"
+               {{ if .Config.GameIDEnabled }}checked{{ end }}>
+        <label for="game_id_enabled" style="margin:0"><span class="name">{{ .T "settings.sensors.gameID" }}</span></label>
+        <span class="badge alpha">{{ .T "settings.sensors.gameIDAlpha" }}</span>
+        <span class="help" title="{{ .T "settings.sensors.gameIDHint" }}">?</span>
+      </div>
+      <p class="note">{{ .T "settings.sensors.gameIDNote" }}</p>
+
       {{ template "save" . }}
     </div>
   </form>

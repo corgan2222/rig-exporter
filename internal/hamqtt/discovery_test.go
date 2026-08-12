@@ -143,6 +143,55 @@ func TestARankedListAnnouncesItsTableAsAttributes(t *testing.T) {
 	}
 }
 
+// The game entity is established: dashboards, automations and history are
+// built on its id, its state and the template that reads it. Learning what the
+// launchers call the game may add attributes to it and must change nothing
+// else.
+func TestTheGameEntityGainsAttributesAndNothingElse(t *testing.T) {
+	cfg := testConfig()
+	topic, payload := decode(t, metrics.Text(metrics.Game, "", "Cyberpunk2077.exe"))
+
+	if want := "homeassistant/sensor/rig_corganpc2/game/config"; topic != want {
+		t.Errorf("topic = %q, want %q", topic, want)
+	}
+	if want := "{{ value_json.game }}"; payload.ValueTemplate != want {
+		t.Errorf("value_template = %q, want the plain state %q", payload.ValueTemplate, want)
+	}
+	if want := cfg.UniqueID("game"); payload.UniqueID != want {
+		t.Errorf("unique_id = %q, want %q", payload.UniqueID, want)
+	}
+
+	if payload.JSONAttributesTopic != cfg.StateTopic() {
+		t.Errorf("attributes topic = %q, want the state topic — one message, not two",
+			payload.JSONAttributesTopic)
+	}
+	// The default is what keeps this quiet in the ordinary case: the key is
+	// absent whenever nothing was identified, and it clears the attributes when
+	// a game closes rather than leaving the last title on the entity forever.
+	if want := "{{ value_json.game_details | default({}) | tojson }}"; payload.JSONAttributesTemplate != want {
+		t.Errorf("attributes template = %q, want %q", payload.JSONAttributesTemplate, want)
+	}
+}
+
+// The details themselves are not an entity. An entity whose state is an object
+// is nothing anybody can put on a dashboard, and it would be a second copy of
+// what the game entity already carries.
+func TestTheGameDetailsAreNeverAnEntityOfTheirOwn(t *testing.T) {
+	if !metrics.GameDetails.NoEntity {
+		t.Error("the game details would be discovered as an entity of their own")
+	}
+
+	var set metrics.Set
+	set.Add(metrics.Details(metrics.GameDetails, "",
+		metrics.Detail{Name: metrics.DetailPlatform, Value: "steam"}))
+
+	for _, reading := range set.Entities() {
+		if reading.Def.ID == metrics.GameDetails.ID {
+			t.Error("the game details reached the entity list")
+		}
+	}
+}
+
 // Everything else must keep its unit — the table case is an exception, not a
 // new default.
 func TestOrdinaryReadingsKeepTheirUnit(t *testing.T) {

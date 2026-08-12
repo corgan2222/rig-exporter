@@ -7,6 +7,7 @@ probe.txt
 # .dirty, because the build identifier asks git whether the tree is clean.
 .vscode/
 .code-review-graph
+tmp/
 
 # Working notes, kept on disk but out of the repository. The README is the
 # documentation that ships; these are the project's memory for whoever

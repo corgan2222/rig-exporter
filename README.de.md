@@ -25,7 +25,7 @@ denen diese Werte kommen, gibt es nirgendwo sonst.
 * **Bilder pro Sekunde, Frametime und das laufende Spiel.** Darum geht es. Ein
   allgemeiner Hardware-Monitor meldet diese Werte gar nicht, und sie sind der
   Teil, der sagt, was ein Spielerechner gerade tut.
-* **Deutlich weniger Entitäten in Home Assistant.** Jeder der 122 Messwerte
+* **Deutlich weniger Entitäten in Home Assistant.** Jeder der 123 Messwerte
   wird einzeln angehakt, drei Voreinstellungen sind der Ausgangspunkt. Es kommt
   an, was Sie ausgewählt haben, und nicht alles, was die Maschine sagen kann.
 * **Eine einzige ausführbare Datei.** Ein Go-Binary von rund 18 MB. Kein

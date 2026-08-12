@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/corgan2222/rig-exporter/internal/gameid"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/rtss"
 	"github.com/corgan2222/rig-exporter/internal/sysinfo"
@@ -82,6 +83,15 @@ func (s Snapshot) Game() string { return s.Str(metrics.Game.ID) }
 // GameRunning reports whether an application is currently rendering.
 func (s Snapshot) GameRunning() bool { return s.Flag(metrics.GameRunning.ID) }
 
+// GameDetail is one of the identified game's details — its platform, its title
+// or its Steam app id. Empty when the identification is switched off, when
+// nothing was recognised, or when that particular half is not known yet, and
+// the interface shows nothing rather than a gap in all three cases.
+func (s Snapshot) GameDetail(name string) string {
+	reading, _ := s.Find(metrics.GameDetails.ID, "")
+	return reading.Detail(name)
+}
+
 // Rendering reports whether a game is actually producing frames, which is what
 // picks between the two publish intervals.
 //
@@ -150,6 +160,18 @@ type SystemSource interface {
 // game — the name and the process id stay RTSS's alone.
 type FrameRate func() (float64, bool)
 
+// IdentifyGame turns the executable RTSS is reporting into what the launchers
+// and the Steam store call it, reporting whether anything was recognised.
+//
+// It is handed in rather than built here for the same reason FrameRate is: the
+// collector decides when the question is asked, the configuration decides
+// whether it may be asked at all, and this package stays free of registries,
+// launcher catalogues and anything that talks to a web service.
+//
+// It runs inside the measurement loop, so it must answer at once. Whatever it
+// cannot say yet is simply absent from the reading and arrives on a later one.
+type IdentifyGame func(exePath string) (gameid.Game, bool)
+
 // Collector produces snapshots.
 type Collector struct {
 	rtss    RTSSSource
@@ -167,6 +189,10 @@ type Collector struct {
 	// frameOrigin names what supplied the number.
 	frames      FrameRate
 	frameOrigin string
+
+	// identify names the game behind the executable RTSS reports. Nil while
+	// the identification is switched off, which is how it ships.
+	identify IdentifyGame
 
 	idleMs    uint32
 	lastDispl sysinfo.Display
@@ -195,6 +221,11 @@ func (c *Collector) ReportVersion(version string) { c.version = version }
 // ReportSelfUsage makes the collector publish this process's own CPU share and
 // working set.
 func (c *Collector) ReportSelfUsage(on bool) { c.selfUsage = on }
+
+// UseGameIdentity registers what turns the rendering application's executable
+// path into the title a store would use. Nil, which is the default, means the
+// identification is switched off and no details are ever published.
+func (c *Collector) UseGameIdentity(identify IdentifyGame) { c.identify = identify }
 
 // UseFrameRateFallback registers a frame rate to fall back on when RTSS has no
 // rendering application, labelled with what supplies it.
@@ -331,6 +362,10 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 			metrics.Gauge(metrics.Frametime, "", entry.FrametimeMs()),
 			metrics.Gauge(metrics.GamePID, "", float64(entry.ProcessID)),
 		)
+		// The full path, not the name: the file name alone is what the game
+		// measurement publishes, and the directory is the half that says which
+		// launcher installed it.
+		c.addGameDetails(snap, entry.Path)
 		return
 	}
 	// RTSS has nothing rendering. The graphics driver may still be counting
@@ -357,6 +392,51 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		metrics.Gauge(metrics.FPS, "", 0),
 		metrics.Gauge(metrics.Frametime, "", 0),
 	)
+}
+
+// addGameDetails publishes what the launchers and the store call the running
+// game, when the identification is switched on and recognised it.
+//
+// Nothing here is filled in: an executable nobody claims produces no reading,
+// and a recognised game whose app id has not arrived yet publishes the two
+// halves that are known. metrics.Details drops what has no value, so a missing
+// half costs nothing at the call site.
+func (c *Collector) addGameDetails(snap *Snapshot, exePath string) {
+	if c.identify == nil {
+		return
+	}
+	game, ok := c.identify(exePath)
+	if !ok {
+		return
+	}
+
+	// Credited to the launcher that named the game rather than to RTSS, which
+	// only supplied the path. As everywhere else, the origin is for the person
+	// reading the settings page and reaches no export.
+	previous := snap.Set.Origin
+	snap.Set.Origin = gameOrigin(game.Platform)
+	snap.Add(metrics.Details(metrics.GameDetails, "",
+		metrics.Detail{Name: metrics.DetailPlatform, Value: game.Platform},
+		metrics.Detail{Name: metrics.DetailTitle, Value: game.Title},
+		metrics.Detail{Name: metrics.DetailAppID, Value: game.AppID},
+	))
+	snap.Set.Origin = previous
+}
+
+// gameOrigin names the launcher a game was identified through, for the origins
+// list on the settings page. An unknown platform falls back to the program
+// itself rather than to a blank, which would drop the reading from that list.
+func gameOrigin(platform string) string {
+	switch platform {
+	case gameid.PlatformSteam:
+		return "Steam"
+	case gameid.PlatformGOG:
+		return "GOG Galaxy"
+	case gameid.PlatformEpic:
+		return "Epic Games"
+	default:
+		return originExporter
+	}
 }
 
 // frameRateFallback asks the registered driver counter, if there is one. A rate

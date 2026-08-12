@@ -14,13 +14,13 @@ Across all the groups lies the **scope**. The groups say which hardware is
 read; the scope says how thoroughly. A slider on the **Measurements** page has
 three rungs:
 
-* **Minimal** — 16 measurements: the tiles on the dashboard page. Processor and
+* **Minimal** — 17 measurements: the tiles on the dashboard page. Processor and
   graphics temperature, overall usage, throughput, battery. Deliberately
   without uptime and process count, because those change on every sample and
   fill a database with nothing.
-* **Standard** — 76 measurements: what you look at when you want to know how
+* **Standard** — 77 measurements: what you look at when you want to know how
   the machine is doing. Temperature, load, free space, throughput, FPS.
-* **Extended** (the default) — all 122: clock rates, memory modules, load per
+* **Extended** (the default) — all 123: clock rates, memory modules, load per
   thread, display mode, state of RTSS, battery wear. Useful when hunting a
   problem, rarely in everyday use.
 
@@ -82,6 +82,7 @@ lost its history for nothing.
 | **Cooling** | model, liquid temperature, pump and fan speed; in the extended set the duty of pump and fan in percent | USB cooling controller (HID) |
 | **Own resource usage** | CPU share and memory footprint of rig-exporter itself | Windows |
 | **Top processes** | the programs with the largest CPU and memory footprint | Windows |
+| **Game details** | platform, title and Steam app id of the game being rendered — attributes of the game entity, never an entity of their own | Steam's registry keys, the GOG and Epic catalogues, Steam's public store search |
 
 How many values come out of that is decided by the hardware: every graphics
 card, every drive and every adapter brings its own set along. Even then the

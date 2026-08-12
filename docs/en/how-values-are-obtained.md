@@ -22,6 +22,35 @@ stands as `fps_origin` in `/api/status` and in the `-probe` output — on its wa
 into an export it does not appear, because there every measurement looks the
 same, no matter who counted it.
 
+**Which game that executable is** is worked out only when
+[the option](interface/data-capture.md#working-out-the-game) is on, and by three
+sources in order of what they cost. Steam writes the app it launched into
+`HKCU\Software\Valve\Steam\RunningAppID` and the title it keeps for it into
+`…\Steam\Apps\<id>\Name`: two registry reads, no elevation, no access to the
+game's process, and nothing that leaves the machine. Where Steam says nothing,
+the path RTSS reported is matched against the catalogues GOG
+(`HKLM\SOFTWARE\WOW6432Node\GOG.com\Games`) and Epic
+(`%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item`) keep on disk —
+longest matching folder wins, so a game installed inside another game's
+directory is reported as itself. Add-ons are dropped there: they name their base
+game's folder, and "Cyberpunk 2077: Phantom Liberty" would otherwise resolve to
+the expansion's own app id and show the wrong artwork.
+
+Only a title found that way, and still without an app id, is worth a request to
+Steam's public store search — the same one the search box on the store page
+uses, without a key or an account. That is the one thing in this program that
+leaves the machine: the game's title goes out, an app id comes back, once per
+title, and the answer is kept in memory including the misses. It is never waited
+for either; a title whose id has not arrived is published without one and gains
+it on a later reading, because a slow store must not become a slow exporter.
+
+Two other ways of asking Steam were measured and dropped. `steam_appid.txt` sits
+in three of the installed games on the development machine, because it is a
+developer file rather than something every game ships. Reading the `SteamAppId`
+environment variable out of the game's process needs `ReadProcessMemory` against
+a process that may be running elevated, which is both fragile and exactly the
+shape a virus scanner looks for.
+
 **Whether the machine is virtual** stands in the firmware id: vendor, product
 name and BIOS vendor, which Windows files from the SMBIOS tables under
 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`. A guest names itself there —

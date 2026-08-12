@@ -78,6 +78,19 @@ func (s Set) Prometheus(host string) []byte {
 			}
 			labels = append(labels, r.Def.PromLabel+`="`+escapeLabelValue(r.Text)+`"`)
 			sample = "1"
+		case KindDetails:
+			// One info metric carrying a label per detail, which is the
+			// convention Prometheus already has for facts that are not numbers.
+			// The label names come from the catalogue rather than from the
+			// values, so they are fixed identifiers; only the values need
+			// escaping.
+			if len(r.Details) == 0 {
+				continue
+			}
+			for _, detail := range r.Details {
+				labels = append(labels, detail.Name+`="`+escapeLabelValue(detail.Value)+`"`)
+			}
+			sample = "1"
 		case KindBool:
 			sample = "0"
 			if r.Bool {
@@ -167,6 +180,24 @@ func (s Set) Influx(measurement, host string, at time.Time) []byte {
 				continue
 			}
 			point.fields = append(point.fields, field+`="`+escapeFieldString(r.Text)+`"`)
+		case KindDetails:
+			// A string field per detail, never a tag, for the same reason the
+			// text above is a field: a tag is the identity of the series, and a
+			// value that changes whenever another game starts would split it.
+			//
+			// The same guard as the Prometheus branch above. Details() never
+			// returns an empty reading today, so this cannot fire — it is here
+			// because a point that ends up with no fields at all is not a thin
+			// line, it is invalid line protocol, and InfluxDB rejects the whole
+			// batch for it. Two branches of one switch should not differ in how
+			// carefully they treat the same case.
+			if len(r.Details) == 0 {
+				continue
+			}
+			for _, detail := range r.Details {
+				point.fields = append(point.fields,
+					field+"_"+escapeTag(detail.Name)+`="`+escapeFieldString(detail.Value)+`"`)
+			}
 		case KindBool:
 			point.fields = append(point.fields, field+"="+strconv.FormatBool(r.Bool))
 		default:

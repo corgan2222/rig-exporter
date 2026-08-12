@@ -47,7 +47,7 @@ never existed does nothing, so this needs no migration flag and no memory.
 
 ## Where Home Assistant files the values
 
-67 measurements stand in the main area, 48 under **Diagnostic**, 7 are not
+67 measurements stand in the main area, 48 under **Diagnostic**, 8 are not
 published as an entity at all. Counted across the full catalogue — what arrives
 on a particular machine depends on its hardware and on the selection. The rule
 behind it:

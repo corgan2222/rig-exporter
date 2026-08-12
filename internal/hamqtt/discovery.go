@@ -196,6 +196,22 @@ func discoveryFor(cfg config.Config, webURL string, r metrics.Reading) discovery
 		precision := r.Def.EffectivePrecision()
 		payload.SuggestedPrecision = &precision
 	}
+
+	// A measurement that names a companion carries that companion's object as
+	// its attributes. Same topic and same message as the table above, and the
+	// state, the id and the value template are untouched — this adds
+	// attributes to an entity that already exists rather than changing it.
+	//
+	// The default is what makes it survive the ordinary case: the companion key
+	// is absent whenever nothing was identified, and a template that renders
+	// Undefined would fail on every single message. An empty object is also the
+	// right answer rather than merely a safe one — it clears the attributes,
+	// so a game that has closed does not leave the last title and app id behind
+	// for Home Assistant to keep showing.
+	if from := r.Def.AttributesFrom; from != "" && payload.JSONAttributesTopic == "" {
+		payload.JSONAttributesTopic = cfg.StateTopic()
+		payload.JSONAttributesTemplate = fmt.Sprintf("{{ value_json.%s | default({}) | tojson }}", from)
+	}
 	return payload
 }
 

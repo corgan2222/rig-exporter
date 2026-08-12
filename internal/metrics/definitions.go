@@ -35,6 +35,16 @@ import "github.com/corgan2222/rig-exporter/internal/i18n"
 // The choice is recorded in testdata/catalogue.txt, so moving a measurement
 // between the two shows up in review rather than surprising a user.
 
+// The details of GameDetails, named once here because every consumer keys off
+// them: they are attribute names in Home Assistant, keys in the JSON document,
+// Prometheus labels and InfluxDB fields. Identifiers, so they never follow the
+// language and never change with a translation.
+const (
+	DetailPlatform = "platform"
+	DetailTitle    = "title"
+	DetailAppID    = "app_id"
+)
+
 // Core: always collected, never optional.
 var (
 	FPS = Definition{
@@ -54,6 +64,33 @@ var (
 		Kind: KindText, Group: GroupCore,
 		Prom: "rig_game_info", PromLabel: "game", Help: "Application currently being rendered",
 		Icon: "mdi:gamepad-variant",
+		// The executable stays the state, exactly as it has always been:
+		// entities, automations and dashboards are built on it. What the
+		// launchers and the store know about that executable arrives as
+		// attributes of the same entity instead of as entities of its own.
+		AttributesFrom: "game_details",
+	}
+	// GameDetails is what the game being rendered is called outside this
+	// machine: which launcher it belongs to, the title its store spells out,
+	// and the Steam app id that addresses its artwork.
+	//
+	// Never an entity of its own — it is the attribute set of the game entity
+	// above, and an entity whose state is an object would be nothing anybody
+	// could put on a dashboard. It is still published in JSON, Prometheus and
+	// InfluxDB, where an attribute has no meaning and three named strings do.
+	//
+	// Collected only while the identification is switched on, and only for a
+	// game that was actually recognised. Everything about it may be missing:
+	// an unrecognised executable produces no reading at all, and a game the
+	// store does not have keeps its title without an app id.
+	GameDetails = Definition{
+		ID: "game_details", Name: i18n.Text{DE: "Spiel-Details", EN: "Game details"},
+		Kind: KindDetails, Group: GroupCore,
+		Prom: "rig_game_details_info",
+		Help: "Platform, title and Steam app id of the game being rendered",
+		// A detail whose value is unknown is absent: no empty string, no zero,
+		// no "unknown". A wrong app id shows the wrong game's artwork.
+		NoEntity: true,
 	}
 	GameRunning = Definition{
 		ID: "game_running", Name: i18n.Text{DE: "Spiel läuft", EN: "Game running"},
@@ -991,7 +1028,7 @@ var (
 // All is every definition, used to validate the catalogue in tests and to
 // document what the exporter can produce.
 var All = []Definition{
-	FPS, Frametime, Game, GameRunning, GamePID, Resolution, RefreshRate,
+	FPS, Frametime, Game, GameDetails, GameRunning, GamePID, Resolution, RefreshRate,
 	DisplayWidth, DisplayHeight, CPULoad, RAMLoad,
 	RTSSUp, RTSSStatus, RTSSVersion, Uptime, IdleTime, OSVersion,
 	Virtualized, Hypervisor, Processes,

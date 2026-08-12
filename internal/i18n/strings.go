@@ -436,6 +436,35 @@ var catalogue = map[string]Text{
 		DE: "Zwei Werte darüber, was das Messen selbst kostet. Meist flach, deshalb standardmäßig aus.",
 		EN: "Two values saying what the measuring itself costs. Mostly flat, and off by default for that reason.",
 	},
+	"settings.sensors.gameID": {
+		DE: "Versuche Gamename und SteamID zu ermitteln (Steam, Epic, GOG)",
+		EN: "Try to work out the game's name and Steam app id (Steam, Epic, GOG)",
+	},
+	// Two warnings on one badge, because both belong on the line: the source is
+	// young, and it is the only one in this program that leaves the machine.
+	"settings.sensors.gameIDAlpha": {DE: "ALPHA · Internet", EN: "ALPHA · internet"},
+	"settings.sensors.gameIDHint": {
+		DE: "Läuft ein Steam-Spiel, steht alles in der Registry: Steam schreibt die laufende AppID " +
+			"und den Titel selbst hin — dafür verlässt nichts den Rechner. " +
+			"Erst wenn Steam schweigt, wird der Pfad des Spiels gegen die Kataloge von GOG und Epic " +
+			"gehalten, und nur für einen so gefundenen Titel geht eine Anfrage an die öffentliche " +
+			"Steam-Suche. Gesendet wird ausschließlich der Spielname, zurück kommt eine AppID. " +
+			"Einmal pro Titel, im Speicher gemerkt — auch wenn nichts gefunden wurde. " +
+			"Was unbekannt bleibt, wird weggelassen: lieber kein Bild als das falsche.",
+		EN: "With a Steam game running the registry holds it all: Steam writes the running app id and " +
+			"the title itself, and nothing leaves the machine for it. " +
+			"Only when Steam says nothing is the game's path matched against the GOG and Epic " +
+			"catalogues, and only for a title found that way does a request go to Steam's public " +
+			"store search. The game's name is all that is sent, an app id is what comes back. " +
+			"Once per title, remembered in memory — including the misses. " +
+			"Whatever stays unknown is left out: no picture beats the wrong one.",
+	},
+	"settings.sensors.gameIDNote": {
+		DE: "Alpha: erkannt werden Steam, GOG und Epic. Der Spielname bleibt der Prozessname; " +
+			"Plattform, Titel und AppID hängen als Attribute an derselben Entity.",
+		EN: "Alpha: Steam, GOG and Epic are recognised. The game measurement keeps reporting the " +
+			"process name; platform, title and app id ride along as attributes of that same entity.",
+	},
 	"settings.sensors.topProcs": {
 		DE: "Top-Prozesse — welche Programme CPU und Speicher belegen",
 		EN: "Top processes — which programs are using CPU and memory",

@@ -15,6 +15,13 @@ gibt. Jeder Chip führt auf die Einstellung, die ihn bestimmt; einen Wert zu
 lesen und ihn zu ändern soll nicht zwei Suchen sein. Kacheln für Werte, die der
 gewählte Umfang gar nicht misst, werden ausgeblendet statt leer angezeigt.
 
+Die Kachel **Spiel** zeigt die ausführbare Datei, also das, was der gleichnamige
+Messwert veröffentlicht. Ist
+[das Spiel ermitteln](data-capture.md#das-spiel-ermitteln) eingeschaltet, stehen
+Plattform und Steam-AppID klein darunter — und nur dann, wenn sie tatsächlich
+bekannt sind, denn eine leere zweite Zeile läse sich wie ein fehlgeschlagener
+Messwert.
+
 In den Hardware-Panels lässt sich zwischen zwei Ansichten umschalten.
 Voreingestellt ist **nach Gerät**: alles zu GPU 0 zusammen, dann alles zu GPU 1,
 jede Platte für sich, jeder Adapter für sich — jede Gruppe unter einer

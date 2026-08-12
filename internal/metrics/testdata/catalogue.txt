@@ -53,6 +53,7 @@ exporter_memory          MB         gauge  prec=1 group=core  panel=core  cat=di
 fps                      fps        gauge  prec=1 group=core  panel=core  cat=primary    prom=rig_fps
 frametime                ms         gauge  prec=2 group=core  panel=core  cat=primary    prom=rig_frametime_milliseconds
 game                     -          text   prec=0 group=core  panel=core  cat=primary    prom=rig_game_info
+game_details             -          details prec=0 group=core  panel=core  cat=none       prom=rig_game_details_info
 game_pid                 -          gauge  prec=0 group=core  panel=core  cat=none       prom=rig_game_pid
 game_running             -          bool   prec=0 group=core  panel=core  cat=none       prom=rig_game_running
 gpu_core_clock           MHz        gauge  prec=0 group=gpu   panel=gpu   cat=primary    prom=rig_gpu_core_clock_megahertz

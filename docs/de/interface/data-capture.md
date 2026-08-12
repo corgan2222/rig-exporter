@@ -23,6 +23,7 @@ gar keine Entities — und sie tauchen von selbst auf, sobald die Quelle da ist.
 | **Eigene Ressourcennutzung** — CPU und Speicher von rig-exporter | **aus** | Was das Programm die Maschine kostet, die es misst |
 | **Top-Prozesse** — welche Programme CPU und Speicher belegen | **aus** | Braucht einen Durchlauf über alle Prozesse |
 | ↳ **Wie viele je Liste** / **Messintervall** | 5 / 10000 ms | Zehn Sekunden reichen, um zu sehen, was ein Spiel oder ein Build getan hat |
+| **Versuche Gamename und SteamID zu ermitteln** (Steam, Epic, GOG) | **aus** | Als `ALPHA · Internet` gekennzeichnet: die einzige Option, die einen Dritten kontaktiert. Siehe unten |
 
 Das ↳ heißt: die Zeile wirkt nur, solange die Gruppe darüber an ist. In der
 Oberfläche stehen **Auslastung pro Kern** und **Alle Adapter statt nur dem
@@ -31,4 +32,24 @@ Laufwerke**, das Ping-Ziel samt Echos und Messintervall und die beiden Werte der
 Top-Prozesse liegen hinter einem zugeklappten **Detaileinstellungen**.
 Aufklappen geht jederzeit — auch wenn die Gruppe darüber aus ist und die Werte
 darin nichts bewirken.
+
+## Das Spiel ermitteln
+
+RTSS meldet die ausführbare Datei — `Cyberpunk2077.exe` — und genau das
+veröffentlicht der Messwert **Spiel** seit jeher. Diese Option ergänzt, wie die
+Launcher und der Steam-Store diese Datei nennen: die Plattform, den Titel in der
+Schreibweise des Stores und die Steam-AppID, die das Titelbild adressiert.
+
+Drei Quellen, die billigste zuerst — die Registry von Steam, dann die Kataloge
+von GOG und Epic auf der Platte, dann die öffentliche Steam-Suche, die als
+einzige den Rechner verlässt — und diese Option damit zur einzigen Einstellung
+des Programms macht, die mit dem Server eines Dritten spricht. An der Entity
+**Spiel** ändert das
+nichts: ihr Zustand bleibt die ausführbare Datei, ihre Entity-ID bleibt
+dieselbe, und Plattform, Titel und AppID kommen als **Attribute** derselben
+Entity dazu — siehe [Exportziele](../export-targets.md#spiel-attribute).
+
+Standardmäßig aus und als `ALPHA · Internet` gekennzeichnet. Was genau gesendet
+wird, wie Erweiterungen daran gehindert werden, das falsche Bild zu erzeugen,
+und was ein Dashboard damit anfängt: [Spielerkennung](../game-identification.md).
 

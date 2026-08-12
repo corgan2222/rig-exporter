@@ -612,6 +612,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.TopProcessesEnabled = r.FormValue("top_processes_enabled") != ""
 		cfg.TopProcessesCount = formInt(r, "top_processes_count", cfg.TopProcessesCount)
 		cfg.TopProcessesIntervalMs = formInt(r, "top_processes_interval_ms", cfg.TopProcessesIntervalMs)
+		cfg.GameIDEnabled = r.FormValue("game_id_enabled") != ""
 
 	case "measurements":
 		saveMeasurements(&cfg, r)
@@ -799,15 +800,21 @@ func amdPresence(snap collector.Snapshot) (card, driver bool) {
 
 // statusResponse is the JSON the dashboard polls for live values.
 type statusResponse struct {
-	FPS         float64 `json:"fps"`
-	Frametime   float64 `json:"frametime"`
-	Game        string  `json:"game"`
-	Resolution  string  `json:"resolution"`
-	RefreshRate int     `json:"refresh_rate"`
-	CPU         float64 `json:"cpu"`
-	RAM         float64 `json:"ram"`
-	RAMUsedMB   uint64  `json:"ram_used_mb"`
-	RAMTotalMB  uint64  `json:"ram_total_mb"`
+	FPS       float64 `json:"fps"`
+	Frametime float64 `json:"frametime"`
+	Game      string  `json:"game"`
+	// What the launchers and the store call that game. Both are left out of the
+	// document when they are not known, so the tile can show a line only when
+	// there is something on it — an empty platform under the game name would
+	// look like a reading that failed.
+	GamePlatform string  `json:"game_platform,omitempty"`
+	GameAppID    string  `json:"game_app_id,omitempty"`
+	Resolution   string  `json:"resolution"`
+	RefreshRate  int     `json:"refresh_rate"`
+	CPU          float64 `json:"cpu"`
+	RAM          float64 `json:"ram"`
+	RAMUsedMB    uint64  `json:"ram_used_mb"`
+	RAMTotalMB   uint64  `json:"ram_total_mb"`
 
 	RTSSStatus  string `json:"rtss_status"`
 	RTSSMessage string `json:"rtss_message"`
@@ -968,6 +975,8 @@ func (s *Server) statusFor(st app.Status) statusResponse {
 		FPS:          snap.FPS(),
 		Frametime:    snap.FrametimeMs(),
 		Game:         snap.Game(),
+		GamePlatform: snap.GameDetail(metrics.DetailPlatform),
+		GameAppID:    snap.GameDetail(metrics.DetailAppID),
 		Resolution:   snap.Resolution(),
 		RefreshRate:  snap.RefreshHz(),
 		CPU:          snap.CPUPercent(),
@@ -1243,6 +1252,8 @@ func formatValue(r metrics.Reading) string {
 		return "0"
 	case metrics.KindTable:
 		return r.TableText()
+	case metrics.KindDetails:
+		return r.DetailsText()
 	default:
 		value := strconv.FormatFloat(r.Number, 'f', r.Def.EffectivePrecision(), 64)
 		if r.Def.Unit == "" {

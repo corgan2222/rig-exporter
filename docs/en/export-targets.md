@@ -74,6 +74,37 @@ Assistant is open in a browser **on this PC**, not from a phone. With
 set, it carries this machine's LAN address and the link works from anywhere. See
 [The interface on the network](interface/on-the-network.md).
 
+### Game attributes
+
+With [working out the game](interface/data-capture.md#working-out-the-game)
+switched on, the state document carries one more key, `game_details`, and the
+**game** entity is discovered with `json_attributes_topic` pointing at that same
+state topic. One message, no second entity, and the entity's own state stays
+what it always was — the executable RTSS reported:
+
+```json
+{ "game": "Cyberpunk2077.exe",
+  "game_details": { "platform": "gog", "title": "Cyberpunk 2077", "app_id": "1091500" } }
+```
+
+In Home Assistant that reads as `state_attr('sensor.re_corganpc2_game',
+'app_id')`, which is what addresses the artwork:
+
+```
+https://cdn.cloudflare.steamstatic.com/steam/apps/{{ app_id }}/header.jpg
+```
+
+**Each of the three is present only when it is known.** A game the store has
+never heard of keeps its platform and title and has no `app_id`; an executable
+no launcher claims produces no `game_details` at all, and the attributes are
+then empty rather than stale — the same message clears what the last game left
+behind.
+
+In Prometheus the same three arrive as one info metric,
+`rig_game_details_info{platform="gog",title="Cyberpunk 2077",app_id="1091500"} 1`,
+and in InfluxDB as the string fields `game_details_platform`,
+`game_details_title` and `game_details_app_id` on the `rig` point.
+
 ## HTTP data server
 
 A second listener, `0.0.0.0:9838` by default, so that Home Assistant can reach

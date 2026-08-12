@@ -74,7 +74,15 @@
     <div class="tiles">
       <div class="tile" id="tile-fps"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.fps" }}</div><div class="value" id="v-fps">&ndash;</div></div>
       <div class="tile" id="tile-frametime"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.frametime" }}</div><div class="value" id="v-frametime">&ndash;</div></div>
-      <div class="tile" id="tile-game"{{ if .Config.NoGPU }} hidden{{ end }}><div class="label">{{ .T "status.game" }}</div><div class="value small" id="v-game">&ndash;</div></div>
+      <!-- The tile keeps showing the executable, which is what the game
+           measurement publishes. What the launchers and the store call it goes
+           underneath, and only when it is actually known: an empty second line
+           would read as a reading that failed. -->
+      <div class="tile" id="tile-game"{{ if .Config.NoGPU }} hidden{{ end }}>
+        <div class="label">{{ .T "status.game" }}</div>
+        <div class="value small" id="v-game">&ndash;</div>
+        <div class="sub" id="v-game-id" hidden></div>
+      </div>
       <div class="tile" id="tile-resolution"><div class="label">{{ .T "status.resolution" }}</div><div class="value small" id="v-resolution">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.cpu" }}</div><div class="value" id="v-cpu">&ndash;</div></div>
       <div class="tile"><div class="label">{{ .T "status.ram" }}</div><div class="value" id="v-ram">&ndash;</div></div>
@@ -352,6 +360,30 @@ async function refresh() {
   $("v-fps").textContent = s.fps_available ? Math.round(s.fps) : "–";
   $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
+
+  // Platform and Steam app id, each only when it is there. The identification
+  // is off by default and can only ever answer half — a game GOG named that
+  // the store has never heard of has a platform and no id — so the line is
+  // assembled from whatever arrived and hidden when nothing did.
+  // The app id links to what Steam knows about it. textContent everywhere, so
+  // a title from a launcher catalogue cannot carry markup into the page.
+  const target = $("v-game-id");
+  target.replaceChildren();
+  if (s.game_platform) {
+    target.append(s.game_platform);
+  }
+  if (s.game_app_id) {
+    if (s.game_platform) {
+      target.append(" · ");
+    }
+    const link = document.createElement("a");
+    link.href = "https://store.steampowered.com/api/appdetails?appids=" + encodeURIComponent(s.game_app_id);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = s.game_app_id;
+    target.append(link);
+  }
+  target.hidden = !s.game_platform && !s.game_app_id;
   for (const id of ["tile-fps", "tile-frametime", "tile-game", "rtss-badge"]) {
     $(id).hidden = s.no_gpu;
   }
