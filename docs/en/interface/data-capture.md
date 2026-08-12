@@ -23,6 +23,7 @@ created — and they appear by themselves once it is there.
 | **Own resource usage** — CPU and memory of rig-exporter | **off** | What the program costs the machine it is measuring |
 | **Top processes** — which programs are using CPU and memory | **off** | Needs a pass over every process |
 | ↳ **How many per list** / **Sampling interval** | 5 / 10000 ms | Ten seconds is enough to see what a game or a build has been doing |
+| **Try to work out the game's name and Steam app id** (Steam, Epic, GOG) | **off** | Marked `ALPHA · internet`: the only option that contacts a third party. See below |
 
 The ↳ means: the row only takes effect while the group above it is on. In the
 interface, **Load per core** and **Every adapter instead of only the active
@@ -30,3 +31,23 @@ one** are ordinary checkboxes directly below their group; **Only these drives**,
 the ping target with its echoes and probe interval, and the two values of the
 top processes sit behind a collapsed **Detailed config**. It can be expanded at
 any time — even when the group above is off and the values inside it do nothing.
+
+## Working out the game
+
+RTSS reports the executable — `Cyberpunk2077.exe` — and that is what the **Game**
+measurement has always published. This option adds what the launchers and the
+Steam store call that executable: the platform, the title as the store spells it
+and the Steam app id that addresses the artwork.
+
+Three sources are asked, cheapest first — Steam's registry, then the GOG and
+Epic catalogues on disk, then Steam's public store search, which is the only
+part of it that leaves the machine — and makes this the only setting in the
+program that talks to somebody else's server. The **Game** entity does not
+change: its
+state is still the executable, its entity id is unchanged, and platform, title
+and app id arrive as **attributes** of that same entity — see
+[Export targets](../export-targets.md#game-attributes).
+
+Off by default and marked `ALPHA · internet`. What exactly is sent, how add-ons
+are kept from producing the wrong artwork, and what a dashboard does with the
+result: [Game identification](../game-identification.md).

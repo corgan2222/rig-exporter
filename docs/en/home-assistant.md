@@ -57,6 +57,10 @@ Two worked examples for the
 *one* entity, and that makes displaying it less obvious than for an ordinary
 measurement.
 
+The same shape of problem turns up with the artwork of the running game, which
+is addressed through an attribute of that same entity; that card is under
+[Game identification](game-identification.md#on-a-home-assistant-dashboard).
+
 ### The current list, without an extra card
 
 A Markdown card is enough and needs no HACS. The numbering is what ties it to

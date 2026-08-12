@@ -15,6 +15,13 @@ two of them. Every chip leads to the setting that determines it; reading a value
 and changing it should not be two searches. Tiles for values the chosen scope
 does not measure at all are hidden rather than shown empty.
 
+The **Game** tile shows the executable, which is what the measurement of that
+name publishes. With
+[working out the game](data-capture.md#working-out-the-game) switched on, the
+platform and the Steam app id stand under it in small type — and only when they
+are actually known, because an empty second line would read as a reading that
+failed.
+
 The hardware panels can be switched between two views. The default is **By
 device**: everything about GPU 0 together, then everything about GPU 1, each
 disk on its own, each adapter on its own — every group under a heading carrying

@@ -78,6 +78,38 @@ ist, vom Handy aus nicht. Ist
 gesetzt, steht dort die LAN-Adresse dieses Rechners und der Link funktioniert
 von überall. Siehe [Oberfläche im Netzwerk](interface/on-the-network.md).
 
+### Spiel-Attribute
+
+Ist [das Spiel ermitteln](interface/data-capture.md#das-spiel-ermitteln)
+eingeschaltet, trägt das Zustandsdokument einen Schlüssel mehr, `game_details`,
+und die Entity **Spiel** wird mit einem `json_attributes_topic` angemeldet, das
+auf genau dieses Zustands-Topic zeigt. Eine Nachricht, keine zweite Entity, und
+der Zustand der Entity bleibt, was er immer war — die von RTSS gemeldete
+ausführbare Datei:
+
+```json
+{ "game": "Cyberpunk2077.exe",
+  "game_details": { "platform": "gog", "title": "Cyberpunk 2077", "app_id": "1091500" } }
+```
+
+In Home Assistant liest sich das als `state_attr('sensor.re_corganpc2_game',
+'app_id')`, und das ist die Adresse des Titelbilds:
+
+```
+https://cdn.cloudflare.steamstatic.com/steam/apps/{{ app_id }}/header.jpg
+```
+
+**Jeder der drei Werte steht nur da, wenn er bekannt ist.** Ein Spiel, das der
+Store nicht kennt, behält Plattform und Titel und hat keine `app_id`; eine
+ausführbare Datei, zu der sich kein Launcher bekennt, erzeugt gar keine
+`game_details` — die Attribute sind dann leer statt veraltet, dieselbe Nachricht
+räumt weg, was das letzte Spiel hinterlassen hat.
+
+In Prometheus kommen dieselben drei als ein Info-Metric an,
+`rig_game_details_info{platform="gog",title="Cyberpunk 2077",app_id="1091500"} 1`,
+in InfluxDB als die Stringfelder `game_details_platform`, `game_details_title`
+und `game_details_app_id` am Punkt `rig`.
+
 ## HTTP-Datenserver
 
 Ein zweiter Listener, standardmäßig `0.0.0.0:9838`, damit Home Assistant von

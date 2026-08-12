@@ -58,6 +58,10 @@ Zwei ausgearbeitete Beispiele für die
 *einer* Entity, und das macht die Anzeige weniger offensichtlich als bei einem
 gewöhnlichen Messwert.
 
+Dieselbe Form von Aufgabe stellt sich beim Titelbild des laufenden Spiels, das
+über ein Attribut derselben Entity adressiert wird; diese Karte steht unter
+[Spielerkennung](game-identification.md#auf-einem-home-assistant-dashboard).
+
 ### Die aktuelle Liste, ohne Zusatzkarte
 
 Eine Markdown-Karte reicht und braucht kein HACS. Die Nummerierung ist das, was

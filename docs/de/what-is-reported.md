@@ -13,13 +13,13 @@ Quer über alle Gruppen liegt der **Umfang**. Die Gruppen sagen, welche Hardware
 gelesen wird; der Umfang sagt, wie ausführlich. Ein Schieberegler auf der Seite
 **Messwerte** kennt drei Stufen:
 
-* **Minimal** — 16 Messwerte: die Kacheln der Anzeigeseite. Prozessor- und
+* **Minimal** — 17 Messwerte: die Kacheln der Anzeigeseite. Prozessor- und
   Grafiktemperatur, Gesamtbelegung, Durchsatz, Akku. Bewusst ohne Laufzeit und
   Prozessanzahl, denn die ändern sich bei jeder Messung und füllen eine
   Datenbank mit nichts.
-* **Standard** — 76 Messwerte: was man sich ansieht, wenn man wissen will, wie
+* **Standard** — 77 Messwerte: was man sich ansieht, wenn man wissen will, wie
   es dem Rechner geht. Temperatur, Auslastung, freier Platz, Durchsatz, FPS.
-* **Erweitert** (Voreinstellung) — alle 122: Taktraten, Speicher­riegel,
+* **Erweitert** (Voreinstellung) — alle 123: Taktraten, Speicher­riegel,
   Last je Thread, Anzeigemodus, Zustand von RTSS, Akkuverschleiß. Nützlich beim
   Suchen eines Problems, im Alltag selten.
 
@@ -81,6 +81,7 @@ wurde, hätte ihren Verlauf für nichts verloren.
 | **Kühlung** | Modell, Flüssigkeitstemperatur, Pumpen- und Lüfterdrehzahl; im erweiterten Satz die Regelung von Pumpe und Lüfter in Prozent | USB-Kühlungssteuerung (HID) |
 | **Eigene Ressourcennutzung** | CPU-Anteil und Speicherbedarf von rig-exporter selbst | Windows |
 | **Top-Prozesse** | die Programme mit dem größten CPU- und Speicherbedarf | Windows |
+| **Spiel-Details** | Plattform, Titel und Steam-AppID des laufenden Spiels — Attribute der Spiel-Entity, nie eine eigene Entity | Steams Registry-Schlüssel, die Kataloge von GOG und Epic, die öffentliche Steam-Suche |
 
 Wie viele Werte daraus werden, entscheidet die Hardware: jede Grafikkarte, jedes
 Laufwerk und jeder Adapter bringt seinen eigenen Satz mit. Fest ist die Zahl

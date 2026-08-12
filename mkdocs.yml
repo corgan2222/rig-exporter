@@ -125,6 +125,7 @@ plugins:
             Getting started: Erste Schritte
             Interface: Oberfläche
             Export targets: Exportziele
+            Game identification: Spielerkennung
             Reference: Referenz
             Diagnostics: Diagnose
             Development: Entwicklung
@@ -204,6 +205,12 @@ nav:
   # order: configure it, see what comes out, then work with it inside HA.
   - Export targets: export-targets.md
   - Home Assistant: home-assistant.md
+  # One feature across the whole chain: a setting under Oberfläche, a key in
+  # every export, attributes on an entity, a card in Home Assistant. It fits
+  # none of the sections on either side of it, and splitting it across three
+  # would leave the answer nowhere. Behind Home Assistant because the last
+  # thing it explains is a dashboard card.
+  - Game identification: game-identification.md
   # What is left is genuine reference: what gets measured, what it is called,
   # where it comes from. Nothing here is a thing you do.
   - Reference:

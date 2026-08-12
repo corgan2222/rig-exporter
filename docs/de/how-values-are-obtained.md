@@ -22,6 +22,36 @@ steht als `fps_origin` in `/api/status` und in der `-probe`-Ausgabe — auf dem
 Weg in einen Export erscheint es nicht, dort sieht jeder Messwert gleich aus,
 egal wer ihn gezählt hat.
 
+**Welches Spiel diese ausführbare Datei ist**, wird nur ermittelt, wenn
+[die Option](interface/data-capture.md#das-spiel-ermitteln) an ist, und zwar
+über drei Quellen in der Reihenfolge ihrer Kosten. Steam schreibt die gestartete
+App nach `HKCU\Software\Valve\Steam\RunningAppID` und den Titel, den es dafür
+führt, nach `…\Steam\Apps\<id>\Name`: zwei Registry-Lesevorgänge, ohne
+Elevation, ohne Zugriff auf den Prozess des Spiels, und nichts davon verlässt
+den Rechner. Schweigt Steam, wird der von RTSS gemeldete Pfad gegen die Kataloge
+gehalten, die GOG (`HKLM\SOFTWARE\WOW6432Node\GOG.com\Games`) und Epic
+(`%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item`) auf der Platte
+führen — der längste passende Ordner gewinnt, damit ein Spiel im Verzeichnis
+eines anderen als es selbst gemeldet wird. Add-ons fallen dabei heraus: sie
+nennen den Ordner ihres Hauptspiels, und „Cyberpunk 2077: Phantom Liberty" würde
+sonst auf die AppID der Erweiterung führen und das falsche Bild zeigen.
+
+Nur ein so gefundener Titel, der immer noch keine AppID hat, ist eine Anfrage an
+die öffentliche Steam-Suche wert — dieselbe, die das Suchfeld der Store-Seite
+benutzt, ohne Schlüssel und ohne Konto. Das ist das Einzige an diesem Programm,
+das den Rechner verlässt: hinaus geht der Spielname, zurück kommt eine AppID,
+einmal je Titel, und die Antwort bleibt im Speicher — auch wenn sie leer war.
+Gewartet wird darauf ebenfalls nie; ein Titel, dessen AppID noch nicht da ist,
+wird ohne sie veröffentlicht und bekommt sie bei einer späteren Messung. Ein
+langsamer Store darf kein langsamer Exporter werden.
+
+Zwei andere Wege zu Steam sind gemessen und verworfen worden. `steam_appid.txt`
+liegt bei drei der installierten Spiele auf dem Entwicklungsrechner, weil es
+eine Entwicklerdatei ist und nichts, was jedes Spiel mitbringt. Die
+Umgebungsvariable `SteamAppId` aus dem Prozess des Spiels zu lesen braucht
+`ReadProcessMemory` gegen einen möglicherweise elevierten Prozess — fragil, und
+genau die Form, nach der ein Virenscanner sucht.
+
 **Ob die Maschine virtuell ist**, steht in der Firmware-Kennung: Hersteller,
 Produktname und BIOS-Hersteller, die Windows aus den SMBIOS-Tabellen unter
 `HKLM\HARDWARE\DESCRIPTION\System\BIOS` ablegt. Ein Gast nennt sich dort selbst

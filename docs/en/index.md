@@ -31,7 +31,7 @@ want to see it.
 
 -   :material-tune: **You decide what is sent**
 
-    122 measurements in the catalogue, each one can be deselected separately.
+    123 measurements in the catalogue, each one can be deselected separately.
     Three presets from "the tiles only" to "everything".
 
 -   :material-eye-off: **Only what is really there**
