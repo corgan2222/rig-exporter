@@ -184,6 +184,7 @@ const L = {
   disabled: {{ .T "hardware.disabled" }},
   noData: {{ .T "hardware.noData" }},
   noGroups: {{ .T "hardware.none" }},
+  stale: {{ .T "hardware.stale" }},
   setMinimal: {{ .T "settings.sensors.setMinimal" }},
   setStandard: {{ .T "settings.sensors.setStandard" }},
   setExtended: {{ .T "settings.sensors.setExtended" }},
@@ -243,11 +244,16 @@ function renderExports(exports) {
 // the special case, not the default.
 let byDevice = localStorage.getItem("rig.groupBy") !== "metric";
 
+// A stale row is one the server is holding in place because its reading stopped
+// arriving — see linger.go. It keeps the last value that was actually measured
+// and says so, dimmed and with the reason on hover: a number nobody is taking
+// any more must not read like a live one.
 function definitionList(rows, useShortLabels) {
-  return "<dl>" + rows.map((r) =>
-    "<dt>" + escapeHTML(useShortLabels ? r.short : r.label) + "</dt>" +
-    "<dd>" + escapeHTML(r.value) + "</dd>"
-  ).join("") + "</dl>";
+  return "<dl>" + rows.map((r) => {
+    const mark = r.stale ? ' class="stale" title="' + escapeHTML(L.stale) + '"' : "";
+    return "<dt" + mark + ">" + escapeHTML(useShortLabels ? r.short : r.label) + "</dt>" +
+      "<dd" + mark + ">" + escapeHTML(r.value) + "</dd>";
+  }).join("") + "</dl>";
 }
 
 function readings(rows) {

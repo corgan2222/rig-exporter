@@ -55,6 +55,10 @@ type Server struct {
 	// url is the resolved address, which can differ from the configured port
 	// if that port was taken.
 	url string
+	// rows holds each panel's rows for a few polls after their reading stops
+	// arriving, so an intermittent counter does not resize the panel under the
+	// reader. Display only — see linger.go.
+	rows *lingerStore
 }
 
 // New parses the templates and prepares the HTTP handlers.
@@ -68,7 +72,7 @@ func New(application *app.App, log *slog.Logger) (*Server, error) {
 		pages[page] = tmpl
 	}
 
-	s := &Server{app: application, log: log, pages: pages}
+	s := &Server{app: application, log: log, pages: pages, rows: newLingerStore()}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleStatus)
@@ -880,6 +884,21 @@ type row struct {
 	// group offers it.
 	Device string `json:"device"`
 	Value  string `json:"value"`
+	// Stale marks a row the last reading did not contain, held on screen by
+	// the linger so that one missed poll does not resize the panel. The value
+	// is the last one actually measured, and the page dims it: a number that is
+	// no longer being taken must not look like one that is.
+	//
+	// Display only. Nothing that leaves the machine is built from these rows —
+	// see linger.go.
+	Stale bool `json:"stale"`
+
+	// key identifies the reading across polls, and defID puts a row back where
+	// it belongs when it returns. Both are unexported, so neither reaches the
+	// browser: the page has no use for them, and the key is an export
+	// identifier that has no business being restated here.
+	key   string
+	defID string
 }
 
 // deviceNames names the reading that identifies a device within its group.
@@ -923,7 +942,24 @@ func (s *Server) handleIconPNG(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
-	st := s.app.Status()
+	resp := s.statusFor(s.app.Status())
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.log.Debug("status encode failed", "error", err)
+	}
+}
+
+// statusFor is the whole payload the dashboard polls for, built from one
+// reading.
+//
+// Separate from the handler so that the path the page actually takes can be
+// driven from a test with a reading of its own choosing — an App will not hand
+// out one. That matters for the row linger below: it is a single call, and
+// dropping it leaves every test of the store itself green while the panels go
+// back to flickering. Measured that way round before this was split out.
+func (s *Server) statusFor(st app.Status) statusResponse {
 	snap := st.Snapshot
 	lang := st.Config.Lang()
 	amdCard, amdDriver := amdPresence(snap)
@@ -947,15 +983,19 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 		FPSOrigin:    snap.FPSOrigin,
 		GPUPresent:   snap.Has(metrics.GPUName.ID),
 		FPSAvailable: snap.HasFrameRate(),
-		Groups:       groupStatuses(st, lang),
-		Exports:      make([]exportStatus, 0, len(st.Exports)),
-		Paused:       st.Paused,
-		Preset:       st.Config.Measurements.Preset,
-		Decimals:     st.Config.Decimals,
-		EntityCount:  len(snap.Entities()),
-		PublishMs:    publishPace(st),
-		Rendering:    snap.Rendering(),
-		Update:       updateStatusOf(st),
+		// Through the linger, which holds a row for a few polls after its
+		// reading stops arriving. It works on the rendered panels and on
+		// nothing else: the snapshot above is the one the exporters were
+		// handed, and it stays exactly as it was collected.
+		Groups:      s.rows.keep(groupStatuses(st, lang), st.UpdatedAt, pollPace(st)),
+		Exports:     make([]exportStatus, 0, len(st.Exports)),
+		Paused:      st.Paused,
+		Preset:      st.Config.Measurements.Preset,
+		Decimals:    st.Config.Decimals,
+		EntityCount: len(snap.Entities()),
+		PublishMs:   publishPace(st),
+		Rendering:   snap.Rendering(),
+		Update:      updateStatusOf(st),
 	}
 	for _, e := range st.Exports {
 		resp.Exports = append(resp.Exports, exportStatus{
@@ -970,12 +1010,7 @@ func (s *Server) handleAPIStatus(w http.ResponseWriter, _ *http.Request) {
 	if !st.UpdatedAt.IsZero() {
 		resp.UpdatedAt = st.UpdatedAt.Format(time.TimeOnly)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		s.log.Debug("status encode failed", "error", err)
-	}
+	return resp
 }
 
 // publishPace is the export interval in force at this moment: the game rate
@@ -987,6 +1022,16 @@ func publishPace(st app.Status) int {
 		return st.Config.PublishIntervalMs
 	}
 	return st.Config.IdlePublishIntervalMs
+}
+
+// pollPace is how often a new reading is taken, which is the unit the row
+// linger counts in.
+//
+// The poll interval and not either publish interval: the dashboard is fed every
+// poll, whether or not that reading was also exported, so a poll is what "one
+// tick" means to somebody watching the page.
+func pollPace(st app.Status) time.Duration {
+	return time.Duration(st.Config.PollIntervalMs) * time.Millisecond
 }
 
 // updateStatus is the update box, flattened for the page.
@@ -1166,6 +1211,8 @@ func rowsFor(snap collector.Snapshot, group metrics.Group, lang i18n.Lang) []row
 			Short:    reading.Def.Name.In(lang),
 			Instance: reading.Instance,
 			Value:    formatValue(reading),
+			key:      reading.Key(),
+			defID:    reading.Def.ID,
 		})
 	}
 
