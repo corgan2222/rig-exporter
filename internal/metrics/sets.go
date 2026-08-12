@@ -45,7 +45,7 @@ func (p Preset) Valid() bool {
 }
 
 // minimalSet is the wall-panel answer: the six tiles at the top of the
-// dashboard, the three temperatures somebody actually worries about, how full
+// dashboard, the two temperatures somebody actually worries about, how full
 // the machine is, what the network is doing, and the battery on a laptop.
 //
 // Deliberately without uptime and the process count. Both change on every
