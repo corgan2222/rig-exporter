@@ -172,13 +172,11 @@ func (r *HIDReader) Read(buf []byte, timeout time.Duration) (int, error) {
 	if errors.Is(err, windows.ERROR_IO_PENDING) {
 		wait, err := windows.WaitForSingleObject(r.event, uint32(timeout.Milliseconds()))
 		if err != nil {
-			windows.CancelIo(r.handle)
+			r.abort(&overlapped, &read)
 			return 0, err
 		}
 		if wait != windows.WAIT_OBJECT_0 {
-			// The read has to be cancelled, or the next one inherits it and
-			// the buffer stays live in an operation nobody is waiting for.
-			windows.CancelIo(r.handle)
+			r.abort(&overlapped, &read)
 			return 0, ErrHIDTimeout
 		}
 		if err := windows.GetOverlappedResult(r.handle, &overlapped, &read, false); err != nil {
@@ -186,6 +184,37 @@ func (r *HIDReader) Read(buf []byte, timeout time.Duration) (int, error) {
 		}
 	}
 	return int(read), nil
+}
+
+// abort ends a read that is still running, and does not return until the driver
+// has actually let go of it.
+//
+// The waiting is the whole point, and leaving it out cost a fortnight of
+// crashes. CancelIoEx only *requests* cancellation: it returns immediately, and
+// the driver may still complete the read afterwards — writing into buf and into
+// overlapped. Both are Go memory. overlapped is a local that dies with the
+// return, and the caller reuses buf for the next read, so the kernel then
+// writes into memory the runtime has handed to somebody else. That is heap
+// corruption, and it surfaces far away from here as "fatal error: selectgo:
+// bad wakeup" or "fatal error: fault" — in this program, in a select statement
+// in the cooling poll loop that has nothing to do with any of it.
+//
+// GetOverlappedResult with wait=true is what makes the operation over. It
+// returns ERROR_OPERATION_ABORTED for a read that was cancelled, which is the
+// expected outcome here and not worth reporting.
+//
+// CancelIoEx rather than CancelIo for a second reason: CancelIo only cancels
+// what the calling thread started, and a goroutine does not stay on one thread.
+// CancelIo could therefore cancel nothing at all and still return success.
+func (r *HIDReader) abort(overlapped *windows.Overlapped, read *uint32) {
+	if err := windows.CancelIoEx(r.handle, overlapped); err != nil &&
+		!errors.Is(err, windows.ERROR_NOT_FOUND) {
+		// ERROR_NOT_FOUND means it finished on its own between the timeout and
+		// the cancel. Anything else leaves the read running, and returning now
+		// would hand its buffer back to the allocator — so wait regardless.
+		_ = err
+	}
+	_ = windows.GetOverlappedResult(r.handle, overlapped, read, true)
 }
 
 // Close releases the device.
