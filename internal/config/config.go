@@ -30,7 +30,7 @@ const (
 	// on every one of a hundred entities.
 	EntityPrefix = "re"
 	// Version is reported to Home Assistant as the device software version.
-	Version = "1.10.1"
+	Version = "1.10.2"
 
 	// LegacyAppName is the previous name. Its configuration is migrated on
 	// first start and its retained discovery topics are cleaned up.
@@ -213,6 +213,19 @@ type Config struct {
 	TopProcessesEnabled    bool `json:"top_processes_enabled"`
 	TopProcessesCount      int  `json:"top_processes_count"`
 	TopProcessesIntervalMs int  `json:"top_processes_interval_ms"`
+
+	// GameIDEnabled works out the game behind the executable RTSS reports: its
+	// launcher, the title its store spells out, and the Steam app id that
+	// addresses its artwork.
+	//
+	// Off by default for two reasons, either of which would be enough. It is
+	// alpha — three launchers are read and the rest of them are not, and a
+	// title the store answers with is the store's best match rather than a
+	// certainty. And it is the only setting in this program that talks to a
+	// third party: for a game Steam itself did not name, its title is sent to
+	// Steam's public store search and an app id comes back. Nobody is opted in
+	// to either.
+	GameIDEnabled bool `json:"game_id_enabled"`
 
 	// LegacyCleanupPending is set once when a configuration is migrated from
 	// the previous application name, and cleared after the old retained
@@ -454,6 +467,10 @@ func Defaults() Config {
 		TopProcessesEnabled:    false,
 		TopProcessesCount:      5,
 		TopProcessesIntervalMs: 10000,
+
+		// Alpha, and the one option that contacts a third party. Both are
+		// reasons to be switched off until somebody decides otherwise.
+		GameIDEnabled: false,
 
 		// Read four times as often as we publish while a game runs: the tray
 		// and the settings page stay lively without putting four times the

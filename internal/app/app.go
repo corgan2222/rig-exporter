@@ -20,6 +20,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/export"
 	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
 	"github.com/corgan2222/rig-exporter/internal/export/influxpush"
+	"github.com/corgan2222/rig-exporter/internal/gameid"
 	"github.com/corgan2222/rig-exporter/internal/hamqtt"
 	"github.com/corgan2222/rig-exporter/internal/hardware/gpu"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -206,6 +207,13 @@ func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provi
 	// with the graphics group switched off. On a machine without an AMD driver
 	// this never produces a reading.
 	c.UseFrameRateFallback(gpu.ADLXOrigin, gpu.ADLXFrameRate)
+	// Only when it was asked for: this is the one part of the program that
+	// contacts a third party, and an identifier that exists is one that can.
+	// Rebuilt with the collector whenever a setting changes, which drops what
+	// it had learned — cheap, and the only way anybody has to clear it.
+	if cfg.GameIDEnabled {
+		c.UseGameIdentity(gameid.New(gameid.CurrentUser{}, gameid.Installs, gameid.SteamStore).Identify)
+	}
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
 	return c, s

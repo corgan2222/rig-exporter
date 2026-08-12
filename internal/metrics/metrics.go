@@ -42,6 +42,25 @@ const (
 	// and in Home Assistant the leader as the state with the whole table
 	// alongside it as attributes.
 	KindTable
+	// KindDetails is a handful of named strings that describe another reading.
+	//
+	// It exists for the same reason KindTable does. The platform a game came
+	// from, the title its store spells out and the Steam app id that addresses
+	// its artwork are three facts about one measurement, not three
+	// measurements: nobody wants three more entities in Home Assistant, they
+	// want to know more about the entity that is already on the dashboard. So a
+	// details reading rides along as that entity's attributes, named by its
+	// AttributesFrom, and is never an entity itself — it has no state of its
+	// own to be one with.
+	//
+	// Each format again renders it in its own idiom: an object in JSON, an info
+	// metric carrying a label per detail in Prometheus, a string field per
+	// detail in InfluxDB.
+	//
+	// A detail whose value is not known is simply not in the list. An empty
+	// string would claim the value was looked up and found empty, and a wrong
+	// Steam app id is not a missing picture but the wrong game's picture.
+	KindDetails
 )
 
 // Group is the sensor family a definition belongs to. Groups are what the
@@ -135,6 +154,18 @@ type Definition struct {
 	PromLabel string
 	Help      string
 
+	// AttributesFrom names another measurement whose details ride along as this
+	// entity's attributes in Home Assistant. It names a measurement that exists
+	// only once, so the JSON key and the id are the same string.
+	//
+	// The alternative was to give this measurement's own value both a state and
+	// an object of extras, and it does not exist: a text reading publishes a
+	// plain string, and Home Assistant reads attributes out of a JSON object.
+	// Naming a companion key keeps the state, the id and the value template of
+	// the entity exactly as they were — an established entity gains attributes
+	// and changes nothing else.
+	AttributesFrom string
+
 	// Home Assistant presentation.
 	DeviceClass    string
 	StateClass     string
@@ -180,16 +211,28 @@ type Reading struct {
 	// helpers happen to run on a given machine. Nothing in render.go reads it.
 	Origin string
 
-	Number float64
-	Text   string
-	Bool   bool
-	Rows   []Row
+	Number  float64
+	Text    string
+	Bool    bool
+	Rows    []Row
+	Details []Detail
 }
 
 // Row is one line of a KindTable reading: what it is, and how much.
 type Row struct {
 	Label string  `json:"name"`
 	Value float64 `json:"value"`
+}
+
+// Detail is one named string of a KindDetails reading.
+//
+// Name is an identifier and never follows the language: it becomes a key in the
+// JSON document, an attribute in Home Assistant, a Prometheus label and an
+// InfluxDB field, and all four are things a consumer keys off. Keep it short,
+// lowercase and made of the characters a Prometheus label name allows.
+type Detail struct {
+	Name  string
+	Value string
 }
 
 // decimals decides whether numeric readings keep their fractional part.
@@ -278,6 +321,33 @@ func Table(def Definition, instance string, rows []Row) Reading {
 		return Reading{}
 	}
 	return Reading{Def: def, Instance: instance, Rows: kept}
+}
+
+// Details builds a reading out of named strings, in the order they should be
+// read.
+//
+// A detail without a value is dropped rather than published as an empty string,
+// and a reading with nothing left is no reading at all — the same rule the rest
+// of the catalogue follows. That is what lets a caller hand over everything it
+// might have learned without checking each half at the call site: a game whose
+// title is known and whose app id is not publishes the title alone.
+func Details(def Definition, instance string, details ...Detail) Reading {
+	kept := make([]Detail, 0, len(details))
+	for _, detail := range details {
+		name := strings.TrimSpace(detail.Name)
+		// Through the same UTF-8 repair as Text, and for the same reason: these
+		// values come from a registry, a launcher's manifest and somebody
+		// else's web service, and none of the three promises valid UTF-8.
+		value := strings.TrimSpace(strings.ToValidUTF8(detail.Value, ""))
+		if name == "" || value == "" {
+			continue
+		}
+		kept = append(kept, Detail{Name: name, Value: value})
+	}
+	if len(kept) == 0 {
+		return Reading{}
+	}
+	return Reading{Def: def, Instance: instance, Details: kept}
 }
 
 // instanceAfter says which part of an identifier the instance follows, keyed by
@@ -476,9 +546,39 @@ func (r Reading) Value() any {
 			out["rank"+rank+"_name"] = row.Label
 		}
 		return out
+	case KindDetails:
+		// An object, which is the shape Home Assistant reads a set of
+		// attributes out of: the entity that names this key gets exactly these
+		// keys and no others, so a detail that is missing here is an attribute
+		// that is not there rather than one that is empty.
+		out := make(map[string]any, len(r.Details))
+		for _, detail := range r.Details {
+			out[detail.Name] = detail.Value
+		}
+		return out
 	default:
 		return r.Number
 	}
+}
+
+// Detail is one named string of this reading, empty when it was not collected.
+func (r Reading) Detail(name string) string {
+	for _, detail := range r.Details {
+		if detail.Name == name {
+			return detail.Value
+		}
+	}
+	return ""
+}
+
+// DetailsText renders a details reading on one line, for the places that show a
+// reading as text.
+func (r Reading) DetailsText() string {
+	parts := make([]string, 0, len(r.Details))
+	for _, detail := range r.Details {
+		parts = append(parts, detail.Name+" "+detail.Value)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // TableText renders a ranked list on one line, for the places that show a

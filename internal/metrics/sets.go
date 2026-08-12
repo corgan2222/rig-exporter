@@ -52,9 +52,16 @@ func (p Preset) Valid() bool {
 // single reading, which makes them the two cheapest ways to fill a database
 // with nothing.
 var minimalSet = map[string]bool{
-	"fps":                true,
-	"frametime":          true,
-	"game":               true,
+	"fps":       true,
+	"frametime": true,
+	"game":      true,
+	// The game's platform, title and app id ride along as attributes of the
+	// game entity, and their own switch already decides whether they are
+	// collected at all. Filtering them out here as well would leave somebody
+	// who switched the identification on with nothing to see, for a reason they
+	// never touched — the same argument the two rankings carry in the rung
+	// below.
+	"game_details":       true,
 	"game_running":       true,
 	"cpu":                true,
 	"cpu_temperature":    true,
@@ -109,6 +116,7 @@ var basicSet = map[string]bool{
 	"disk_overall_used":          true,
 	"frametime":                  true,
 	"game":                       true,
+	"game_details":               true,
 	"game_running":               true,
 	"gpu_fan":                    true,
 	"gpu_fan_rpm":                true,
