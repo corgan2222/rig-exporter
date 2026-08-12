@@ -50,9 +50,19 @@ $pages = [ordered]@{
 # ids of the cards and do not change with the language — unlike their height,
 # which is why their position is measured rather than written down here.
 $boxes = @{
+    # The dashboard names only its first card. The list is "the cards to save,
+    # from the top" rather than "every card on the page" — the hardware panels
+    # below it are long, machine-specific and already covered by the full-page
+    # shot, while the status card is the one a page wants to show on its own.
+    "dashboard"    = @("status")
+
     "export"       = @("mqtt", "ha", "recorder", "data", "influx", "app", "logs")
     "measurements" = @("rung", "node-core", "node-gpu", "node-cpu", "node-ram", "node-disk", "node-net", "node-cooling")
 }
+
+# Pages whose FIRST card is saved together with everything above it. Everything
+# else is cut to the card alone.
+$withHeader = @("dashboard")
 
 function Invoke-UI([string]$path, [string]$body) {
     $uri = [Uri]"$BaseUrl$path"
@@ -139,6 +149,20 @@ function Save-Crop([System.Drawing.Bitmap]$bmp, [int]$top, [int]$cardHeight, [st
     $crop.Dispose()
 }
 
+# Save-TopCrop keeps everything above the card as well: the logo, the version,
+# the navigation and the language switch, at the full width of the page.
+#
+# A card lifted out on its own says nothing about where it lives. For the first
+# card of a page that is exactly the information the picture is for — the reader
+# has to see which of the four pages they are being shown.
+function Save-TopCrop([System.Drawing.Bitmap]$bmp, [int]$bottom, [string]$file) {
+    $h = [Math]::Min($bmp.Height, $bottom + 12)
+    $rect = New-Object System.Drawing.Rectangle 0, 0, $bmp.Width, $h
+    $crop = $bmp.Clone($rect, $bmp.PixelFormat)
+    $crop.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+    $crop.Dispose()
+}
+
 # ------------------------------------------------------------------- run ----
 
 $outDir = Join-Path (Resolve-Path $OutRoot) $Lang
@@ -163,11 +187,22 @@ try {
         if ($boxes.ContainsKey($name)) {
             $bands = Get-CardBands $bmp
             $ids = $boxes[$name]
-            if ($bands.Count -ne $ids.Count) {
-                Write-Warning "$name : found $($bands.Count) cards, expected $($ids.Count) — check the mapping"
+            # Fewer cards than names is a fault: a card the page should have is
+            # missing, or the detection lost one. More is not — a page may
+            # deliberately name only its first few, as the dashboard does.
+            if ($bands.Count -lt $ids.Count) {
+                Write-Warning "$name : found $($bands.Count) cards, expected at least $($ids.Count) — check the mapping"
             }
             for ($i = 0; $i -lt [Math]::Min($bands.Count, $ids.Count); $i++) {
-                Save-Crop $bmp $bands[$i].Top $bands[$i].Height (Join-Path $outDir "$name-$($ids[$i]).png")
+                # NOT $file: the page's own path is already in $file, and the
+                # trim below writes to it. Overwriting it here put the trimmed
+                # full page into the card's file and left the page untrimmed.
+                $cardFile = Join-Path $outDir "$name-$($ids[$i]).png"
+                if ($i -eq 0 -and $withHeader -contains $name) {
+                    Save-TopCrop $bmp ($bands[$i].Top + $bands[$i].Height) $cardFile
+                } else {
+                    Save-Crop $bmp $bands[$i].Top $bands[$i].Height $cardFile
+                }
             }
             "{0,-16} {1} cards" -f $name, $bands.Count
         }
