@@ -18,7 +18,7 @@ wird über eine Weboberfläche eingestellt, die nur auf `127.0.0.1` lauscht — 
 Deutsch oder Englisch. **Windows 10 und 11, 64 Bit**: die Schnittstellen, aus
 denen diese Werte kommen, gibt es nirgendwo sonst.
 
-![Die Anzeigeseite von rig-exporter](docs/images/screenshots/de/dashboard.png)
+![Die Anzeigeseite von rig-exporter](docs/images/screenshots/de/dashboard-status.png)
 
 ## Warum dieses Programm
 
