@@ -27,8 +27,13 @@ func TestARealKrakenReportDecodesToWhatTheCoolerShowed(t *testing.T) {
 	if got.Device != "NZXT Kraken Z3" {
 		t.Errorf("device = %q", got.Device)
 	}
-	if got.Instance != "3008" {
-		t.Errorf("instance = %q, want the product id", got.Instance)
+	// The model name, not the product id. It reaches the entity key and the
+	// dashboard label, where "3008" told nobody anything.
+	if got.Instance != "NZXT Kraken Z3" {
+		t.Errorf("instance = %q, want the model name", got.Instance)
+	}
+	if got.Instance != got.Device {
+		t.Errorf("instance %q and device %q have drifted apart", got.Instance, got.Device)
 	}
 	if !got.HasLiquid || got.LiquidTemperature != 45.9 {
 		t.Errorf("liquid = %v (%v), want 45.9", got.LiquidTemperature, got.HasLiquid)

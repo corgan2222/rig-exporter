@@ -293,9 +293,10 @@ func Table(def Definition, instance string, rows []Row) Reading {
 // earlier would give cpu_5_core. A dimension absent from this map keeps the
 // instance at the end.
 var instanceAfter = map[string]string{
-	"gpu":  "gpu",
-	"disk": "disk",
-	"nic":  "net",
+	"gpu":    "gpu",
+	"disk":   "disk",
+	"nic":    "net",
+	"cooler": "cooling",
 }
 
 // Key is how this reading is named in JSON and in Home Assistant entity ids.
