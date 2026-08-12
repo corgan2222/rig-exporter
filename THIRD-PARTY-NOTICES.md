@@ -45,7 +45,7 @@ file in the module cache; none is missing.**
 
 | Module | Version | Licence (as its own file states it) | Source file(s) read |
 |---|---|---|---|
-| code.gitea.io/sdk/gitea | v0.23.2 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE` |
+| code.gitea.io/sdk/gitea | v0.25.1 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE` |
 | fyne.io/systray | v1.12.2 | Apache License, Version 2.0 | `LICENSE` |
 | github.com/42wim/httpsig | v1.2.4 | BSD 3-Clause License (named in the file) | `LICENSE` |
 | github.com/Masterminds/semver/v3 | v3.5.0 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE.txt` |
@@ -60,12 +60,12 @@ file in the module cache; none is missing.**
 | github.com/hashicorp/go-cleanhttp | v0.5.2 | Mozilla Public License, version 2.0 | `LICENSE` |
 | github.com/hashicorp/go-retryablehttp | v0.7.8 | Mozilla Public License, version 2.0 | `LICENSE` |
 | github.com/hashicorp/go-version | v1.9.0 | Mozilla Public License, version 2.0 | `LICENSE` |
-| github.com/ulikunitz/xz | v0.5.15 | BSD 3-Clause — the third clause is worded personally ("My name, Ulrich Kunitz, may not be used…"); the file never names it | `LICENSE` |
+| github.com/ulikunitz/xz | v0.5.16 | BSD 3-Clause — the third clause is worded personally ("My name, Ulrich Kunitz, may not be used…"); the file never names it | `LICENSE` |
 | gitlab.com/gitlab-org/api/client-go | v1.46.0 | Apache License, Version 2.0 | `LICENSE` |
-| golang.org/x/crypto | v0.53.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/net | v0.55.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/crypto | v0.54.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/net | v0.56.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
 | golang.org/x/oauth2 | v0.36.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/sync | v0.17.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/sync | v0.22.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
 | golang.org/x/sys | v0.47.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
 | golang.org/x/time | v0.15.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
 | gopkg.in/yaml.v3 | v3.0.1 | MIT **and** Apache-2.0 — the file splits the module by file: eight ported libyaml files are MIT, everything else Apache-2.0 | `LICENSE`, `NOTICE` |
@@ -388,7 +388,7 @@ Copyright (c) 2020 CreativeProjects
 
 Copyright (c) 2016 The Gitea Authors
 Copyright (c) 2014 The Gogs Authors
-    — code.gitea.io/sdk/gitea@v0.23.2/LICENSE
+    — code.gitea.io/sdk/gitea@v0.25.1/LICENSE
 
 Copyright (c) 2014 David Mzareulyan
     — github.com/davidmz/go-pageant@v1.0.2/LICENSE.txt
@@ -506,7 +506,7 @@ Applies to: `github.com/ulikunitz/xz`.
 
 Kept separate because its third clause is not the standard one — it names the
 author personally rather than "the copyright holder". Reproduced verbatim from
-`github.com/ulikunitz/xz@v0.5.15/LICENSE`.
+`github.com/ulikunitz/xz@v0.5.16/LICENSE`.
 
 ```text
 Copyright (c) 2014-2022  Ulrich Kunitz
