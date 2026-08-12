@@ -12,8 +12,6 @@
 // and labelled as untested.
 package cooling
 
-import "fmt"
-
 // Reading is what one controller currently reports. A field is only set when
 // the device actually supplies it — a missing value is left out, not zeroed,
 // and the flags say which is which.
@@ -21,7 +19,12 @@ type Reading struct {
 	// Device names the controller for the entity label, e.g. "NZXT Kraken Z3".
 	Device string
 	// Instance is what the entity key is built from, so it must not translate
-	// and must survive a firmware update: the product id in hex.
+	// and must survive a firmware update: the model name, which is a constant
+	// in this file rather than anything the device sends.
+	//
+	// It was the product id in hex until it turned out what that looks like on
+	// a dashboard — a tile labelled "3008", and an entity called
+	// cooling_fan_speed_3008.
 	Instance string
 
 	LiquidTemperature float64
@@ -86,8 +89,13 @@ func decodeKrakenV3(product uint16, report []byte) (Reading, bool) {
 	}
 
 	r := Reading{
-		Device:   name,
-		Instance: fmt.Sprintf("%04x", product),
+		Device: name,
+		// The model name, not the USB product id. The instance becomes the
+		// entity id and the label a person reads, and "3008" is neither — it
+		// said nothing on the dashboard and nothing in an automation. Two
+		// coolers of the same model still collide, but they did under the
+		// product id as well, so nothing is lost.
+		Instance: name,
 
 		LiquidTemperature: float64(report[15]) + float64(report[16])/10,
 		HasLiquid:         true,

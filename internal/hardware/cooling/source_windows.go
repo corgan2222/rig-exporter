@@ -5,6 +5,7 @@ package cooling
 import (
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -12,12 +13,19 @@ import (
 )
 
 const (
-	// reportWait is how long one collection will wait for a controller to say
-	// something. These devices report about once a second on their own and
-	// Windows queues what arrives, so a wait this short almost always finds a
-	// report already there. It is capped low on purpose: a cooler that has
-	// gone quiet must not hold up the measuring loop.
-	reportWait = 250 * time.Millisecond
+	// reportWait is how long one read waits for a controller to say something.
+	//
+	// It no longer sits on the measuring loop — the reader has its own
+	// goroutine — which is why it can afford to be generous rather than short.
+	// The old comment claimed a wait this short "almost always finds a report
+	// already there"; it did not. At 250 ms and three attempts a quiet cooler
+	// used the whole per-source deadline, and the group alternated between a
+	// reading and "no answer within 250ms" on every tick.
+	reportWait = 500 * time.Millisecond
+	// pollInterval is how often the reader asks. These devices report about
+	// once a second on their own, so asking faster only produces more reads
+	// that find nothing.
+	pollInterval = time.Second
 	// maxAge is how long the last report stays worth publishing. Beyond it the
 	// readings are left out rather than repeated — a stale pump speed looks
 	// exactly like a running pump.
@@ -49,9 +57,16 @@ type controller struct {
 type Source struct {
 	log *slog.Logger
 
+	// mu guards everything below, because the reader runs on its own goroutine
+	// and the tick reads what it leaves behind.
+	mu          sync.Mutex
 	controllers []*controller
 	scannedAt   time.Time
 	scanErr     error
+
+	polling bool
+	stop    chan struct{}
+	done    sync.WaitGroup
 }
 
 // New creates the cooling source.
@@ -59,7 +74,59 @@ func New(log *slog.Logger) *Source {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Source{log: log}
+	return &Source{log: log, stop: make(chan struct{})}
+}
+
+// startPolling launches the reader once there is something to read.
+//
+// Not in New: with no cooler attached there is nothing to poll, and the scan
+// that finds one runs on the tick.
+func (s *Source) startPolling() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.polling || len(s.controllers) == 0 {
+		return
+	}
+	s.polling = true
+	s.done.Add(1)
+	go s.poll()
+}
+
+// poll asks each controller in turn, for as long as the source lives.
+//
+// Paced by pollInterval rather than run flat out: a status report arrives every
+// second or so, and asking faster only means more reads that time out.
+func (s *Source) poll() {
+	defer s.done.Done()
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.stop:
+			return
+		case <-ticker.C:
+		}
+
+		s.mu.Lock()
+		controllers := append([]*controller(nil), s.controllers...)
+		s.mu.Unlock()
+
+		for _, c := range controllers {
+			// Outside the lock: this is the part that waits, and holding the
+			// lock across it would hand the tick exactly the stall this change
+			// exists to remove.
+			reading, ok := s.read(c)
+
+			s.mu.Lock()
+			if ok {
+				c.last, c.lastAt = reading, time.Now()
+			}
+			s.mu.Unlock()
+		}
+	}
 }
 
 // Group identifies which switch turns this source off.
@@ -85,14 +152,28 @@ func (s *Source) OriginName() string {
 }
 
 // Collect reads every controller that answers.
+// Collect reports the last thing each controller said. It never waits for one.
+//
+// The device is not asked here, because asking means waiting: a Kraken sends
+// status reports when it feels like it, and a read that finds none costs the
+// full reportWait of 250 ms — up to three times over. That is the whole
+// per-source deadline at a 500 ms poll interval, so the cooling group spent its
+// life alternating between a reading and "no answer within 250ms", and the
+// dashboard tile flickered between the two.
+//
+// The cache was already here — last, lastAt and maxAge — it was simply never
+// reached, because overrunning the deadline discards everything the source
+// would have contributed. Now a background goroutine does the waiting and this
+// only reads what it left behind.
 func (s *Source) Collect(set *metrics.Set) error {
 	s.rescan()
+	s.startPolling()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	now := time.Now()
 	for _, c := range s.controllers {
-		if reading, ok := s.read(c); ok {
-			c.last, c.lastAt = reading, now
-		}
 		if c.lastAt.IsZero() || now.Sub(c.lastAt) > maxAge {
 			// It answered once and has gone quiet. Say nothing rather than
 			// repeat what it said a minute ago.
@@ -148,6 +229,11 @@ func (s *Source) read(c *controller) (Reading, bool) {
 // rescan looks for controllers, at first call and then only while there are
 // none or one has dropped out.
 func (s *Source) rescan() {
+	// Under the lock throughout: the reader goroutine walks this same slice and
+	// writes c.reader and c.path when a device stops answering.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	live := s.controllers[:0]
 	for _, c := range s.controllers {
 		if c.path != "" {
@@ -185,6 +271,23 @@ func (s *Source) rescan() {
 
 // Close releases every open device.
 func (s *Source) Close() {
+	// The reader is stopped and waited for before a single handle is closed.
+	// It spends most of its time inside a blocking read, holding no lock, so
+	// closing underneath it would pull the handle out of a call in progress.
+	// Guarded against a second Close, which a configuration change produces.
+	s.mu.Lock()
+	stopping := s.polling
+	s.polling = false
+	s.mu.Unlock()
+
+	if stopping {
+		close(s.stop)
+		s.done.Wait()
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, c := range s.controllers {
 		if c.reader != nil {
 			c.reader.Close()
