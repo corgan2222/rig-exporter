@@ -12,23 +12,8 @@ probe.txt
 # documentation that ships; these are the project's memory for whoever
 # continues it, and they are nobody else's business.
 HANDOVER.md
-AMD-HANDOVER.md
 maybe_later.md
-review.md
 
-# One note per problem found in review, moved from todo to done as it is
-# resolved. Working material like the notes above, and nobody else's business.
 fixes/
-
-# Key material. The private signing key is what the whole update chain rests
-# on: whoever holds it can sign an update that every installation accepts
-# without asking. It has never been in the repository, but until now it was
-# kept out by .git/info/exclude — a file that exists in one clone and that git
-# never transfers, so a fresh checkout on a second machine had no protection
-# at all.
-#
-# The exception below is not optional: update-signing-cert.pem is the public
-# certificate, it is read by go:embed at build time, and the build fails
-# without it.
 *.pem
 !internal/updater/update-signing-cert.pem
