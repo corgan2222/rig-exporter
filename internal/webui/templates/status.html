@@ -365,9 +365,25 @@ async function refresh() {
   // is off by default and can only ever answer half — a game GOG named that
   // the store has never heard of has a platform and no id — so the line is
   // assembled from whatever arrived and hidden when nothing did.
-  const gameID = [s.game_platform, s.game_app_id].filter(Boolean).join(" · ");
-  $("v-game-id").textContent = gameID;
-  $("v-game-id").hidden = gameID === "";
+  // The app id links to what Steam knows about it. textContent everywhere, so
+  // a title from a launcher catalogue cannot carry markup into the page.
+  const target = $("v-game-id");
+  target.replaceChildren();
+  if (s.game_platform) {
+    target.append(s.game_platform);
+  }
+  if (s.game_app_id) {
+    if (s.game_platform) {
+      target.append(" · ");
+    }
+    const link = document.createElement("a");
+    link.href = "https://store.steampowered.com/api/appdetails?appids=" + encodeURIComponent(s.game_app_id);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = s.game_app_id;
+    target.append(link);
+  }
+  target.hidden = !s.game_platform && !s.game_app_id;
   for (const id of ["tile-fps", "tile-frametime", "tile-game", "rtss-badge"]) {
     $(id).hidden = s.no_gpu;
   }
