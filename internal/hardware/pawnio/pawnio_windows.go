@@ -87,7 +87,11 @@ func (l *library) loadLibrary() bool {
 
 		// Without these four there is nothing to do, and pretending otherwise
 		// would only move the failure somewhere less obvious.
-		l.ok = l.version.ok && l.open.ok && l.load.ok && l.execute.ok
+		// close counts too. What this opens, it has to be able to close: a
+		// library without pawnio_close would otherwise pass as usable, and
+		// closeDevice would silently do nothing — one device handle leaked per
+		// call, growing for as long as the program runs.
+		l.ok = l.version.ok && l.open.ok && l.load.ok && l.execute.ok && l.close.ok
 	})
 	return l.ok
 }

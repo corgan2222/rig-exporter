@@ -4,7 +4,7 @@ import "testing"
 
 // realKrakenZ3Report is a status report captured from an NZXT Kraken Z3
 // (0x1E71:0x3008) on 05.08.2026. At that moment the machine's monitoring
-// software showed 45.9 °C liquid, 2409 rpm pump, 814 rpm fans, 76 % pump duty
+// software showed 45.9 °C liquid, ~2400 rpm pump, 814 rpm fans, 76 % pump duty
 // and 39 % fan duty — which is what makes this a measurement rather than a
 // transcription of somebody else's table.
 var realKrakenZ3Report = []byte{
