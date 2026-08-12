@@ -1,0 +1,123 @@
+name: Docs
+
+# The handbook is built from docs/ and published to GitHub Pages.
+#
+# Separate from ci.yml because it has nothing to do with the program: it needs
+# Python, it needs no Go, and a failing docs build must not read as a failing
+# build of rig-exporter itself.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - requirements-docs.txt
+      - .github/workflows/docs.yml
+  pull_request:
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - requirements-docs.txt
+      - .github/workflows/docs.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Every push and pull request: does it build at all, and are both languages
+  # in step? Neither needs write access, so this job holds none.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The drift check compares against the base of the pull request, so it
+          # needs more than the single commit a shallow clone gives it.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - run: pip install -r requirements-docs.txt
+
+      # --strict turns warnings into failures: a dead internal link, a page
+      # missing from the navigation, a broken theme option. Without it those
+      # only show up when somebody clicks.
+      - name: Build
+        run: mkdocs build --strict
+
+      # English is the source and German follows it. Two languages under one
+      # maintainer drift within months unless something refuses to let them —
+      # this is that something.
+      - name: Both languages changed together
+        if: github.event_name == 'pull_request'
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- docs/)
+
+          missing=""
+          for file in $changed; do
+            case "$file" in
+              docs/en/*) counterpart="docs/de/${file#docs/en/}" ;;
+              docs/de/*) counterpart="docs/en/${file#docs/de/}" ;;
+              *) continue ;;
+            esac
+
+            # A page deleted on one side needs no counterpart on the other.
+            [ -f "$file" ] || continue
+
+            # Nor does a page that exists in only one language. That is the
+            # door for a genuinely new page: it may land in one language and be
+            # carried over in a later pull request, and this check stays about
+            # pages that exist on both sides drifting apart.
+            [ -f "$counterpart" ] || continue
+
+            if ! echo "$changed" | grep -qxF "$counterpart"; then
+              missing="$missing  $file -> $counterpart\n"
+            fi
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::error::A page changed in one language but not the other."
+            printf "%b" "$missing"
+            echo ""
+            echo "English is the source; German follows it. Change both in the"
+            echo "same pull request, or the two quietly stop agreeing and nobody"
+            echo "can tell which one is right."
+            exit 1
+          fi
+          echo "Both languages are in step."
+
+  # Publishing happens only from main, and only this job may write.
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - run: pip install -r requirements-docs.txt
+      - run: mkdocs build --strict
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

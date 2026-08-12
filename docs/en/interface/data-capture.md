@@ -1,0 +1,32 @@
+# Data capture
+
+![The Data capture page with every sensor source as a list of checkboxes](../../images/screenshots/en/capture.png)
+
+Which hardware is read at all. Where the source is missing, no entities are
+created — and they appear by themselves once it is there.
+
+| Option | Default | What it does |
+|---|---|---|
+| **Graphics card** — temperature, clocks, VRAM, load, fan, power | on | The whole GPU group. Without a live source the DXGI inventory remains |
+| **Processor detail** — model, cores, threads, clock, temperature | on | The static CPU facts on top of plain load |
+| ↳ **Load per core** | **off** | One entity **per thread**. With 16 cores that is 32 — which is why it is off |
+| **Memory** — used, free, total, clock, type, modules | on | The population of the slots as well |
+| **Use PawnIO as a sensor source** | **off** | CPU power and temperature through the kernel driver. Only takes effect while **Processor detail** is on, and requires administrator rights — see [PawnIO](../requirements.md#pawnio) |
+| **Drives** — type, capacity, usage, throughput | on | Every fixed drive |
+| ↳ **Only these drives** | blank | Drive letters, comma separated, e.g. `C, D`. Blank = all |
+| **Network** — adapter, link speed, throughput, errors, Wi-Fi signal | on | Only the **active** adapter |
+| ↳ **Every adapter instead of only the active one** | off | VPN, Hyper-V and Bluetooth adapters too — usually more noise than use |
+| **Battery** — charge, mains, runtime left, wear | on | On a desktop without a battery nothing is created |
+| **Special hardware** — AIO water cooling, pump, fan hub | **off** | Marked `ALPHA · untested`: rebuilt protocols against devices almost nobody here owns |
+| **Latency probe** — ping and packet loss | on | Target blank = default gateway; otherwise a host name or IPv4 address. Only measures while **Network** is on |
+| ↳ **Echoes per round** / **Probe interval** | 3 / 15000 ms | Separate from the read interval, because a ping takes longer than fetching a counter |
+| **Own resource usage** — CPU and memory of rig-exporter | **off** | What the program costs the machine it is measuring |
+| **Top processes** — which programs are using CPU and memory | **off** | Needs a pass over every process |
+| ↳ **How many per list** / **Sampling interval** | 5 / 10000 ms | Ten seconds is enough to see what a game or a build has been doing |
+
+The ↳ means: the row only takes effect while the group above it is on. In the
+interface, **Load per core** and **Every adapter instead of only the active
+one** are ordinary checkboxes directly below their group; **Only these drives**,
+the ping target with its echoes and probe interval, and the two values of the
+top processes sit behind a collapsed **Detailed config**. It can be expanded at
+any time — even when the group above is off and the values inside it do nothing.

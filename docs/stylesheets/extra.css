@@ -1,0 +1,163 @@
+/* The header colour.
+ *
+ * Material's named palettes are all mid-tone, and a bright band across the top
+ * of a page about temperatures and load graphs competes with the content for
+ * attention. `primary: custom` in mkdocs.yml hands the colour over to this
+ * block instead. Near-black with a trace of blue in it, so it reads as part of
+ * the page rather than as a stripe laid on top of it.
+ *
+ * All five variables have to be set: Material derives the hover states, the
+ * mobile address-bar colour and the search field from them, and a half-filled
+ * palette leaves those on the previous colour.
+ */
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color:        #12161c;
+  --md-primary-fg-color--light: #232a34;
+  --md-primary-fg-color--dark:  #090c10;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+
+  /* Material derives the link colour from the primary colour. With a near-black
+   * primary that turned every link, and the highlighted entry in the menu, into
+   * black text on a dark page — unreadable. Links follow the accent instead,
+   * which is what the accent is for. */
+  --md-typeset-a-color: #4c5fd7;
+}
+
+/* The dark scheme lifts it slightly off pure black, or the header and the page
+ * behind it merge into one surface with no edge between them. */
+[data-md-color-scheme="slate"][data-md-color-primary="custom"] {
+  --md-primary-fg-color:        #181e26;
+  --md-primary-fg-color--light: #273041;
+  --md-typeset-a-color:         #8b9dff;
+}
+
+/* The relocated "Copy page" control.
+ *
+ * It arrives styled for a page body and lands on a dark bar, so it needs the
+ * header's own palette rather than the content one.
+ */
+.md-header__inner > .copy-to-llm-split-container {
+  margin: 0 0.4rem;
+  flex-shrink: 0;
+}
+
+.md-header__inner .copy-to-llm-left,
+.md-header__inner .copy-to-llm-right {
+  background-color: #ffffff1a;
+  border-color: #ffffff33;
+  color: var(--md-primary-bg-color);
+}
+
+.md-header__inner .copy-to-llm-left:hover,
+.md-header__inner .copy-to-llm-right:hover {
+  background-color: #ffffff2e;
+  color: var(--md-primary-bg-color);
+}
+
+/* Below the width where the repository link disappears there is no room left
+ * for it either, and the search field matters more. */
+@media screen and (max-width: 59.9em) {
+  .md-header__inner > .copy-to-llm-split-container {
+    display: none;
+  }
+}
+
+/* Start page: the banner above the fold.
+ *
+ * Full-bleed inside the content column, with the logo, the one-line claim and
+ * the two things a first-time visitor wants — start reading, or look at the
+ * source. Deliberately the only place on the site with a gradient: a device
+ * that appears twice stops being a signal.
+ */
+.hero {
+  margin: -1.2rem -0.8rem 2rem;
+  padding: 2.6rem 1.6rem 2.2rem;
+  border-radius: 0.4rem;
+  text-align: center;
+  color: #ffffff;
+  background:
+    radial-gradient(ellipse at 20% -20%, #2b3a67 0%, transparent 60%),
+    radial-gradient(ellipse at 90% 120%, #1d4e5f 0%, transparent 55%),
+    linear-gradient(160deg, #12161c 0%, #1b2330 100%);
+}
+
+/* Mark and wordmark on one line, so the banner stays a band rather than a
+ * screenful. The image sits inside the h1 in the Markdown, which is what lets
+ * them share a baseline without a wrapper element. */
+.hero h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 0 0.6rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.hero h1 img {
+  width: 2.1rem;
+  height: auto;
+}
+
+/* No anchor pilcrow on a banner: there is nothing above it to link back to. */
+.hero .headerlink {
+  display: none;
+}
+
+.hero p {
+  margin: 0 auto 1.4rem;
+  max-width: 34rem;
+  color: #ffffffd0;
+  font-size: 0.78rem;
+}
+
+.hero .md-button {
+  margin: 0.2rem 0.3rem;
+  border-color: #ffffff66;
+  color: #ffffff;
+}
+
+.hero .md-button--primary {
+  background-color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+  color: #ffffff;
+}
+
+.hero .md-button:not(.md-button--primary):hover {
+  background-color: #ffffff1a;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+@media screen and (max-width: 44.9em) {
+  .hero {
+    padding: 1.8rem 1rem 1.6rem;
+  }
+}
+
+/* Left menu: make the hierarchy visible.
+ *
+ * With the table of contents folded into the same menu, a page's headings sit
+ * directly beneath its own entry — at Material's default spacing they line up
+ * with the pages around them, so a heading reads like another page. Each level
+ * gets a step to the right and a hairline to follow, which is what tells the
+ * two apart at a glance.
+ *
+ * Desktop only: on a narrow screen the menu is a drawer that navigates one
+ * level at a time, so there is no hierarchy on screen to indent.
+ */
+@media screen and (min-width: 76.25em) {
+  .md-nav--primary .md-nav .md-nav__list {
+    margin-left: 0.4rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--md-default-fg-color--lightest);
+  }
+
+  /* The section title stays flush left: it is the anchor the rest hangs off. */
+  .md-nav--primary > .md-nav__list {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+}

@@ -1,0 +1,88 @@
+# Dependabot keeps the dependency graph moving without anybody remembering to
+# look. Two ecosystems are in play, and the second one is the one that actually
+# rots: a pinned action tag goes stale in silence — no build error, no failing
+# test, nothing to announce it — which makes it the likelier supply-chain
+# problem of the two.
+#
+# Nothing here can land unchecked. Every pull request runs the `check` job in
+# .github/workflows/ci.yml, which is `build.ps1 -Check`: gofmt, go vet,
+# staticcheck, the whole test suite, then the build. The ruleset on main
+# (.github/ruleset-main.json) requires that check green and the branch up to
+# date, so a bump reaches main only after the same gate a human change passes.
+# CI reads no secrets, so it also runs on the restricted token Dependabot's pull
+# requests get.
+#
+# There is deliberately no `labels:` key below. Dependabot's default
+# "dependencies" label is what .github/release-drafter.yml collects under
+# "📦 Dependencies"; overriding the label would drop these out of the notes.
+
+version: 2
+
+updates:
+  # --------------------------------------------------------------- Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      # Weekly, not daily. One maintainer reviews these. A daily bot fills the
+      # list faster than one person can empty it, and a pull request nobody has
+      # time to read is noise — noise trains you to skip the bot's next one,
+      # including the one that mattered. Weekly leaves a backlog of at most one.
+      # Monday at 06:00 local, so the run is over and CI has answered before the
+      # week starts.
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    allow:
+      # go.mod holds 5 direct and 19 indirect requirements. The release is a
+      # single static binary, so an indirect module is compiled in exactly like
+      # a direct one — it is shipped code, not somebody else's problem.
+      - dependency-type: "all"
+    groups:
+      go-modules:
+        patterns: ["*"]
+        # 24 modules ungrouped is up to 24 pull requests a week, which is the
+        # unusable form. Grouped, it is one.
+        #
+        # Majors are held out of the group on purpose. A Go major version is a
+        # new import path (.../v3), so the bump edits source rather than a
+        # version string: it needs its own review, and it has to stay rejectable
+        # without also holding back the patches it would otherwise travel with.
+        # Those arrive as separate pull requests, which is rare enough to afford.
+        update-types: ["minor", "patch"]
+    commit-message:
+      # The history is English imperative sentences with no prefix. The prefix
+      # is here to mark the bot's commits as the routine they are, and "chore"
+      # is the project's own word for that class of work — it is one of the
+      # branch prefixes .github/release-drafter.yml already autolabels.
+      # Produces: chore(deps): bump the go-modules group with 3 updates
+      prefix: "chore"
+      include: "scope"
+    # main enforces strict status checks, so any open pull request goes stale
+    # the moment something else merges. "auto" lets Dependabot rebase its own
+    # branches instead of leaving them sitting un-mergeable.
+    rebase-strategy: "auto"
+
+  # ----------------------------------------------------------- GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      # Same weekly slot and the same reasoning as above: both groups land in
+      # one sitting rather than spreading review across the week.
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    groups:
+      github-actions:
+        patterns: ["*"]
+        # No update-types filter here, unlike the Go block above. Every action
+        # referenced under .github/workflows is pinned to a floating major tag
+        # (actions/checkout@v4, actions/setup-go@v5, and the rest), so minor and
+        # patch fixes already arrive by themselves and the only bump Dependabot
+        # can see at all is a major one. Excluding majors would leave this group
+        # matching nothing and hand back one pull request per action.
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    rebase-strategy: "auto"
