@@ -18,7 +18,7 @@ is set up in a web interface that listens on `127.0.0.1` only, in English or
 German. **Windows 10 and 11, 64 bit** — the interfaces these values come from
 exist nowhere else.
 
-![The Dashboard page of rig-exporter](docs/images/screenshots/en/dashboard.png)
+![The Dashboard page of rig-exporter](docs/images/screenshots/en/dashboard-status.png)
 
 ## Why this one
 
