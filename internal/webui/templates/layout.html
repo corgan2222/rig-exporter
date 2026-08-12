@@ -286,6 +286,12 @@
               gap: .18rem .8rem; font-size: .85rem; }
   .group dt { color: var(--muted); overflow-wrap: break-word; }
   .group dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  /* A row being held in place after its reading stopped arriving. Faded rather
+     than hidden or dashed: the point of holding it is that the panel keeps its
+     height, and a dash would only move the flicker into the value column. The
+     value stays readable — it is the last real measurement — but it must not
+     pass for a live one, so it is dimmed and carries its reason on hover. */
+  .group dt.stale, .group dd.stale { opacity: .45; font-style: italic; cursor: help; }
 
   /* Settings section jump list */
   .jump { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }

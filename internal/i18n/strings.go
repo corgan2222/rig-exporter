@@ -143,6 +143,13 @@ var catalogue = map[string]Text{
 	"hardware.none":     {DE: "Keine Sensorgruppen aktiv.", EN: "No sensor groups are active."},
 	"hardware.byMetric": {DE: "Nach Messwert", EN: "By measurement"},
 	"hardware.byDevice": {DE: "Nach Gerät", EN: "By device"},
+	// Shown on a row whose reading has stopped arriving but which is being held
+	// in place for a few polls. It has to say that the number is old, or a
+	// value nobody is measuring any more reads as a live one.
+	"hardware.stale": {
+		DE: "Letzter Messwert — aktuell nicht gemeldet",
+		EN: "Last reading — not currently reported",
+	},
 
 	// Endpoint list.
 	"endpoints.title":      {DE: "Endpunkte", EN: "Endpoints"},
