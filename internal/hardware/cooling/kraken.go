@@ -63,8 +63,14 @@ const krakenV3StatusLength = 26
 
 // decodeKrakenV3 turns one status report into a reading.
 //
-// The layout, verified against a Kraken Z3 whose monitoring software showed
-// 45.9 °C, 2409 rpm, 814 rpm, 76 % and 39 % at the same moment:
+// The layout, verified against a Kraken Z3 alongside its monitoring software,
+// which showed 45.9 °C, ~2400 rpm pump, 814 rpm fans, 76 % and 39 %.
+//
+// The pump figure used to be written here as 2409 and as 2400 in the test, from
+// the same recording. The recorded report decodes to 2400, so that is the
+// number; 2409 was presumably read off the software a moment earlier or later,
+// which for a pump speed is not the same moment at all. Two numbers that
+// quietly disagreed, and the byte layout below is what settles it.
 //
 //	 0, 1   0x75 0x01, the marker of a status report
 //	15, 16  liquid temperature, whole degrees and tenths
