@@ -34,15 +34,26 @@ jobs:
   label:
     # Labels come from the branch prefix, which this project uses consistently:
     # feature/, fix/, docs/, test/, chore/. Nothing to remember at review time.
+    #
+    # The sub-action, not the root one. v7 split the action in two: the root
+    # release-drafter/release-drafter@v7 is now the drafter alone, and labelling
+    # moved to autolabeler@v7. The `disable-releaser` and `disable-autolabeler`
+    # inputs went with the split — neither exists in v7's action.yml — and
+    # GitHub ignores an unknown input instead of failing on it. So under v7 the
+    # root action here read `disable-releaser: true`, discarded it, drafted a
+    # release anyway, and died on "Resource not accessible by integration". The
+    # option had stopped holding; the permission below still did.
+    #
+    # Which is why that permission stays at read. This job runs on
+    # pull_request_target, so it carries the base repository's token while
+    # checking out a fork's branch. contents: write would silence the error by
+    # handing that fork exactly what the guard exists to withhold.
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request_target'
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - uses: release-drafter/release-drafter@v7
-        with:
-          disable-releaser: true
-          disable-autolabeler: false
+      - uses: release-drafter/release-drafter/autolabeler@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
