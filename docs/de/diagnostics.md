@@ -207,9 +207,19 @@ Gibt es etwas Neueres, sind das zwei Wege zur selben Sache:
   der installierten daneben, einem Link auf die Release Notes und einem Knopf
   **Jetzt aktualisieren**.
 * **In Home Assistant** kündigt MQTT eine native **Update-Entity** an, mit
-  denselben Angaben und einem kurzen Auszug aus dem Changelog. Der Auszug ist
-  auf die von Home Assistant vorgesehenen 255 Zeichen begrenzt; der Link führt
-  deshalb immer zum ungekürzten Changelog.
+  denselben Angaben und einem kurzen Auszug aus dem Changelog. Der Auszug behält
+  die Überschriften und die Listenpunkte der Release Notes, denn Home Assistant
+  stellt ihn als Markdown dar, und ist auf die von Home Assistant vorgesehenen
+  255 Zeichen begrenzt. Was nicht hineinpasst, fällt ganz weg, statt mitten im
+  Satz abzubrechen, und ein abschließendes `- …` sagt, dass etwas weggefallen
+  ist. Der Link führt deshalb immer zum ungekürzten Changelog — einen Dialog für
+  die vollständigen Release Notes gibt es über MQTT nicht, den können nur in
+  Python geschriebene Integrationen anbieten.
+
+Das Bild an der Entity ist das rig-exporter-Zeichen, geholt aus dem Handbuch.
+Diese Adresse ist von jedem Rechner aus dieselbe und übersteht deshalb auch
+einen Portwechsel der Oberfläche. Ein Browser ohne Internetzugang zeigt
+stattdessen einen Tacho.
 
 Der Exporter installiert nichts unbeaufsichtigt. Erst der Klick — hier wie dort
 — löst den Download aus. Währenddessen zeigt der Knopf den laufenden Vorgang an.

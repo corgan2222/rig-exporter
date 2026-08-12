@@ -201,9 +201,18 @@ If there is something newer, these are two paths to the same thing:
   installed one beside it, a link to the release notes and an **Update now**
   button.
 * **In Home Assistant** MQTT announces a native **update entity**, with the same
-  details and a short excerpt from the changelog. The excerpt is limited to the
-  255 characters Home Assistant provides for; the link therefore always leads to
-  the unabridged changelog.
+  details and a short excerpt from the changelog. The excerpt keeps the headings
+  and the list items of the release notes, because Home Assistant renders it as
+  markdown, and is limited to the 255 characters Home Assistant provides for.
+  What does not fit is left out whole instead of being cut mid-sentence, and a
+  closing `- …` says that something was left out. The link therefore always
+  leads to the unabridged changelog — over MQTT there is no dialog for the full
+  release notes, only integrations written in Python can offer one.
+
+The picture on the entity is the rig-exporter mark, fetched from the handbook.
+That address is the same seen from every machine, so it also survives the
+interface moving to a different port. A browser that cannot reach the internet
+shows a speedometer instead.
 
 The exporter installs nothing unattended. Only the click — here as there —
 triggers the download. While it runs, the button shows the process going on.

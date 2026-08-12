@@ -24,6 +24,26 @@ jede einzelne Zeile. Die Reihenfolge ist in beiden Fällen dieselbe, Gerät für
 Gerät; es ändert sich nur, wo der Gerätename steht. Die Wahl bleibt im Browser
 gespeichert.
 
+Eine Zeile, deren Messwert ausbleibt, bleibt **zwanzig Auslesevorgänge lang
+stehen**, bevor sie verschwindet. Manche Werte kommen nicht bei jedem Durchgang —
+ein Windows-Zähler für eine Grafik-Engine existiert nur, solange etwas diese
+Engine benutzt — und ein Panel, das die Zeile beim ersten Fehlen fallen lässt,
+ändert alle paar Sekunden seine Höhe und verschiebt die Seite unter dem Leser.
+Eine gehaltene Zeile zeigt den zuletzt tatsächlich gemessenen Wert, ausgegraut
+und kursiv, mit dem Grund im Tooltip.
+
+Zwanzig Auslesevorgänge und keine feste Sekundenzahl: wer das
+[Auslese-Intervall](../polling-and-publishing.md) verlangsamt, verlängert die
+Wartezeit mit, eine Zeile bleibt also unabhängig vom Takt gleich viele Messungen
+lang stehen. Wird eine Sensorgruppe abgeschaltet oder fällt eine Quelle aus,
+leert sich ihr Panel sofort — das ist eine Anweisung beziehungsweise ein Fehler,
+kein ausgebliebener Messwert.
+
+Das gilt nur für die Anzeige. Was eine gehaltene Zeile zeigt, erreicht weder
+MQTT noch JSON, Prometheus oder InfluxDB: ein nicht gemessener Wert
+[wird im Export weggelassen](../export-targets.md) und nie als veralteter Wert
+oder als Null gesendet.
+
 Fehlt auf einem Rechner die GPU beziehungsweise werden dort bewusst keine
 Spieldaten genutzt, lässt sich der RTSS-Hinweis dauerhaft wegräumen. Der Knopf
 heißt **„Keine GPU vorhanden — Spieldaten ausblenden"**, wenn Windows gar keine

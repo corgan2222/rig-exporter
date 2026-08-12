@@ -66,7 +66,7 @@ happens.
 Behind the version stands where the binary came from:
 
 ```
-rig-exporter 1.10.0+<commits>.<hash>
+rig-exporter 1.10.1+<commits>.<hash>
 ```
 
 Commit count from `git rev-list --count`, short hash from `git rev-parse --short`,

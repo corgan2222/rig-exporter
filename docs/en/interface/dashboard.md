@@ -23,6 +23,24 @@ leaves those headings out and writes the device into every single row instead.
 The order is the same either way, device by device; only where the device name
 sits changes. The choice is kept in the browser.
 
+A row whose reading stops arriving is **held in place for twenty reads** before
+it goes. Some readings are not there on every pass — a Windows counter for a
+graphics engine only exists while something is using that engine — and a panel
+that drops the row the moment one is missing changes height every few seconds
+and moves the page under whoever is reading it. A held row shows the last value
+that was actually measured, greyed out and in italics, with the reason on hover.
+
+Twenty reads and not a fixed number of seconds: slowing the
+[read interval](../polling-and-publishing.md) down stretches the wait with it,
+so a row lingers for the same number of readings whatever the rate. Switching a
+sensor group off, or a source failing, empties its panel immediately — that is an
+instruction or a fault, not a missed reading.
+
+This is display only. What a held row shows never reaches MQTT, JSON, Prometheus
+or InfluxDB: a value that was not measured is
+[left out of an export](../export-targets.md), never sent as a stale one or as a
+zero.
+
 Where a machine has no GPU, or is deliberately not used for game data, the RTSS
 notice can be cleared away for good. The button reads **"No GPU present — hide
 game status"** when Windows reports no graphics card at all, and **"Not used for
