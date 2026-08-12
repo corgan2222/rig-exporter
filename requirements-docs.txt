@@ -1,0 +1,9 @@
+# Documentation site. Not needed to build or run rig-exporter itself — the
+# program stays a single Go binary with no Python anywhere near it.
+#
+# Pinned rather than floating: a docs build that breaks because a theme shipped
+# a new minor version is a broken CI run for a change nobody made.
+mkdocs==1.6.1
+mkdocs-material==9.5.49
+mkdocs-static-i18n==1.2.3
+mkdocs-copy-to-llm==0.2.10

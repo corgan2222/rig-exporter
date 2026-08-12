@@ -17,3 +17,13 @@ maybe_later.md
 fixes/
 *.pem
 !internal/updater/update-signing-cert.pem
+
+# Built documentation site, produced by mkdocs from docs/.
+site/
+
+# Generated, not written: a docs plugin drops its processed script and style
+# files into docs/ before every build. They belong to the build rather than to
+# the source, the workflow regenerates them anyway, and checked in they would
+# change on their own with every version bump of the plugin.
+docs/assets/
+tools/.image-api.key

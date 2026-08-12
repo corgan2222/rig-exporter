@@ -1,0 +1,220 @@
+site_name: rig-exporter
+site_description: PC telemetry for Home Assistant, Prometheus and InfluxDB
+site_url: https://corgan2222.github.io/rig-exporter/
+repo_url: https://github.com/corgan2222/rig-exporter
+repo_name: corgan2222/rig-exporter
+edit_uri: edit/main/docs/
+
+# Both languages live under docs/ so a change to one is reviewable next to the
+# other in the same pull request. Which one leads is set in the i18n plugin
+# below — English, with German following it.
+docs_dir: docs
+
+theme:
+  name: material
+  language: en
+  logo: images/rig-exporter-mark.svg
+  favicon: images/favicon-32.png
+
+  palette:
+    # The toggle is deliberate rather than "follow the system": somebody reading
+    # documentation at night on a machine set to light mode should not have to
+    # change their whole desktop to fix it.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+  features:
+    # navigation.instant is deliberately absent: it breaks the language
+    # switcher's contextual link, which would send a German reader back to the
+    # English front page instead of the German version of the page they are on.
+    # --strict caught that, which is why the flag is on.
+    #
+    # One menu, on the left, that always shows the same thing. navigation.tabs
+    # is deliberately absent: it splits the table of contents in two, puts the
+    # sections at the top and only the current section's pages on the left, so
+    # the menu changes shape depending on where you are. Every page can then be
+    # in one of three places, which is one too many to keep in your head.
+    #
+    # navigation.sections is deliberately absent: it renders a section as a
+    # plain label with its pages flat underneath, which is the layout that put
+    # the section title and its own page next to each other twice.
+    - navigation.expand       # every section open, all of the time
+    # navigation.indexes folds a section's own page into the section title, so
+    # the title is a link instead of a dead label. It only fires for a page
+    # MkDocs considers an index, and that means the file has to be *named*
+    # index.md — hence docs/de/reference/index.md rather than docs/de/reference.md
+    # while its sibling pages stay flat. Listing an ordinary page first looks
+    # identical in mkdocs.yml and silently does nothing: the page is rendered a
+    # second time as the section's first child, which is what "Referenz,
+    # Referenz" underneath each other was.
+    - navigation.indexes
+    - navigation.tracking     # the address bar follows the section being read
+    - navigation.top
+    - navigation.footer       # previous/next at the bottom
+    - search.suggest
+    - search.highlight
+    - content.code.copy       # a copy button on every code block
+    - content.action.edit
+    # The headings of the current page belong under that page in the left menu,
+    # not in a second column on the right. Same reason: one place to look.
+    - toc.integrate
+    - toc.follow
+
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  # A copy button per page and per section that yields the raw Markdown, for
+  # pasting into an assistant. Analytics off: the point of this site is that
+  # nothing about a visitor leaves it.
+  - copy-to-llm:
+      minify: true
+      analytics: false
+      # All five buttons on, including the two that hand the page to a named
+      # assistant. Deliberate, and an exception to the rule that nothing
+      # published may point at one: that rule exists to keep the *authorship*
+      # of this project unattributed, and a reader-facing convenience button
+      # says nothing about who wrote the code.
+      buttons:
+        copy_page: true
+        copy_markdown_link: true
+        view_as_markdown: true
+        open_in_chatgpt: true
+        open_in_claude: true
+  # One tree per language rather than one file with two halves: a page that is
+  # only half translated is then visibly missing instead of quietly mixed.
+  # English is the source language and the default locale; German follows it.
+  # A change is written in English first, then carried over — so the German
+  # tree is the one that can lag, never the other way round.
+  #
+  # The nav below is written in the source language. `nav_translations` maps
+  # those titles per locale, which is why the German site still reads
+  # "Referenz" while the entry in this file says "Reference". Only the titles
+  # spelled out in the nav need an entry; every other page takes its title from
+  # its own H1 and is therefore already translated.
+  - i18n:
+      docs_structure: folder
+      reconfigure_material: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: de
+          name: Deutsch
+          build: true
+          nav_translations:
+            Home: Start
+            Getting started: Erste Schritte
+            Interface: Oberfläche
+            Export targets: Exportziele
+            Reference: Referenz
+            Diagnostics: Diagnose
+            Development: Entwicklung
+
+# What --strict is allowed to fail on. Without this block MkDocs checks that a
+# linked *file* exists and stops there — a link to a heading that has been
+# renamed stays silent, and this handbook renames headings often enough that
+# the rot would only surface when somebody clicked. anchors: warn plus --strict
+# turns that into a failed build.
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/copy-to-llm-header.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # The menu carries a page's H2 headings and stops there. Deeper headings
+      # still render on the page — they just do not become a third rank of
+      # entries in a menu that already nests section > page > heading.
+      toc_depth: 2
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/corgan2222/rig-exporter
+
+# Every section leads with its own page, so the heading in the menu is a link
+# rather than a dead label. Without that first entry a reader who clicks
+# "Referenz" gets nothing, which reads as a broken menu — and it is one.
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/index.md
+      - requirements.md
+      - first-run.md
+  # Everything you operate: the four pages of the interface, plus what they set
+  # — the intervals, the tray. These sat under Referenz, where nobody looks for
+  # a setting they are trying to change.
+  - Interface:
+      - interface/index.md
+      - interface/dashboard.md
+      - interface/data-capture.md
+      - interface/measurements.md
+      - interface/export-and-display.md
+      - interface/common.md
+      - interface/on-the-network.md
+      - polling-and-publishing.md
+      - tray-menu.md
+  # Not something the interface sets — it is what the receiver reads, which is
+  # why it sits next to Home Assistant instead of under Oberfläche. Reading
+  # order: configure it, see what comes out, then work with it inside HA.
+  - Export targets: export-targets.md
+  - Home Assistant: home-assistant.md
+  # What is left is genuine reference: what gets measured, what it is called,
+  # where it comes from. Nothing here is a thing you do.
+  - Reference:
+      - reference/index.md
+      - what-is-reported.md
+      - identifiers.md
+      - how-values-are-obtained.md
+  # Top level on purpose: it is what somebody reaches for when something is
+  # wrong, and that is the worst moment to go hunting through a section.
+  - Diagnostics: diagnostics.md
+  - Development:
+      - development/index.md
+      - building.md
+      - custom-measurements.md
