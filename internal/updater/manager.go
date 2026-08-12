@@ -45,6 +45,11 @@ const (
 	// notification with 255 characters to spend — and it is our own template
 	// that puts it there, so cutting on it is cutting on something we own.
 	installSection = "## Installing"
+
+	// moreLine closes a summary that had to leave something out. A list item
+	// rather than a bare ellipsis: a paragraph directly under a list is a lazy
+	// continuation of the last item, and the mark would be read as part of it.
+	moreLine = "- …"
 )
 
 var (
@@ -323,18 +328,108 @@ func (m *Manager) setNoUpdate() {
 	m.notify()
 }
 
-// summarize turns the release notes into the one paragraph Home Assistant has
+// summarize turns the release notes into the short markdown Home Assistant has
 // room for: what changed, and nothing about how to install it.
+//
+// Home Assistant renders release_summary through its markdown component, and
+// the update dialog uses that component without the `breaks` option — a single
+// newline is whitespace there, not a line break. Only whole markdown blocks
+// survive it: a heading is one, a list item is one. Flattening the notes into
+// a single line therefore made "## New" swallow every item under it, and the
+// entity showed one bold, truncated run of text.
+//
+// So the lines are kept, and the 255 characters are spent on whole ones. What
+// does not fit is dropped rather than cut — half a sentence ending mid-word
+// says less than one item fewer — and a closing item says that something was
+// left out. The release URL leads to the unabridged changelog either way.
 func summarize(notes string) string {
+	lines := summaryLines(notes)
+	if len(lines) == 0 {
+		return ""
+	}
+	if kept := fittingLines(lines, maxReleaseSummary); len(kept) == len(lines) {
+		return strings.Join(withoutTrailingHeadings(kept), "\n")
+	}
+	// The room for the mark is taken off the end, so the whole thing still fits.
+	kept := withoutTrailingHeadings(fittingLines(lines, maxReleaseSummary-utf8.RuneCountInString(moreLine)-1))
+	if len(kept) == 0 {
+		// One item longer than the entire budget: there is nothing whole left to
+		// fall back to, so this is the one place a cut is unavoidable.
+		return cutOnAWord(firstItem(lines), maxReleaseSummary)
+	}
+	return strings.Join(kept, "\n") + "\n" + moreLine
+}
+
+// summaryLines is the release notes as markdown blocks, one per line: the
+// install section cut off, the blank lines between the blocks dropped — they
+// cost a character each and separate nothing that a heading or a list marker
+// does not separate already — and the whitespace inside a line collapsed, so
+// an indented continuation cannot arrive as a code block.
+func summaryLines(notes string) []string {
 	if cut := strings.Index(notes, installSection); cut >= 0 {
 		notes = notes[:cut]
 	}
-	text := strings.Join(strings.Fields(notes), " ")
-	if utf8.RuneCountInString(text) <= maxReleaseSummary {
+	var lines []string
+	for _, raw := range strings.Split(notes, "\n") {
+		if line := strings.Join(strings.Fields(raw), " "); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+// fittingLines is the longest run of whole lines from the front that stays
+// within budget once they are joined by newlines. It stops at the first line
+// that does not fit instead of looking for a shorter one further down: a
+// changelog read out of order is a different changelog.
+func fittingLines(lines []string, budget int) []string {
+	used := 0
+	for i, line := range lines {
+		cost := utf8.RuneCountInString(line)
+		if i > 0 {
+			cost++ // the newline in front of it
+		}
+		if used+cost > budget {
+			return lines[:i]
+		}
+		used += cost
+	}
+	return lines
+}
+
+// withoutTrailingHeadings drops a heading that has lost everything it
+// introduced. "## Fixed" with nothing under it is a promise, not a summary.
+func withoutTrailingHeadings(lines []string) []string {
+	for len(lines) > 0 && strings.HasPrefix(lines[len(lines)-1], "#") {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// firstItem is the first line that carries a change rather than announcing a
+// group of them.
+func firstItem(lines []string) string {
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "#") {
+			return line
+		}
+	}
+	return lines[0]
+}
+
+// cutOnAWord shortens text to budget characters, ellipsis included, ending on a
+// word boundary.
+func cutOnAWord(text string, budget int) string {
+	if utf8.RuneCountInString(text) <= budget {
 		return text
 	}
-	runes := []rune(text)
-	return strings.TrimSpace(string(runes[:maxReleaseSummary-1])) + "…"
+	head := string([]rune(text)[:budget-1])
+	// A space is one byte and never part of a multi-byte rune, so the byte
+	// index is a rune boundary.
+	if space := strings.LastIndexByte(head, ' '); space > 0 {
+		head = head[:space]
+	}
+	return strings.TrimRight(head, " ") + "…"
 }
 
 // RequestInstall starts installing the release selected by the last successful

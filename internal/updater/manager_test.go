@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 type fakeReleaseSource struct {
@@ -352,6 +353,95 @@ func TestTheSummaryDropsTheInstallInstructions(t *testing.T) {
 	}
 	if strings.Contains(summary, "Installing") || strings.Contains(summary, "administrator rights") {
 		t.Errorf("the summary still carries the install instructions: %q", summary)
+	}
+}
+
+// releaseNotes is the shape our own release drafter produces: a heading per
+// category, a list item per change, blank lines between the blocks.
+const releaseNotes = "## 🚀 New\n\n" +
+	"- Publish the handbook as a site, in English and German (#46)\n" +
+	"- Give each source its own deadline, and let it fail alone (#40)\n\n" +
+	"## 🐛 Fixed\n\n" +
+	"- Read the cooler off the tick, and name it after the model (#43)\n" +
+	"- Keep the last known adapter when the default route is gone (#42)\n" +
+	"- Report real progress while the update downloads (#39)\n\n" +
+	"## Installing\n\nDownload `rig-exporter.exe` below and run it.\n"
+
+// Home Assistant renders release_summary through its markdown component, and
+// the update dialog uses that component without the `breaks` option: a single
+// newline is whitespace, not a line break. Joining the notes into one line
+// therefore let "## New" swallow every item under it — the whole excerpt came
+// out as one bold, truncated run of text.
+func TestTheSummaryKeepsTheMarkdownLines(t *testing.T) {
+	summary := summarize(releaseNotes)
+
+	if n := utf8.RuneCountInString(summary); n > maxReleaseSummary {
+		t.Errorf("summary is %d characters, Home Assistant provides for %d", n, maxReleaseSummary)
+	}
+	lines := strings.Split(summary, "\n")
+	if len(lines) < 3 {
+		t.Fatalf("the line structure markdown needs is gone: %q", summary)
+	}
+	if lines[0] != "## 🚀 New" {
+		t.Errorf("first line = %q, want the heading on a line of its own", lines[0])
+	}
+	for _, line := range lines {
+		if line == moreLine {
+			continue
+		}
+		if !strings.Contains(releaseNotes, line) {
+			t.Errorf("line %q is not one whole line of the release notes", line)
+		}
+	}
+	if strings.Contains(summary, "Installing") || strings.Contains(summary, "Download") {
+		t.Errorf("the summary still carries the install instructions: %q", summary)
+	}
+}
+
+// What does not fit is left out whole. Half a sentence ending mid-word says
+// less than one item fewer, and the release URL leads to the full changelog
+// either way.
+func TestTheSummaryDropsWholeItemsRatherThanCuttingOne(t *testing.T) {
+	notes := "## Fixed\n\n" +
+		"- " + strings.Repeat("a", 100) + "\n" +
+		"- " + strings.Repeat("b", 100) + "\n" +
+		"- " + strings.Repeat("c", 100) + "\n"
+
+	summary := summarize(notes)
+
+	if n := utf8.RuneCountInString(summary); n > maxReleaseSummary {
+		t.Errorf("summary is %d characters, Home Assistant provides for %d", n, maxReleaseSummary)
+	}
+	if !strings.Contains(summary, strings.Repeat("b", 100)) {
+		t.Errorf("the second item did not survive whole: %q", summary)
+	}
+	if strings.Contains(summary, "c") {
+		t.Errorf("the third item was cut into the summary instead of dropped: %q", summary)
+	}
+	if !strings.HasSuffix(summary, moreLine) {
+		t.Errorf("nothing says that items were left out: %q", summary)
+	}
+}
+
+// One item longer than the whole budget is the only case where a cut is
+// unavoidable. It happens on a word, not inside one.
+func TestAnOversizedItemIsCutOnAWord(t *testing.T) {
+	notes := "## Fixed\n\n- " + strings.Repeat("alpha beta ", 60) + "gamma\n"
+
+	summary := summarize(notes)
+
+	if n := utf8.RuneCountInString(summary); n > maxReleaseSummary {
+		t.Errorf("summary is %d characters, Home Assistant provides for %d", n, maxReleaseSummary)
+	}
+	if !strings.HasSuffix(summary, "…") {
+		t.Fatalf("a cut item does not say that it was cut: %q", summary)
+	}
+	kept := strings.TrimSuffix(summary, "…")
+	if !strings.HasPrefix(notes[strings.Index(notes, "- "):], kept) {
+		t.Fatalf("the cut text is not the beginning of the item: %q", kept)
+	}
+	if rest := notes[strings.Index(notes, "- ")+len(kept):]; rest != "" && !strings.HasPrefix(rest, " ") {
+		t.Errorf("the cut fell inside the word before %q", rest[:min(12, len(rest))])
 	}
 }
 

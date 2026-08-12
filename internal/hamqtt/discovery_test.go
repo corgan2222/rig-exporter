@@ -2,6 +2,8 @@ package hamqtt
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -419,34 +421,36 @@ func TestLegacyCleanupTargetsTheOldTopics(t *testing.T) {
 	}
 }
 
-// The picture is a URL, so it only means anything where the interface can be
-// reached from. Bound to loopback, the address resolves to whichever machine
-// the browser is on — somebody else's 127.0.0.1 — and the card would show a
-// broken image where an icon belongs.
-func TestThePictureIsOnlyOfferedWhenTheInterfaceIsReachable(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		bindAll bool
-		webURL  string
-		want    string
-	}{
-		{"on the network", true, "http://192.168.1.40:8787", "http://192.168.1.40:8787/icon.png"},
-		{"trailing slash", true, "http://192.168.1.40:8787/", "http://192.168.1.40:8787/icon.png"},
-		{"loopback only", false, "http://127.0.0.1:8787", ""},
-		{"no address yet", true, "", ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := config.Defaults()
-			cfg.WebBindAll = tc.bindAll
-			if got := iconPictureURL(cfg, tc.webURL); got != tc.want {
-				t.Errorf("iconPictureURL = %q, want %q", got, tc.want)
-			}
-		})
+// The picture is fetched by the browser Home Assistant is open in, not by Home
+// Assistant itself. An address of this machine therefore only works from this
+// machine: loopback resolves to whoever is looking, and the port is whatever
+// the interface happened to get that day. Measured on the live broker: the
+// retained state carried no picture at all, because the interface was on
+// loopback, and the discovery message next to it still pointed at
+// http://127.0.0.1:8788 after the interface had moved off 8787.
+func TestThePictureIsTheSameFromEveryMachine(t *testing.T) {
+	if !strings.HasPrefix(entityPictureURL, "https://") {
+		t.Errorf("picture = %q, and Home Assistant is usually served over https", entityPictureURL)
+	}
+	for _, local := range []string{"127.0.0.1", "localhost", "0.0.0.0", "192.168.", ":8787", ":8788"} {
+		if strings.Contains(entityPictureURL, local) {
+			t.Errorf("picture %q carries %q, which only means something on one machine", entityPictureURL, local)
+		}
 	}
 }
 
-// Without a picture the card still needs something to draw, and Home Assistant
-// resolves an mdi name inside its own frontend with no request going anywhere.
+// The address is a constant, and a constant rots quietly. It names a file that
+// is published with the handbook, so the file has to still be there.
+func TestThePictureNamesAFileThatIsPublishedWithTheHandbook(t *testing.T) {
+	name := entityPictureURL[strings.LastIndex(entityPictureURL, "/")+1:]
+	if _, err := os.Stat(filepath.Join("..", "..", "docs", "images", name)); err != nil {
+		t.Errorf("the picture names %s, which is not in docs/images: %v", name, err)
+	}
+}
+
+// A browser that cannot reach the handbook still needs something to draw, and
+// Home Assistant resolves an mdi name inside its own frontend with no request
+// going anywhere.
 func TestTheUpdateEntityCarriesAnIconForWhenThereIsNoPicture(t *testing.T) {
 	payload := updateDiscoveryFor(config.Defaults(), "http://127.0.0.1:8787")
 	if payload.Icon != "mdi:speedometer" {

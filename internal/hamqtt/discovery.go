@@ -3,7 +3,6 @@ package hamqtt
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -60,9 +59,9 @@ type updateDiscoveryPayload struct {
 	Retain                bool                  `json:"retain"`
 	MessageExpiryInterval messageExpiryInterval `json:"message_expiry_interval"`
 	EntityCategory        string                `json:"entity_category"`
-	// Icon is what Home Assistant draws when there is no picture to draw
-	// instead — on a machine whose interface only listens on loopback, that is
-	// always. A speedometer, because that is what the mark is.
+	// Icon is what Home Assistant draws when the picture does not arrive — a
+	// browser without internet, or a mark that has moved on the handbook. A
+	// speedometer, because that is what the mark is.
 	Icon   string     `json:"icon,omitempty"`
 	Device deviceInfo `json:"device"`
 	Origin originInfo `json:"origin"`
@@ -229,23 +228,26 @@ func updateDiscoveryFor(cfg config.Config, webURL string) updateDiscoveryPayload
 }
 
 // updateIcon is the Material Design name Home Assistant resolves itself, with
-// no request leaving its own frontend. It is the fallback for the picture,
-// which is a URL and only works where the interface can be reached.
+// no request leaving its own frontend. It is what the card draws for anyone
+// whose browser cannot reach entityPictureURL.
 const updateIcon = "mdi:speedometer"
 
-// iconPictureURL is where Home Assistant fetches the application mark.
+// entityPictureURL is where the browser fetches the application mark.
 //
-// Only offered when the interface listens on the network. Bound to loopback
-// the address resolves to the machine running the browser, which is somebody
-// else's 127.0.0.1 — the request would fail and the card would show a broken
-// image where an icon belongs. A missing picture falls back to updateIcon,
-// which is a worse picture but never a broken one.
-func iconPictureURL(cfg config.Config, webURL string) string {
-	if !cfg.WebBindAll || webURL == "" {
-		return ""
-	}
-	return strings.TrimSuffix(webURL, "/") + "/icon.png"
-}
+// The browser, not Home Assistant: entity_picture is an address the frontend
+// puts into the page, so it is resolved wherever somebody is looking. This used
+// to be this program's own interface, and that address only ever worked from
+// this machine — bound to loopback it resolves to whoever is looking, and the
+// port is whatever the interface got that day. Both happened here at once: the
+// interface fell back to 8788 because something else held 8787, and it listens
+// on loopback, which is the factory setting. The picture was then left out
+// altogether and Home Assistant drew its own update icon.
+//
+// So the mark is taken from where it is published anyway — the handbook, built
+// from docs/images and served by GitHub Pages. One address, the same from every
+// machine, and no port to go stale. A browser without internet gets no picture
+// and falls back to updateIcon, exactly as before.
+const entityPictureURL = "https://corgan2222.github.io/rig-exporter/images/rig-exporter-entity-256.png"
 
 func updateDiscoveryMessage(cfg config.Config, webURL string) (string, []byte, error) {
 	payload, err := json.Marshal(updateDiscoveryFor(cfg, webURL))

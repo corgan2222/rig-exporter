@@ -532,6 +532,46 @@ func TestConcurrentUpdateChangesCannotBeOverwrittenByAnOlderState(t *testing.T) 
 	}
 }
 
+// The mark has to reach Home Assistant on the machine this actually runs on:
+// interface on loopback, which is the factory setting, and on a port it fell
+// back to because something else held the configured one. That was the live
+// case, and the retained state on the broker carried no picture at all — so
+// Home Assistant drew its own update icon.
+func TestTheRetainedUpdateStateCarriesTheMarkOnALoopbackInterface(t *testing.T) {
+	cfg := config.Defaults()
+	if cfg.WebBindAll {
+		t.Fatal("the interface is on the network from the factory, so this proves nothing")
+	}
+	client := &fakeMQTTClient{connected: true}
+	publisher := New(cfg, applog.Discard(), func() string { return "http://127.0.0.1:8788" }, nil)
+	publisher.client = client
+	publisher.connected = true
+
+	if err := publisher.publishUpdateState(client, updater.State{
+		InstalledVersion: "1.9.4", LatestVersion: "1.10.0",
+	}); err != nil {
+		t.Fatalf("publishUpdateState: %v", err)
+	}
+
+	var state updateStatePayload
+	for _, message := range client.messages {
+		if message.topic != cfg.UpdateStateTopic() {
+			continue
+		}
+		if err := json.Unmarshal(message.payload, &state); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if state.EntityPicture == "" {
+		t.Fatal("no picture in the retained state, so the card falls back to an icon")
+	}
+	for _, local := range []string{"127.0.0.1", "localhost", "8788"} {
+		if strings.Contains(state.EntityPicture, local) {
+			t.Errorf("picture %q only works from this machine", state.EntityPicture)
+		}
+	}
+}
+
 func TestOnlyAFreshExactInstallCommandStartsAnUpdate(t *testing.T) {
 	controller := &fakeUpdateController{state: updater.State{InstalledVersion: "1.6.3", LatestVersion: "1.6.4"}}
 	cfg := config.Defaults()
