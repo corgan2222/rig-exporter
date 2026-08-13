@@ -838,6 +838,11 @@ type statusResponse struct {
 	// FPSAvailable answers "RTSS or the graphics driver?" once, so the tile
 	// does not have to reassemble the question out of the other fields.
 	FPSAvailable bool `json:"fps_available"`
+	// FrametimeAvailable says whether Frametime above is a measurement or the
+	// zero value of its type. The two are the same number in JSON, and the page
+	// used to tell them apart by testing the value — which turned a poll that
+	// merely landed on an RTSS window reset into "no reading".
+	FrametimeAvailable bool `json:"frametime_available"`
 
 	// The update box. It comes through the API rather than the template
 	// because a check that finishes a second after the page loaded should put
@@ -972,26 +977,27 @@ func (s *Server) statusFor(st app.Status) statusResponse {
 	amdCard, amdDriver := amdPresence(snap)
 
 	resp := statusResponse{
-		FPS:          snap.FPS(),
-		Frametime:    snap.FrametimeMs(),
-		Game:         snap.Game(),
-		GamePlatform: snap.GameDetail(metrics.DetailPlatform),
-		GameAppID:    snap.GameDetail(metrics.DetailAppID),
-		Resolution:   snap.Resolution(),
-		RefreshRate:  snap.RefreshHz(),
-		CPU:          snap.CPUPercent(),
-		RAM:          snap.RAMPercent(),
-		RAMUsedMB:    uint64(snap.Number(metrics.RAMUsed.ID)),
-		RAMTotalMB:   uint64(snap.Number(metrics.RAMTotal.ID)),
-		RTSSStatus:   string(snap.RTSSStatus),
-		RTSSMessage:  snap.RTSSMessage,
-		RTSSVersion:  snap.RTSSVersion,
-		NoGPU:        st.Config.NoGPU,
-		AMDCard:      amdCard,
-		AMDDriver:    amdDriver,
-		FPSOrigin:    snap.FPSOrigin,
-		GPUPresent:   snap.Has(metrics.GPUName.ID),
-		FPSAvailable: snap.HasFrameRate(),
+		FPS:                snap.FPS(),
+		Frametime:          snap.FrametimeMs(),
+		Game:               snap.Game(),
+		GamePlatform:       snap.GameDetail(metrics.DetailPlatform),
+		GameAppID:          snap.GameDetail(metrics.DetailAppID),
+		Resolution:         snap.Resolution(),
+		RefreshRate:        snap.RefreshHz(),
+		CPU:                snap.CPUPercent(),
+		RAM:                snap.RAMPercent(),
+		RAMUsedMB:          uint64(snap.Number(metrics.RAMUsed.ID)),
+		RAMTotalMB:         uint64(snap.Number(metrics.RAMTotal.ID)),
+		RTSSStatus:         string(snap.RTSSStatus),
+		RTSSMessage:        snap.RTSSMessage,
+		RTSSVersion:        snap.RTSSVersion,
+		NoGPU:              st.Config.NoGPU,
+		AMDCard:            amdCard,
+		AMDDriver:          amdDriver,
+		FPSOrigin:          snap.FPSOrigin,
+		GPUPresent:         snap.Has(metrics.GPUName.ID),
+		FPSAvailable:       snap.HasFrameRate(),
+		FrametimeAvailable: snap.Has(metrics.Frametime.ID),
 		// Through the linger, which holds a row for a few polls after its
 		// reading stops arriving. It works on the rendered panels and on
 		// nothing else: the snapshot above is the one the exporters were

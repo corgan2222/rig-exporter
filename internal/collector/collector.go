@@ -359,9 +359,18 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 	if running {
 		snap.Add(
 			metrics.Gauge(metrics.FPS, "", entry.FPS()),
-			metrics.Gauge(metrics.Frametime, "", entry.FrametimeMs()),
 			metrics.Gauge(metrics.GamePID, "", float64(entry.ProcessID)),
 		)
+		// Only when RTSS actually measured one. Its window resets about once a
+		// second and we read it twice a second, so a poll regularly lands on a
+		// window with no frames in it yet: FPS is 0 there, and FrametimeMs has
+		// nothing to invert either. Publishing that as 0 ms claims a frame took
+		// no time at all, and the dashboard then read the claim back as "no
+		// value" and blanked the tile — a flash twice a second on a reading
+		// that was never actually interrupted.
+		if frametime := entry.FrametimeMs(); frametime > 0 {
+			snap.Add(metrics.Gauge(metrics.Frametime, "", frametime))
+		}
 		// The full path, not the name: the file name alone is what the game
 		// measurement publishes, and the directory is the half that says which
 		// launcher installed it.
@@ -387,11 +396,14 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 
 	// Reporting zero rather than omitting keeps the FPS entity numeric, so
 	// Home Assistant graphs it as a line that drops to the floor instead of
-	// breaking into segments.
-	snap.Add(
-		metrics.Gauge(metrics.FPS, "", 0),
-		metrics.Gauge(metrics.Frametime, "", 0),
-	)
+	// breaking into segments. Zero frames per second is a true statement about
+	// an idle machine.
+	//
+	// The frame time gets no such zero. It is a duration, and there is no frame
+	// to have taken it — 0 ms would be the one thing a frame time can never be,
+	// and a graph of it would dive to a value that reads as infinitely fast
+	// rather than as nothing rendering. A missing field claims nothing.
+	snap.Add(metrics.Gauge(metrics.FPS, "", 0))
 }
 
 // addGameDetails publishes what the launchers and the store call the running

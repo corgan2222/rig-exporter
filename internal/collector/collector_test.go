@@ -229,8 +229,8 @@ func TestCollectWhenNoGameIsRunning(t *testing.T) {
 	if got.Game() != NoGame {
 		t.Errorf("Game = %q, want %q", got.Game(), NoGame)
 	}
-	if got.FPS() != 0 || got.FrametimeMs() != 0 {
-		t.Errorf("FPS = %v, frametime = %v, want zeroes", got.FPS(), got.FrametimeMs())
+	if got.FPS() != 0 {
+		t.Errorf("FPS = %v, want zero", got.FPS())
 	}
 	if got.GameRunning() {
 		t.Error("GameRunning = true with no entries")
@@ -243,8 +243,50 @@ func TestCollectWhenNoGameIsRunning(t *testing.T) {
 	if !got.Has(metrics.FPS.ID) {
 		t.Error("the fps reading was dropped entirely while idle")
 	}
+	// The frame time gets the opposite treatment, and deliberately so: zero
+	// frames per second is true of an idle machine, but a frame that took 0 ms
+	// is not a thing. It is left out instead.
+	if got.Has(metrics.Frametime.ID) {
+		t.Errorf("frametime was published as %v while nothing rendered", got.FrametimeMs())
+	}
 	if got.CPUPercent() == 0 || got.Resolution() != "2560x1440" {
 		t.Error("system readings stopped while idle")
+	}
+}
+
+// RTSS resets its measurement window about once a second while we read it twice
+// a second, so a poll regularly finds a window with no frames in it yet. The
+// game is still running and still rendering; there is simply nothing to divide.
+// This used to publish frametime 0, which the dashboard read back as "no
+// reading" and blanked the tile for — twice a second, on a game that never
+// stuttered.
+func TestAFrametimeIsLeftOutRatherThanReportedAsZero(t *testing.T) {
+	system := newSystem()
+	system.foreground = 4242
+
+	justReset := fakeRTSS{snap: rtss.Snapshot{
+		Version: 0x00020007,
+		Entries: []rtss.Entry{{
+			ProcessID: 4242, Path: `D:\Games\Cyberpunk2077.exe`,
+			// Window open, nothing counted in it, and an RTSS build that does
+			// not fill the frame time counter either.
+			Time0: 10_000, Time1: 10_000, Frames: 0, FrameTimeUs: 0,
+		}},
+	}}
+
+	got := newCollector(justReset, system).Collect()
+
+	if !got.GameRunning() {
+		t.Fatal("GameRunning = false: the game is rendering, only the window is empty")
+	}
+	if got.Has(metrics.Frametime.ID) {
+		t.Errorf("frametime published as %v, want left out", got.FrametimeMs())
+	}
+	// The rate still reports, so the dashboard can tell "measuring, nothing to
+	// report yet" from "not measuring at all" — that distinction is what keeps
+	// the tile from blanking.
+	if !got.Has(metrics.FPS.ID) {
+		t.Error("the fps reading was dropped along with the frame time")
 	}
 }
 

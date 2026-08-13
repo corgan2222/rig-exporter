@@ -358,7 +358,23 @@ async function refresh() {
   // RTSS is not running, so the tile shows it rather than a dash. The server
   // decides which sources count, so this does not reassemble the rule.
   $("v-fps").textContent = s.fps_available ? Math.round(s.fps) : "–";
-  $("v-frametime").textContent = s.frametime > 0 ? s.frametime.toFixed(2) + " ms" : "–";
+
+  // The frame time arrives less reliably than the frame rate it belongs to:
+  // RTSS resets its measurement window about once a second, and a poll that
+  // lands inside the reset carries no frame time at all. Blanking the tile for
+  // that single poll made it flash between a value and a dash twice a second,
+  // on a reading that was never really interrupted.
+  //
+  // So the last measured value stays on screen for as long as there is a frame
+  // rate at all, and the tile only empties once the frame rate is gone too —
+  // which is the moment the frame time genuinely stopped existing rather than
+  // merely arriving late. Nothing is invented: what is shown was measured, and
+  // it is at most one poll old.
+  if (s.frametime_available) {
+    $("v-frametime").textContent = s.frametime.toFixed(2) + " ms";
+  } else if (!s.fps_available) {
+    $("v-frametime").textContent = "–";
+  }
   $("v-game").textContent = s.game && s.game !== "none" ? s.game : L.noGame;
 
   // Platform and Steam app id, each only when it is there. The identification
