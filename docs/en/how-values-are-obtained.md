@@ -11,6 +11,16 @@ that a game in the background keeps counting. Entries whose last frame is older
 than the idle timeout drop out; that lets a game that has ended fall back to
 `none` instead of freezing at the last value.
 
+**Which game is open outlives that by fifteen seconds.** A game that has stopped
+rendering has not stopped being open — alt-tab to the desktop and many of them
+simply stop presenting frames — so the name and
+[the identification](game-identification.md) stay put for a quarter of a minute
+before falling back to `none`. What is *not* held is everything that answers a
+different question: `game_running` goes false at once, the frame rate goes to
+zero, and the process id is dropped entirely, because once RTSS has let go of
+the entry that number may already belong to somebody else. A game that is
+genuinely rendering replaces the remembered one immediately.
+
 If RTSS has nothing, the **graphics driver** steps in, provided it counts
 frames itself: AMD's ADLX does. It cannot displace RTSS, and it is not meant to
 — RTSS knows game names, the process id and the time the last frame really
