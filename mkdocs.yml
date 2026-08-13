@@ -149,6 +149,9 @@ extra_css:
 
 extra_javascript:
   - javascripts/copy-to-llm-header.js
+  # Reads the "edit this page" link and turns it into a link to the raw
+  # Markdown, in the footer. Depends on content.action.edit staying on above.
+  - javascripts/llm-footer.js
 
 markdown_extensions:
   - admonition

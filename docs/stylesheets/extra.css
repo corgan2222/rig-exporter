@@ -161,3 +161,23 @@
     border-left: none;
   }
 }
+
+/* The link to the page's raw Markdown, added to the footer by
+ * javascripts/llm-footer.js.
+ *
+ * Its own line under the "Made with" credit rather than beside it: the credit
+ * is about the site and this is about the page you are on, and running the two
+ * together reads as one sentence that is half true of each.
+ */
+.md-copyright .llm-source {
+  margin-top: 0.2rem;
+}
+
+.md-copyright .llm-source a {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-copyright .llm-source a:hover,
+.md-copyright .llm-source a:focus {
+  color: var(--md-accent-fg-color);
+}
