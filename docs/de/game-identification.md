@@ -44,7 +44,10 @@ den Server eines Dritten kontaktiert.
    **gefragt** wird, nie, was gemeldet wird: veröffentlicht wird der Titel, mit
    dem der Store antwortet, und die AppID, die er nennt — oder gar nichts. Ein
    Spiel, das außerhalb dieser drei Läden gekauft wurde, hätte sonst keinerlei
-   Aussicht auf eine AppID, und die AppID ist das, was das Bild holt.
+   Aussicht auf eine AppID, und die AppID ist das, was das Bild holt. Ein solches
+   Spiel meldet als Plattform `steam` — nicht, weil Steam es gestartet hätte,
+   sondern weil Steams Katalog geantwortet hat und die AppID zu diesem Store
+   gehört.
 
    Programme, die nie ein Spiel sind — Browser, Chatfenster, Aufnahmewerkzeuge,
    die Launcher selbst — werden gar nicht erst gefragt. RTSS hakt sich in alles
@@ -127,12 +130,9 @@ ist dann die ausführbare Datei und sonst nichts, genau wie vor dieser Funktion.
 
 Eine ausführbare Datei, die auch der Store nicht erkennt, erzeugt gar keine
 Details. Ein Spiel, das der Store nicht hat, behält Plattform und Titel und hat
-schlicht keine AppID. Und ein Spiel, das allein über den Namen gefunden wurde,
-hat Titel und AppID, aber **keine Plattform** — kein Launcher hat sich dazu
-bekannt, also gibt es dort nichts zu melden. Es gibt hier keine leeren
-Zeichenketten, keine Nullen und kein „unbekannt": dieselbe Regel wie überall
-sonst im Programm, denn ein Wert, der dasteht, behauptet etwas, ein fehlender
-nicht.
+schlicht keine AppID. Es gibt hier keine leeren Zeichenketten, keine Nullen und
+kein „unbekannt": dieselbe Regel wie überall sonst im Programm, denn ein Wert,
+der dasteht, behauptet etwas, ein fehlender nicht.
 
 Bei der AppID ist die Regel mehr als eine Vorliebe. Eine falsche AppID ist kein
 fehlendes Bild — sie ist das Bild des falschen Spiels, und kein Bild ist besser
@@ -148,7 +148,7 @@ Automatisierung funktioniert weiter. Plattform, Titel und AppID kommen als
 
 | Attribut | Beispiel | Was es ist |
 |---|---|---|
-| `platform` | `steam`, `gog`, `epic` | ein Bezeichner, klein geschrieben, nie übersetzt |
+| `platform` | `steam`, `gog`, `epic` | ein Bezeichner, klein geschrieben, nie übersetzt. Er nennt, woher die Identität stammt, nicht, wo das Spiel gekauft wurde: ein allein über die Store-Suche gefundenes Spiel steht auf `steam`, weil Steams Katalog geantwortet hat |
 | `title` | `Cyberpunk 2077` | so, wie der Store ihn schreibt, samt Zeichensetzung |
 | `app_id` | `1091500` | Steams Kennung des Titels — sie adressiert das Bildmaterial |
 

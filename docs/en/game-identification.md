@@ -39,7 +39,9 @@ only setting in this program that contacts somebody else's server.
    about what to **ask**, never about what to report: what gets published is the
    title the store answers with and the id it gave, or nothing at all. A game
    bought outside these three shops otherwise has no chance of an app id, and the
-   app id is what fetches the artwork.
+   app id is what fetches the artwork. Such a game reports its platform as
+   `steam` — not because Steam launched it, but because Steam's catalogue is what
+   answered, and that is the store the app id belongs to.
 
    Programs that are never games — browsers, chat windows, capture tools, the
    launchers themselves — are not asked about at all. RTSS hooks whatever
@@ -118,8 +120,7 @@ existed.
 
 An executable the store does not recognise either produces no details at all. A
 game the store does not have keeps its platform and its title and simply has no
-app id. And a game found by name alone has a title and an id but **no
-platform** — no launcher claimed it, so there is nothing to report there. There
+app id. There
 are no empty strings, no zeroes and no "unknown" anywhere in this: the same rule
 as everywhere else in the program, because a value that is there claims
 something and an absent one does not.
@@ -136,7 +137,7 @@ like is under [Export targets](export-targets.md#game-attributes).
 
 | Attribute | Example | What it is |
 |---|---|---|
-| `platform` | `steam`, `gog`, `epic` | an identifier, lower case, never translated |
+| `platform` | `steam`, `gog`, `epic` | an identifier, lower case, never translated. It names where the identity came from, not where the game was bought: a game found by the store search alone reads `steam` because Steam's catalogue is what answered |
 | `title` | `Cyberpunk 2077` | as the store spells it, punctuation and all |
 | `app_id` | `1091500` | Steam's id for the title — what addresses the artwork |
 

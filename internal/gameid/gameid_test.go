@@ -443,11 +443,11 @@ func TestAGameNoLauncherClaimsIsLookedUpByName(t *testing.T) {
 	if game.AppID != "2183900" {
 		t.Errorf("AppID = %q, want 2183900", game.AppID)
 	}
-	// No launcher said anything, so there is no platform to report. An empty
-	// field is left out of every export rather than filled in — which is right,
-	// because nobody measured it.
-	if game.Platform != "" {
-		t.Errorf("Platform = %q, want empty: no launcher claimed this game", game.Platform)
+	// Steam, although Steam did not launch this game and need not even be
+	// installed: the platform names where the identity came from, and Steam's
+	// catalogue is what answered. It is also what the app id addresses.
+	if game.Platform != PlatformSteam {
+		t.Errorf("Platform = %q, want %q: the store is what answered", game.Platform, PlatformSteam)
 	}
 }
 

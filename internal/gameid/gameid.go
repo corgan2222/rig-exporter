@@ -292,9 +292,12 @@ func (i *Identifier) Identify(exePath string) (Game, bool) {
 	// not, there is no reading. The guess is a question, and only the answer is
 	// reported.
 	//
-	// The platform stays empty, because none is known — there is a game and an
-	// id, and no launcher said so. An empty field is left out of every export
-	// rather than filled in, which is exactly right here: nobody measured it.
+	// The platform is Steam. Not because Steam launched the game — it did not,
+	// and it may not even be installed — but because Steam's catalogue is what
+	// answered, and the platform names the source of the identity rather than
+	// the shop the game was bought from. It is also what the app id addresses:
+	// reporting an app id with no platform beside it would leave a reader to
+	// work out for themselves which store that number belongs to.
 	term, ok := searchTerm(exePath)
 	if !ok {
 		return Game{}, false
@@ -303,7 +306,7 @@ func (i *Identifier) Identify(exePath string) (Game, bool) {
 	if !ok {
 		return Game{}, false
 	}
-	return Game{Title: found.Title, AppID: found.AppID}, true
+	return Game{Platform: PlatformSteam, Title: found.Title, AppID: found.AppID}, true
 }
 
 // install matches a path against the launcher catalogues, once per path.
