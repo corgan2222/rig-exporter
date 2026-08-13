@@ -56,6 +56,11 @@ var catalogue = map[string]Text{
 	"footer.config":  {DE: "Konfiguration öffnen", EN: "Open configuration"},
 	"footer.log":     {DE: "Log öffnen", EN: "Open log"},
 	"footer.folder":  {DE: "Ordner öffnen", EN: "Open folder"},
+	"footer.help":    {DE: "Hilfe", EN: "Help"},
+	"footer.helpTitle": {
+		DE: "Das Handbuch — was gemessen wird, wie es exportiert wird und was jede Einstellung tut",
+		EN: "The handbook — what is measured, how it is exported and what every setting does",
+	},
 
 	// Status page.
 	"status.title":      {DE: "Status", EN: "Status"},

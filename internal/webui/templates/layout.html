@@ -352,6 +352,13 @@
   footer button { background: transparent; border: 0; color: var(--muted); font: inherit;
                   text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: 0; }
   footer button:hover { color: var(--text); }
+  /* The handbook link sits in the same row as the three openers and is styled
+     to match them, because it is the same kind of thing: a place to go. It is
+     a link and not a button because it leaves the machine, and that difference
+     should be visible in the status bar before the click, not after it. */
+  footer .openers a { color: var(--muted); text-decoration: underline;
+                      text-underline-offset: 2px; }
+  footer .openers a:hover { color: var(--text); }
   footer .credit { margin: .5rem 0 0; font-size: .78rem; }
   footer .credit a { color: var(--muted); text-decoration: none; }
   footer .credit a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
@@ -401,6 +408,12 @@
       <button type="submit" name="what" value="folder" title="{{ .ConfigDir }}">
         {{ .T "footer.folder" }}
       </button>
+      &middot;
+      <!-- The handbook, in whichever language the interface is set to. Every
+           setting here has a one-line hint and no room for the paragraph behind
+           it; this is where that paragraph lives. -->
+      <a href="{{ .DocsURL }}" target="_blank" rel="noopener"
+         title="{{ .T "footer.helpTitle" }}">{{ .T "footer.help" }}</a>
     </form>
     <p class="credit">
       <a href="{{ .ProjectURL }}" target="_blank" rel="noopener">{{ .AppName }}</a>

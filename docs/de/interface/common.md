@@ -34,3 +34,9 @@ Unten auf jeder Seite öffnen drei Schaltflächen die Konfiguration, das Log und
 den Ordner darum. Der Umweg über den Server ist nötig, weil ein Browser einem
 `file://`-Link von einer `http`-Seite aus nicht folgt.
 
+Daneben öffnet **Hilfe** dieses Handbuch — in der Sprache, auf die die
+Oberfläche gerade eingestellt ist, eine deutsche Oberfläche landet also auf den
+deutschen Seiten. Es ist ein Link und keine Schaltfläche, weil er den Rechner
+verlässt, und dieser Unterschied gehört in die Statuszeile des Browsers vor den
+Klick statt hinter ihn.
+
