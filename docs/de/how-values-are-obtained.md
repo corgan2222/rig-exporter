@@ -22,6 +22,17 @@ steht als `fps_origin` in `/api/status` und in der `-probe`-Ausgabe — auf dem
 Weg in einen Export erscheint es nicht, dort sieht jeder Messwert gleich aus,
 egal wer ihn gezählt hat.
 
+**FPS und Frametime trennen sich, wenn es nichts zu messen gibt.** Die Rate
+meldet weiter `0` — keine Bilder pro Sekunde ist eine wahre Aussage über einen
+untätigen Rechner, und sie hält den Graphen als Linie, die auf den Boden fällt,
+statt ihn in Abschnitte zu zerreißen. Die Frametime wird stattdessen weggelassen:
+sie ist eine Dauer, und ein Bild, das 0 ms gebraucht hat, ist das Einzige, was
+sie nie sein kann. Dasselbe gilt für den einen Messtakt, in dem RTSS sein
+eigenes Messfenster zurücksetzt — ungefähr einmal pro Sekunde — und noch nichts
+gezählt hat. Die Oberfläche lässt die zuletzt gemessene Frametime deshalb stehen,
+solange es überhaupt eine Bildrate gibt, und leert die Kachel erst, wenn auch
+die Rate weg ist.
+
 **Welches Spiel diese ausführbare Datei ist**, wird nur ermittelt, wenn
 [die Option](interface/data-capture.md#das-spiel-ermitteln) an ist, und zwar
 über drei Quellen in der Reihenfolge ihrer Kosten. Steam schreibt die gestartete

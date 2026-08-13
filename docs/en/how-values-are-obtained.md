@@ -22,6 +22,16 @@ stands as `fps_origin` in `/api/status` and in the `-probe` output — on its wa
 into an export it does not appear, because there every measurement looks the
 same, no matter who counted it.
 
+**FPS and frame time part company when there is nothing to measure.** The rate
+still reports `0` — no frames per second is a true statement about an idle
+machine, and it keeps the graph a line that drops to the floor rather than one
+that breaks into segments. The frame time is left out instead: it is a duration,
+and a frame that took 0 ms is the one thing it can never be. The same happens
+for the single poll in which RTSS resets its own measurement window, roughly
+once a second, and has counted nothing yet. The dashboard therefore leaves the
+last measured frame time standing for as long as there is a frame rate at all,
+and only clears the tile once the rate is gone too.
+
 **Which game that executable is** is worked out only when
 [the option](interface/data-capture.md#working-out-the-game) is on, and by three
 sources in order of what they cost. Steam writes the app it launched into
