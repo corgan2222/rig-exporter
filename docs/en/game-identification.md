@@ -116,6 +116,36 @@ not the store, and not the two local sources either. The **Game** measurement is
 then the executable and nothing else, exactly as it was before this feature
 existed.
 
+## Fifteen seconds of grace
+
+RTSS reports what is **rendering**. A game that is open is not always rendering:
+alt-tab to the desktop and many of them stop presenting frames, at which point
+RTSS drops the entry and the game, its title and its app id would all vanish at
+once — a dashboard card that empties and refills every time somebody switches
+windows.
+
+So the *identity* of the game is held for fifteen seconds after RTSS stops
+reporting it. Long enough to cover looking something up in a browser and coming
+back; short enough that a game which really has been closed is gone before
+anybody looks.
+
+Only the identity. Everything that answers a different question keeps answering
+for itself:
+
+| | While a game is open but not rendering |
+|---|---|
+| `game`, and the platform, title and app id | held, up to fifteen seconds |
+| `game_running` | **false** at once — nothing is rendering |
+| `fps`, `frametime` | as measured, which is nothing |
+| `game_pid` | dropped — once RTSS lets go, the number may be somebody else's |
+
+A game that really is rendering replaces the remembered one immediately, so
+switching between two games never shows the wrong one.
+
+This is not the [row linger](interface/dashboard.md) on the dashboard, which is
+display only and reaches no export. This one is a statement about the machine —
+the game is still open — and it is published like any other.
+
 ## Missing rather than guessed
 
 An executable the store does not recognise either produces no details at all. A

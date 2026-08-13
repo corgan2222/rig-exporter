@@ -126,6 +126,37 @@ leeren.
 weder über den Store noch über die beiden lokalen Quellen. Der Messwert **Spiel**
 ist dann die ausführbare Datei und sonst nichts, genau wie vor dieser Funktion.
 
+## Fünfzehn Sekunden Nachlauf
+
+RTSS meldet, was **zeichnet**. Ein Spiel, das offen ist, zeichnet nicht immer:
+ein Wechsel auf den Desktop reicht, und viele Spiele geben dann keine Bilder
+mehr aus. RTSS lässt den Eintrag fallen, und das Spiel, sein Titel und seine
+AppID wären auf einen Schlag weg — eine Dashboard-Karte, die sich bei jedem
+Fensterwechsel leert und wieder füllt.
+
+Die *Identität* des Spiels bleibt deshalb fünfzehn Sekunden stehen, nachdem RTSS
+aufgehört hat, sie zu melden. Lang genug, um im Browser etwas nachzuschlagen und
+zurückzukommen; kurz genug, dass ein wirklich beendetes Spiel weg ist, bevor
+jemand hinsieht.
+
+Nur die Identität. Alles, was eine andere Frage beantwortet, antwortet weiter
+für sich:
+
+| | Solange ein Spiel offen ist, aber nicht zeichnet |
+|---|---|
+| `game` sowie Plattform, Titel und AppID | gehalten, bis zu fünfzehn Sekunden |
+| `game_running` | sofort **falsch** — es zeichnet nichts |
+| `fps`, `frametime` | wie gemessen, also nichts |
+| `game_pid` | fällt weg — sobald RTSS loslässt, kann die Nummer jemand anderem gehören |
+
+Ein Spiel, das wirklich zeichnet, verdrängt das gemerkte sofort; beim Wechsel
+zwischen zwei Spielen steht also nie das falsche da.
+
+Das ist nicht der [Zeilen-Nachlauf](interface/dashboard.md) auf der Anzeige, der
+reine Darstellung ist und keinen Export erreicht. Dieser hier ist eine Aussage
+über den Rechner — das Spiel ist noch offen — und wird wie jede andere
+veröffentlicht.
+
 ## Fehlt statt geraten
 
 Eine ausführbare Datei, die auch der Store nicht erkennt, erzeugt gar keine

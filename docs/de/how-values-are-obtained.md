@@ -11,6 +11,16 @@ ein Spiel im Hintergrund weiterzählt. Einträge, deren letztes Bild älter als 
 Idle-Timeout ist, fallen raus; das lässt ein beendetes Spiel auf `none`
 zurückfallen statt beim letzten Wert einzufrieren.
 
+**Welches Spiel offen ist, überlebt das um fünfzehn Sekunden.** Ein Spiel, das
+aufgehört hat zu zeichnen, hat nicht aufgehört, offen zu sein — ein Wechsel auf
+den Desktop reicht, und viele Spiele geben dann schlicht keine Bilder mehr aus.
+Der Name und [die Erkennung](game-identification.md) bleiben deshalb eine
+Viertelminute stehen, bevor sie auf `none` zurückfallen. Nicht gehalten wird
+alles, was eine andere Frage beantwortet: `game_running` wird sofort falsch, die
+Bildrate geht auf null, und die Prozess-ID fällt ganz weg — sobald RTSS den
+Eintrag losgelassen hat, kann die Nummer schon jemand anderem gehören. Ein
+Spiel, das wirklich zeichnet, verdrängt das gemerkte sofort.
+
 Hat RTSS nichts, springt der **Grafiktreiber** ein, sofern er selbst Bilder
 zählt: AMDs ADLX tut das. Verdrängen kann er RTSS nicht, und er soll es auch
 nicht — RTSS kennt Spielnamen, Prozess-ID und die Zeit, die das letzte Bild

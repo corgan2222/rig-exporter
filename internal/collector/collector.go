@@ -213,6 +213,40 @@ type Collector struct {
 	// selfUsage adds what this process costs the machine. Its own sensor group,
 	// off by default: it is a measurement of the tool, not of the PC.
 	selfUsage bool
+
+	// open is the game RTSS last reported, kept for gameLinger after it stops
+	// reporting one. See addGameReadings.
+	open openGame
+	// now is the clock, so the linger can be tested without waiting.
+	now func() time.Time
+}
+
+// gameLinger is how long the identity of a game outlives its detection.
+//
+// RTSS reports what is *rendering*, and a game that is open is not always
+// rendering: alt-tab to the desktop and many of them stop, at which point RTSS
+// drops the entry and the game, its title and its Steam app id all vanish at
+// once. In Home Assistant that is a card that empties and refills every time
+// somebody switches windows.
+//
+// Fifteen seconds, and only for the identity — which game is open. Whether it is
+// rendering, and how fast, keep answering for themselves: game_running goes
+// false immediately and the frame rate goes to zero, because those are true.
+// "Which game is open" is the one thing alt-tabbing does not change, so holding
+// it is not a stale value but the correct answer to a question the source
+// briefly stopped being able to answer.
+//
+// Long enough to cover switching to a browser and back; short enough that a
+// game which really has been closed is gone before anybody looks.
+const gameLinger = 15 * time.Second
+
+// openGame is the last game RTSS reported and when it last did.
+type openGame struct {
+	name string
+	// path is what the identification needs. Kept alongside the name because
+	// re-deriving it is impossible once RTSS has dropped the entry.
+	path string
+	at   time.Time
 }
 
 // ReportVersion makes the collector publish which build produced its readings.
@@ -246,7 +280,13 @@ func New(rtssSource RTSSSource, system SystemSource, idleMs int, log *slog.Logge
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Collector{rtss: rtssSource, system: system, idleMs: uint32(idleMs), log: log}
+	return &Collector{
+		rtss:   rtssSource,
+		system: system,
+		idleMs: uint32(idleMs),
+		log:    log,
+		now:    time.Now,
+	}
 }
 
 // deadline is how long a single source may take this collection.
@@ -342,13 +382,20 @@ func (c *Collector) collectRTSS(snap *Snapshot) {
 }
 
 func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bool) {
+	// Which game is open is not the same question as what is rendering. RTSS
+	// answers the second one; for gameLinger after it stops answering, its last
+	// answer stands for the first.
+	open := c.openGame(entry, running)
+
 	game := NoGame
-	if running {
-		game = entry.Name()
+	if open.name != "" {
+		game = open.name
 	}
 
 	snap.Add(
 		metrics.Text(metrics.Game, "", game),
+		// Not held. This one means "is something rendering", and the moment
+		// somebody alt-tabs the honest answer is no.
 		metrics.Bool(metrics.GameRunning, "", running),
 		metrics.Bool(metrics.RTSSUp, "", snap.RTSSStatus.OK()),
 		metrics.Text(metrics.RTSSStatus, "", string(snap.RTSSStatus)),
@@ -356,9 +403,22 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 	if snap.RTSSVersion != "" {
 		snap.Add(metrics.Text(metrics.RTSSVersion, "", snap.RTSSVersion))
 	}
+
+	// The full path, not the name: the file name alone is what the game
+	// measurement publishes, and the directory is the half that says which
+	// launcher installed it.
+	//
+	// Asked whether or not anything is rendering. A game that is open but idle
+	// still has a title and an app id, and those are what a dashboard draws.
+	if open.path != "" {
+		c.addGameDetails(snap, open.path)
+	}
+
 	if running {
 		snap.Add(
 			metrics.Gauge(metrics.FPS, "", entry.FPS()),
+			// Not held: a process id outlives nothing. Once RTSS has dropped the
+			// entry, the number may already belong to somebody else.
 			metrics.Gauge(metrics.GamePID, "", float64(entry.ProcessID)),
 		)
 		// Only when RTSS actually measured one. Its window resets about once a
@@ -371,10 +431,6 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 		if frametime := entry.FrametimeMs(); frametime > 0 {
 			snap.Add(metrics.Gauge(metrics.Frametime, "", frametime))
 		}
-		// The full path, not the name: the file name alone is what the game
-		// measurement publishes, and the directory is the half that says which
-		// launcher installed it.
-		c.addGameDetails(snap, entry.Path)
 		return
 	}
 	// RTSS has nothing rendering. The graphics driver may still be counting
@@ -404,6 +460,36 @@ func (c *Collector) addGameReadings(snap *Snapshot, entry rtss.Entry, running bo
 	// and a graph of it would dive to a value that reads as infinitely fast
 	// rather than as nothing rendering. A missing field claims nothing.
 	snap.Add(metrics.Gauge(metrics.FPS, "", 0))
+}
+
+// openGame answers which game is open, and remembers the answer.
+//
+// While RTSS reports one, that is the answer and the clock is reset. Once it
+// stops, the last answer stands for gameLinger and is then forgotten — see the
+// constant for why the identity is treated differently from the frame rate.
+//
+// A different game starting replaces the remembered one at once: the branch
+// above runs first, so there is never a moment where the old game outranks a
+// new one that is actually rendering.
+func (c *Collector) openGame(entry rtss.Entry, rendering bool) openGame {
+	if rendering {
+		c.open = openGame{name: entry.Name(), path: entry.Path, at: c.clock()}
+		return c.open
+	}
+	if c.open.name == "" || c.clock().Sub(c.open.at) > gameLinger {
+		c.open = openGame{}
+	}
+	return c.open
+}
+
+// clock is time.Now unless a test said otherwise. The nil check is for a
+// Collector built as a struct literal rather than through New, which the tests
+// in this package do.
+func (c *Collector) clock() time.Time {
+	if c.now == nil {
+		return time.Now()
+	}
+	return c.now()
 }
 
 // addGameDetails publishes what the launchers and the store call the running
