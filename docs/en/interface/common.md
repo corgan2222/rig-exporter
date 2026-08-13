@@ -33,3 +33,8 @@ not depend on which language happens to be set.
 At the bottom of every page, three buttons open the configuration, the log and
 the folder around them. The detour via the server is necessary because a
 browser will not follow a `file://` link from an `http` page.
+
+Next to them, **Help** opens this handbook — in whichever language the interface
+is set to, so a German interface lands on the German pages. It is a link rather
+than a button because it leaves the machine, and that difference should be
+visible in the browser's status bar before the click rather than after it.

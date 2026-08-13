@@ -57,6 +57,11 @@ const (
 	// clicks the name in the header or the credit in the footer.
 	ProjectURL = "https://github.com/corgan2222/rig-exporter"
 	AuthorURL  = "https://github.com/corgan2222"
+	// DocsURL is the handbook. English is the site's default language and
+	// therefore sits at the root; every other language gets a folder of its
+	// own, which is why DocsFor below builds the address rather than a second
+	// constant repeating the first with a suffix.
+	DocsURL = "https://corgan2222.github.io/rig-exporter/"
 	// AuthorName is the person who wrote this, spelled the way he spells it.
 	AuthorName = "Stefan Knaak"
 )
@@ -792,6 +797,20 @@ func (c *Config) normalizeSensors() {
 
 // Lang is the configured language.
 func (c Config) Lang() i18n.Lang { return i18n.Parse(c.Language) }
+
+// DocsFor is the handbook in the language the interface is set to.
+//
+// The site builds English at the root and every other language in a folder of
+// its own — that is how MkDocs places a default locale, and it is why this
+// cannot be one constant per language: the English address has no suffix to
+// add. A language the site does not build falls back to the root, which is a
+// page in the wrong language rather than a 404 in the right one.
+func DocsFor(lang i18n.Lang) string {
+	if lang == i18n.DE {
+		return DocsURL + "de/"
+	}
+	return DocsURL
+}
 
 // WantsDisk reports whether a drive letter should be collected. An empty
 // include list means every fixed drive.

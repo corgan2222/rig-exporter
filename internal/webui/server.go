@@ -240,6 +240,11 @@ type pageData struct {
 	ProjectURL string
 	AuthorURL  string
 	AuthorName string
+	// DocsURL is the handbook, in the language the interface is currently set
+	// to. Every settings page has a hint but no room for a paragraph, and the
+	// answer to "what does this actually do" has to be reachable from the
+	// program rather than only from somebody remembering the site exists.
+	DocsURL string
 	// PawnIOStatus says in one sentence what PawnIO can do here. It is built
 	// fresh on every render: the user may install it, or restart elevated,
 	// while the page is open, and a stale "not installed" would send them
@@ -401,6 +406,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		ProjectURL:      config.ProjectURL,
 		AuthorURL:       config.AuthorURL,
 		AuthorName:      config.AuthorName,
+		DocsURL:         config.DocsFor(lang),
 		PawnIOStatus:    pawnIOStatus(lang),
 		Origins:         originsFor(status.Snapshot, lang),
 		RefreshMs:       cfg.PollIntervalMs,
