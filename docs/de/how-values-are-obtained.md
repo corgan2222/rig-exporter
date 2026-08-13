@@ -47,14 +47,21 @@ eines anderen als es selbst gemeldet wird. Add-ons fallen dabei heraus: sie
 nennen den Ordner ihres Hauptspiels, und „Cyberpunk 2077: Phantom Liberty" würde
 sonst auf die AppID der Erweiterung führen und das falsche Bild zeigen.
 
-Nur ein so gefundener Titel, der immer noch keine AppID hat, ist eine Anfrage an
-die öffentliche Steam-Suche wert — dieselbe, die das Suchfeld der Store-Seite
-benutzt, ohne Schlüssel und ohne Konto. Das ist das Einzige an diesem Programm,
-das den Rechner verlässt: hinaus geht der Spielname, zurück kommt eine AppID,
-einmal je Titel, und die Antwort bleibt im Speicher — auch wenn sie leer war.
-Gewartet wird darauf ebenfalls nie; ein Titel, dessen AppID noch nicht da ist,
-wird ohne sie veröffentlicht und bekommt sie bei einer späteren Messung. Ein
-langsamer Store darf kein langsamer Exporter werden.
+Ein so gefundener Titel, der immer noch keine AppID hat, ist eine Anfrage an die
+öffentliche Steam-Suche wert — dieselbe, die das Suchfeld der Store-Seite
+benutzt, ohne Schlüssel und ohne Konto. Ebenso eine ausführbare Datei, zu der
+sich weder Steam noch ein Katalog bekennt: aus ihrem Dateinamen wird ein
+Suchbegriff gebildet, aus `Cyberpunk2077.exe` also „Cyberpunk 2077", und
+veröffentlicht wird ausschließlich das, was der Store antwortet — nie der
+Suchbegriff selbst. Programme, die nie ein Spiel sind, von Browsern bis zu den
+Launchern selbst, werden gar nicht erst gefragt.
+
+Diese Suche ist das Einzige an diesem Programm, das den Rechner verlässt: hinaus
+geht ein Titel oder ein Suchbegriff, zurück kommen eine AppID und die Schreibweise
+des Stores, einmal je Suchbegriff, und die Antwort bleibt im Speicher — auch wenn
+sie leer war. Gewartet wird darauf ebenfalls nie; ein Titel, dessen AppID noch
+nicht da ist, wird ohne sie veröffentlicht und bekommt sie bei einer späteren
+Messung. Ein langsamer Store darf kein langsamer Exporter werden.
 
 Zwei andere Wege zu Steam sind gemessen und verworfen worden. `steam_appid.txt`
 liegt bei drei der installierten Spiele auf dem Entwicklungsrechner, weil es

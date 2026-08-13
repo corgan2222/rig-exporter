@@ -31,8 +31,20 @@ only setting in this program that contacts somebody else's server.
    install folders GOG keeps in the registry and Epic keeps as manifest files.
    The longest matching folder wins, so a game installed inside another game's
    directory is reported as itself rather than as its host.
-3. **Steam's public store search**, and only for a title that step 2 named
-   without an app id. The title goes out, an id comes back.
+3. **Steam's public store search.** Asked in two situations: for the app id of a
+   title step 2 named, and — when neither step above named anything at all — for
+   a term worked out from the executable itself. `Cyberpunk2077.exe` becomes the
+   question "Cyberpunk 2077"; `MyGame-Win64-Shipping.exe` becomes "My Game".
+   That last case is the only guess in the whole mechanism, and it is a guess
+   about what to **ask**, never about what to report: what gets published is the
+   title the store answers with and the id it gave, or nothing at all. A game
+   bought outside these three shops otherwise has no chance of an app id, and the
+   app id is what fetches the artwork.
+
+   Programs that are never games — browsers, chat windows, capture tools, the
+   launchers themselves — are not asked about at all. RTSS hooks whatever
+   presents frames, so they turn up here as readily as a game does, and
+   "Origin" would come back as a game called Origin.
 
 The order is a cost ladder that happens to be a certainty ladder as well.
 Steam's answer is the launcher's own record of what it started — exact, local,
@@ -79,10 +91,12 @@ Only entries that pass those tests reach the path match at all.
 Steps 1 and 2 are a handful of registry reads and a few small files. Step 3 is
 one HTTPS request to Steam's public store search — the same endpoint the search
 box on the store page uses, with no key, no account and no sign-in. What goes
-out is the game's title. Nothing else: no machine name, no hardware, no
-configuration, no identifier of any kind. What comes back is an app id.
+out is the game's title, or — where no launcher named one — a term worked out
+from the executable, which is a name you chose to install. Nothing else: no
+machine name, no hardware, no configuration, no identifier of any kind. What
+comes back is an app id and the store's spelling of the title.
 
-It is asked **once per title**, and the answer is kept — **including the
+It is asked **once per term**, and the answer is kept — **including the
 misses**. A game the store has never heard of is precisely the case that would
 otherwise ask again on every poll, twice a second, for as long as the game is
 open.
@@ -102,8 +116,10 @@ existed.
 
 ## Missing rather than guessed
 
-An executable no launcher claims produces no details at all. A game the store
-does not have keeps its platform and its title and simply has no app id. There
+An executable the store does not recognise either produces no details at all. A
+game the store does not have keeps its platform and its title and simply has no
+app id. And a game found by name alone has a title and an id but **no
+platform** — no launcher claimed it, so there is nothing to report there. There
 are no empty strings, no zeroes and no "unknown" anywhere in this: the same rule
 as everywhere else in the program, because a value that is there claims
 something and an absent one does not.
