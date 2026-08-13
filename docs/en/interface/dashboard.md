@@ -22,6 +22,19 @@ platform and the Steam app id stand under it in small type — and only when the
 are actually known, because an empty second line would read as a reading that
 failed.
 
+The **FPS** tile is coloured by the band the rate falls into, so a glance is
+enough:
+
+| Frames per second | Colour |
+|---|---|
+| under 30 | dark orange |
+| 30 to 55 | orange |
+| over 55 | green |
+
+A rate that could not be measured stays uncoloured — a dash has nothing to
+judge. The colour is on screen only; nothing about it reaches an export, where
+the number is the number.
+
 The hardware panels can be switched between two views. The default is **By
 device**: everything about GPU 0 together, then everything about GPU 1, each
 disk on its own, each adapter on its own — every group under a heading carrying

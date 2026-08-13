@@ -22,6 +22,19 @@ Plattform und Steam-AppID klein darunter — und nur dann, wenn sie tatsächlich
 bekannt sind, denn eine leere zweite Zeile läse sich wie ein fehlgeschlagener
 Messwert.
 
+Die Kachel **FPS** ist nach dem Band eingefärbt, in das die Rate fällt, damit
+ein Blick reicht:
+
+| Bilder pro Sekunde | Farbe |
+|---|---|
+| unter 30 | dunkles Orange |
+| 30 bis 55 | Orange |
+| über 55 | Grün |
+
+Eine Rate, die sich nicht messen ließ, bleibt ungefärbt — an einem Strich ist
+nichts zu beurteilen. Die Farbe steht nur auf dem Bildschirm; in einen Export
+gelangt davon nichts, dort ist die Zahl die Zahl.
+
 In den Hardware-Panels lässt sich zwischen zwei Ansichten umschalten.
 Voreingestellt ist **nach Gerät**: alles zu GPU 0 zusammen, dann alles zu GPU 1,
 jede Platte für sich, jeder Adapter für sich — jede Gruppe unter einer
