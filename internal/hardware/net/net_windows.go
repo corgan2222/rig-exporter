@@ -42,7 +42,7 @@ type Source struct {
 	// without unplugging anything.
 	defaultRoute func() (uint64, error)
 
-	pinger *Pinger
+	pingers []*Pinger
 }
 
 // counters are the cumulative interface statistics at one instant.
@@ -55,15 +55,15 @@ type counters struct {
 	outDiscards uint64
 }
 
-// New builds the network source. pinger may be nil, which leaves out the
+// New builds the network source. pingers may be empty, which leaves out the
 // latency readings.
 //
 // allAdapters turns off the filter that normally reduces the list to the
 // interface actually carrying traffic to the internet. A machine with Hyper-V,
 // WSL, Tailscale and a capture driver installed easily has a dozen interfaces,
 // and entities for all of them would bury the one that matters.
-func New(pinger *Pinger, allAdapters bool) *Source {
-	return &Source{last: map[uint64]counters{}, pinger: pinger, allAdapters: allAdapters}
+func New(pingers []*Pinger, allAdapters bool) *Source {
+	return &Source{last: map[uint64]counters{}, pingers: pingers, allAdapters: allAdapters}
 }
 
 // Group identifies this source.
@@ -72,7 +72,7 @@ func (s *Source) Group() metrics.Group { return metrics.GroupNet }
 // Collect appends one reading set per connected adapter, plus the latency
 // probe's most recent result.
 func (s *Source) Collect(set *metrics.Set) error {
-	if s.pinger != nil {
+	if len(s.pingers) > 0 {
 		s.addPing(set)
 	}
 
@@ -164,20 +164,39 @@ func (s *Source) Collect(set *metrics.Set) error {
 }
 
 func (s *Source) addPing(set *metrics.Set) {
-	result, ok := s.pinger.Result()
-	if !ok {
-		return
-	}
-	set.Add(metrics.Text(metrics.PingTarget, "", result.Target))
+	// An instance per target, but only once there is more than one of them. A
+	// lone probe keeps the plain ping_rtt it has always had: instancing it too
+	// would rename the entity on every machine that never asked for a second
+	// target, and a renamed entity is an orphaned dashboard.
+	instanced := len(s.pingers) > 1
 
-	// A round that never got off the ground says nothing about the network,
-	// so it must not be reported as zero loss.
-	if result.Sent == 0 {
-		return
-	}
-	set.Add(metrics.Gauge(metrics.PingLoss, "", result.LossPercent))
-	if result.Received > 0 {
-		set.Add(metrics.Gauge(metrics.PingRTT, "", result.AverageMs))
+	for _, pinger := range s.pingers {
+		result, ok := pinger.Result()
+		if !ok {
+			continue
+		}
+
+		// The configured target, not the resolved one. They differ only for the
+		// gateway, which cannot occur here — a gateway probe is the unconfigured
+		// single target and never instanced — but the configured string is the
+		// one that stays put while a network changes underneath it, and an
+		// instance that moves is an entity that moves.
+		instance := ""
+		if instanced {
+			instance = pinger.Target()
+		}
+
+		set.Add(metrics.Text(metrics.PingTarget, instance, result.Target))
+
+		// A round that never got off the ground says nothing about the network,
+		// so it must not be reported as zero loss.
+		if result.Sent == 0 {
+			continue
+		}
+		set.Add(metrics.Gauge(metrics.PingLoss, instance, result.LossPercent))
+		if result.Received > 0 {
+			set.Add(metrics.Gauge(metrics.PingRTT, instance, result.AverageMs))
+		}
 	}
 }
 

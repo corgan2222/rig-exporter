@@ -197,10 +197,22 @@ type Config struct {
 	BatteryEnabled bool `json:"battery_enabled"`
 
 	// Latency probe, part of the network group.
-	PingEnabled    bool   `json:"ping_enabled"`
-	PingTarget     string `json:"ping_target"`
-	PingCount      int    `json:"ping_count"`
-	PingIntervalMs int    `json:"ping_interval_ms"`
+	PingEnabled bool `json:"ping_enabled"`
+	// PingTarget is the single target this setting used to be. It is read so an
+	// existing config.json still means what it meant, moved into PingTargets on
+	// load, and never written back — omitempty and the blanking in normalise
+	// together retire it from the file the first time it is saved.
+	PingTarget string `json:"ping_target,omitempty"`
+	// PingTargets is what to measure against. Empty means the default gateway,
+	// which is what it has always meant and what an unconfigured machine gets.
+	//
+	// One target reports without an instance, exactly as a single probe always
+	// has. From the second one on, every target carries its own — which renames
+	// the first one's entity, and is why the interface says so next to the
+	// button that adds one.
+	PingTargets    []string `json:"ping_targets"`
+	PingCount      int      `json:"ping_count"`
+	PingIntervalMs int      `json:"ping_interval_ms"`
 
 	// SelfUsageEnabled reports what this program costs the machine it measures.
 	//
@@ -462,7 +474,7 @@ func Defaults() Config {
 		// with a fixed bug in it helps nobody. Nothing installs itself.
 		UpdateCheckEnabled: true,
 		PingEnabled:        true,
-		PingTarget:         "", // empty means the default gateway
+		PingTargets:        nil, // empty means the default gateway
 		PingCount:          3,
 		PingIntervalMs:     15000,
 
@@ -775,7 +787,15 @@ func (c *Config) normalizeSensors() {
 	// changed nothing.
 	c.normalizeMeasurements()
 
-	c.PingTarget = strings.TrimSpace(c.PingTarget)
+	// A configuration written before there could be several targets carries one
+	// in the old field. Move it across rather than dropping it, and only when
+	// the new field says nothing — a file that has both was written by a newer
+	// build and the old value is a leftover.
+	if len(c.PingTargets) == 0 && strings.TrimSpace(c.PingTarget) != "" {
+		c.PingTargets = []string{c.PingTarget}
+	}
+	c.PingTarget = ""
+	c.PingTargets = cleanPingTargets(c.PingTargets)
 	c.PingCount = clampInt(c.PingCount, 1, 10, Defaults().PingCount)
 	c.PingIntervalMs = clampInt(c.PingIntervalMs, 2000, 600_000, Defaults().PingIntervalMs)
 	c.TopProcessesCount = clampInt(c.TopProcessesCount, 3, 10, Defaults().TopProcessesCount)
@@ -810,6 +830,38 @@ func DocsFor(lang i18n.Lang) string {
 		return DocsURL + "de/"
 	}
 	return DocsURL
+}
+
+// MaxPingTargets is how many hosts the latency probe will measure against.
+//
+// Each one is a goroutine and a round of ICMP echoes on its own schedule, so
+// the cost is real but small. The limit is here because the interface lets
+// somebody hold down a button: eight is more than anybody has asked for and few
+// enough that a slip of the finger cannot turn this program into something that
+// pings a hundred hosts every fifteen seconds.
+const MaxPingTargets = 8
+
+// cleanPingTargets tidies the list the form hands over: no blanks, no
+// duplicates, no more than MaxPingTargets.
+//
+// Duplicates are dropped rather than kept because a target is an identity here,
+// not just a setting — two identical entries would be two readings with the
+// same instance, which is one reading overwriting the other in every export.
+func cleanPingTargets(targets []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		if target == "" || seen[strings.ToLower(target)] {
+			continue
+		}
+		seen[strings.ToLower(target)] = true
+		out = append(out, target)
+		if len(out) == MaxPingTargets {
+			break
+		}
+	}
+	return out
 }
 
 // WantsDisk reports whether a drive letter should be collected. An empty

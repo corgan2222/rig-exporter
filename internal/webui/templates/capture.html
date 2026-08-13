@@ -95,11 +95,36 @@
       <details class="sub">
         <summary>{{ .T "settings.sensors.details" }}</summary>
         <div class="subrow">
-          <label>
+          <!-- One row per target, all under the same field name: a repeated
+               name is how a form carries a list, and the server reads every
+               value it was sent. The rows are built from the configuration so
+               a machine with none still shows one empty row to type into. -->
+          <!-- A div rather than a label: a label points at one control, and
+               this is a list of them. .field gives it the same shape. -->
+          <div class="field">
             <span class="name">{{ .T "settings.sensors.pingTarget" }}</span>
-            <input type="text" name="ping_target" value="{{ .Config.PingTarget }}" placeholder="{{ .T "settings.sensors.pingGateway" }}">
+            <div class="repeat" id="ping-targets">
+              {{ if .Config.PingTargets }}
+                {{ range .Config.PingTargets }}
+                <div class="repeat-row">
+                  <input type="text" name="ping_target" value="{{ . }}" placeholder="{{ $.T "settings.sensors.pingGateway" }}">
+                  <button type="button" class="rowbtn remove" title="{{ $.T "settings.sensors.pingRemove" }}" aria-label="{{ $.T "settings.sensors.pingRemove" }}">&minus;</button>
+                </div>
+                {{ end }}
+              {{ else }}
+                <div class="repeat-row">
+                  <input type="text" name="ping_target" value="" placeholder="{{ .T "settings.sensors.pingGateway" }}">
+                  <button type="button" class="rowbtn remove" title="{{ .T "settings.sensors.pingRemove" }}" aria-label="{{ .T "settings.sensors.pingRemove" }}">&minus;</button>
+                </div>
+              {{ end }}
+            </div>
+            <div class="repeat-add">
+              <button type="button" class="rowbtn" id="ping-add" title="{{ .T "settings.sensors.pingAdd" }}" aria-label="{{ .T "settings.sensors.pingAdd" }}">+</button>
+              <span class="hint">{{ .T "settings.sensors.pingAddHint" }}</span>
+            </div>
             <span class="hint">{{ .H "settings.sensors.pingHint" }}</span>
-          </label>
+            <span class="hint">{{ .T "settings.sensors.pingRenameHint" }}</span>
+          </div>
           <label class="narrow">
             <span class="name">{{ .T "settings.sensors.pingCount" }}</span>
             <input type="number" name="ping_count" value="{{ .Config.PingCount }}" min="1" max="10">
@@ -158,5 +183,51 @@
       {{ template "save" . }}
     </div>
   </form>
+
+<script>
+// Adding and removing ping targets.
+//
+// The list is carried by a repeated field name, which is how a form sends one:
+// a new row is a copy of an existing row with its value cleared, nothing has to
+// be numbered, and the server reads the same field it always did.
+(function () {
+  const list = document.getElementById("ping-targets");
+  const add = document.getElementById("ping-add");
+  if (!list || !add) {
+    return;
+  }
+
+  const rows = () => list.querySelectorAll(".repeat-row");
+
+  add.addEventListener("click", function () {
+    // The limit is enforced again when the form is saved. This only stops the
+    // page offering rows the configuration would throw away.
+    if (rows().length >= {{ .MaxPingTargets }}) {
+      return;
+    }
+    const copy = list.querySelector(".repeat-row").cloneNode(true);
+    copy.querySelector("input").value = "";
+    list.appendChild(copy);
+    copy.querySelector("input").focus();
+  });
+
+  // Delegated, so a row added a moment ago behaves like one that was rendered.
+  list.addEventListener("click", function (event) {
+    const button = event.target.closest(".remove");
+    if (!button) {
+      return;
+    }
+    const row = button.closest(".repeat-row");
+    // The last row is emptied rather than removed. An empty target is how you
+    // say "the default gateway", so it is a value and not an absence — and a
+    // list with no rows leaves nothing to type into.
+    if (rows().length <= 1) {
+      row.querySelector("input").value = "";
+      return;
+    }
+    row.remove();
+  });
+})();
+</script>
 
 {{ end }}

@@ -25,7 +25,7 @@ import (
 // shut down, so a configuration change can replace the whole lot at once.
 type sensors struct {
 	sources []collector.Source
-	pinger  *hwnet.Pinger
+	pingers []*hwnet.Pinger
 	procs   *procs.Sampler
 }
 
@@ -59,10 +59,19 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 	}
 	if cfg.NetEnabled {
 		if cfg.PingEnabled {
-			s.pinger = hwnet.NewPinger(cfg.PingTarget, cfg.PingCount,
-				time.Duration(cfg.PingIntervalMs)*time.Millisecond, log)
+			// One pinger per target, each on its own schedule. An empty list is
+			// one probe against the default gateway, which is what an
+			// unconfigured machine has always done.
+			targets := cfg.PingTargets
+			if len(targets) == 0 {
+				targets = []string{""}
+			}
+			for _, target := range targets {
+				s.pingers = append(s.pingers, hwnet.NewPinger(target, cfg.PingCount,
+					time.Duration(cfg.PingIntervalMs)*time.Millisecond, log))
+			}
 		}
-		s.sources = append(s.sources, hwnet.New(s.pinger, cfg.NetAllAdapters))
+		s.sources = append(s.sources, hwnet.New(s.pingers, cfg.NetAllAdapters))
 	}
 	if cfg.BatteryEnabled {
 		s.sources = append(s.sources, battery.New(log))
@@ -83,8 +92,8 @@ func buildSensors(cfg config.Config, system *sysinfo.Provider, log *slog.Logger)
 
 // start launches anything that runs on its own schedule.
 func (s *sensors) start() {
-	if s.pinger != nil {
-		s.pinger.Start()
+	for _, pinger := range s.pingers {
+		pinger.Start()
 	}
 	if s.procs != nil {
 		s.procs.Start()
@@ -98,8 +107,8 @@ func (s *sensors) start() {
 // PDH query open for the lifetime of the set — would otherwise leak one handle
 // per save.
 func (s *sensors) stop() {
-	if s.pinger != nil {
-		s.pinger.Stop()
+	for _, pinger := range s.pingers {
+		pinger.Stop()
 	}
 	// Matched against the method that exists rather than against io.Closer:
 	// there is nothing for these to report, and an error return that is always

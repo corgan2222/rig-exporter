@@ -866,21 +866,26 @@ var (
 		Prom: "rig_net_wifi_signal_percent", Help: "Wi-Fi signal quality",
 		DeviceClass: "signal_strength", StateClass: "measurement", Icon: "mdi:wifi",
 	}
+	// The three latency readings carry an instance so several hosts can be
+	// measured at once. It stays empty while there is only one target, which is
+	// what an unconfigured machine has and what every machine had before this
+	// was possible — instancing a lone probe would rename ping_rtt on all of
+	// them for a feature they never switched on.
 	PingTarget = Definition{
 		ID: "ping_target", Name: i18n.Text{DE: "Ping-Ziel", EN: "Ping target"},
-		Kind: KindText, Group: GroupNet,
+		Kind: KindText, Group: GroupNet, InstanceLabel: "target",
 		Prom: "rig_ping_target_info", PromLabel: "target", Help: "Host the latency probe measures against",
 		EntityCategory: "diagnostic", Icon: "mdi:target",
 	}
 	PingRTT = Definition{
 		ID: "ping_rtt", Name: i18n.Text{DE: "Ping", EN: "Ping"},
-		Unit: "ms", Kind: KindGauge, Precision: 1, Group: GroupNet,
+		Unit: "ms", Kind: KindGauge, Precision: 1, Group: GroupNet, InstanceLabel: "target",
 		Prom: "rig_ping_rtt_milliseconds", Help: "Average ICMP round trip time",
 		DeviceClass: "duration", StateClass: "measurement", Icon: "mdi:lan-connect",
 	}
 	PingLoss = Definition{
 		ID: "ping_loss", Name: i18n.Text{DE: "Paketverlust", EN: "Packet loss"},
-		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupNet,
+		Unit: "%", Kind: KindGauge, Precision: 1, Group: GroupNet, InstanceLabel: "target",
 		Prom: "rig_ping_loss_percent", Help: "Share of ICMP echoes that went unanswered",
 		StateClass: "measurement", Icon: "mdi:lan-disconnect",
 	}

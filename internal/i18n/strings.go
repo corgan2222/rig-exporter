@@ -62,6 +62,19 @@ var catalogue = map[string]Text{
 		EN: "The handbook — what is measured, how it is exported and what every setting does",
 	},
 
+	"settings.sensors.pingAdd":    {DE: "Ziel hinzufügen", EN: "Add target"},
+	"settings.sensors.pingRemove": {DE: "Ziel entfernen", EN: "Remove target"},
+	"settings.sensors.pingAddHint": {
+		DE: "Weiteres Ziel, jedes auf einem eigenen Takt",
+		EN: "Another target, each on a schedule of its own",
+	},
+	// The consequence has to be visible before the click, not discovered
+	// afterwards in Home Assistant.
+	"settings.sensors.pingRenameHint": {
+		DE: "Ab dem zweiten Ziel bekommt jedes eine eigene Kennung — die Entities des ersten Ziels heißen dann anders.",
+		EN: "From the second target on, each one gets an identifier of its own — the first target's entities are then named differently.",
+	},
+
 	// Status page.
 	"status.title":      {DE: "Status", EN: "Status"},
 	"status.fps":        {DE: "FPS", EN: "FPS"},

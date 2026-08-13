@@ -18,7 +18,7 @@ gar keine Entities — und sie tauchen von selbst auf, sobald die Quelle da ist.
 | ↳ **Alle Adapter statt nur dem aktiven** | aus | Auch VPN-, Hyper-V- und Bluetooth-Adapter — meist mehr Rauschen als Nutzen |
 | **Akku** — Ladestand, Netzbetrieb, Restlaufzeit, Verschleiß | an | Auf einem Desktop ohne Akku entsteht nichts |
 | **Spezielle Hardware** — AIO-Wasserkühlung, Pumpe, Lüfter-Hub | **aus** | Als `ALPHA · ungetestet` gekennzeichnet: nachgebaute Protokolle gegen Geräte, die hier größtenteils niemand besitzt |
-| **Latenzmessung** — Ping und Paketverlust | an | Ziel leer = Standard-Gateway; sonst Hostname oder IPv4. Misst nur, solange **Netzwerk** an ist |
+| **Latenzmessung** — Ping und Paketverlust | an | Ziel leer = Standard-Gateway; sonst Hostname oder IPv4. **+** fügt ein weiteres hinzu, bis zu acht, jedes auf einem eigenen Takt. Misst nur, solange **Netzwerk** an ist |
 | ↳ **Echos pro Runde** / **Messintervall** | 3 / 15000 ms | Getrennt vom Auslese-Intervall, weil ein Ping länger dauert als ein Zählerabruf |
 | **Eigene Ressourcennutzung** — CPU und Speicher von rig-exporter | **aus** | Was das Programm die Maschine kostet, die es misst |
 | **Top-Prozesse** — welche Programme CPU und Speicher belegen | **aus** | Braucht einen Durchlauf über alle Prozesse |
@@ -32,6 +32,32 @@ Laufwerke**, das Ping-Ziel samt Echos und Messintervall und die beiden Werte der
 Top-Prozesse liegen hinter einem zugeklappten **Detaileinstellungen**.
 Aufklappen geht jederzeit — auch wenn die Gruppe darüber aus ist und die Werte
 darin nichts bewirken.
+
+## Mehrere Ping-Ziele
+
+Das **+** unter dem Ziel fügt eine Zeile hinzu, das **−** daneben entfernt sie.
+Die letzte Zeile wird geleert statt entfernt, denn ein leeres Ziel *ist* ein
+Wert — es bedeutet das Standard-Gateway. Acht ist die Grenze, und eine leere
+Zeile oder ein zweimal eingetragener Host fällt beim Speichern weg.
+
+Jedes Ziel wird auf einem eigenen Takt gemessen, mit derselben Anzahl Echos und
+demselben Intervall. Sie stehen nicht hintereinander in einer Schlange, ein Host,
+der nicht mehr antwortet, kostet die anderen also nichts.
+
+!!! warning "Das zweite Ziel benennt die Entities des ersten um"
+
+    Bei einem Ziel heißen die Messwerte `ping_rtt`, `ping_loss` und
+    `ping_target`, genau wie seit jeher. Ab dem zweiten Ziel trägt jedes eine
+    eigene Kennung — `ping_rtt_1_1_1_1` neben `ping_rtt_8_8_8_8` —, denn zwei
+    Messwerte unter demselben Namen wären in jedem Export einer, der den anderen
+    überschreibt.
+
+    Das gilt auch für das Ziel, das vorher da war. Ein Home-Assistant-Dashboard
+    oder eine Automatisierung auf `sensor.…_ping_rtt` muss also umgehängt und die
+    alte Entity aufgeräumt werden: **erst der Broker, dann Home Assistant** —
+    siehe [Exportziele](../export-targets.md).
+
+    Zurück auf ein einzelnes Ziel dreht das exakt wieder um.
 
 ## Das Spiel ermitteln
 

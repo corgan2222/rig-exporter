@@ -127,6 +127,22 @@
   label { display: block; margin-bottom: 1rem; }
   label .name { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
   label .hint { display: block; font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+  /* The same shape as a label, for a group of controls no single label may
+     legally wrap: a label points at one control, and a list of ping targets is
+     a list of them. */
+  .field { display: block; margin-bottom: 1rem; }
+  .field .name { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
+  .field .hint { display: block; font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+  /* A list of inputs that grows by one when the plus is pressed. */
+  .repeat-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .35rem; }
+  .repeat-row input { flex: 1; }
+  .repeat-add { display: flex; align-items: center; gap: .5rem; }
+  .repeat-add .hint { margin-top: 0; }
+  .rowbtn { flex: none; width: 1.9rem; height: 1.9rem; padding: 0;
+            background: var(--panel-2); color: var(--muted);
+            border: 1px solid var(--line); border-radius: 7px;
+            font: inherit; line-height: 1; cursor: pointer; }
+  .rowbtn:hover { color: var(--text); border-color: var(--muted); }
   input[type=text], input[type=password], input[type=number], select {
     width: 100%; padding: .5rem .65rem;
     background: var(--panel-2); color: var(--text);

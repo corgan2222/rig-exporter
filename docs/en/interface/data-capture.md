@@ -18,7 +18,7 @@ created — and they appear by themselves once it is there.
 | ↳ **Every adapter instead of only the active one** | off | VPN, Hyper-V and Bluetooth adapters too — usually more noise than use |
 | **Battery** — charge, mains, runtime left, wear | on | On a desktop without a battery nothing is created |
 | **Special hardware** — AIO water cooling, pump, fan hub | **off** | Marked `ALPHA · untested`: rebuilt protocols against devices almost nobody here owns |
-| **Latency probe** — ping and packet loss | on | Target blank = default gateway; otherwise a host name or IPv4 address. Only measures while **Network** is on |
+| **Latency probe** — ping and packet loss | on | Target blank = default gateway; otherwise a host name or IPv4 address. **+** adds another, up to eight, each measured on a schedule of its own. Only measures while **Network** is on |
 | ↳ **Echoes per round** / **Probe interval** | 3 / 15000 ms | Separate from the read interval, because a ping takes longer than fetching a counter |
 | **Own resource usage** — CPU and memory of rig-exporter | **off** | What the program costs the machine it is measuring |
 | **Top processes** — which programs are using CPU and memory | **off** | Needs a pass over every process |
@@ -31,6 +31,32 @@ one** are ordinary checkboxes directly below their group; **Only these drives**,
 the ping target with its echoes and probe interval, and the two values of the
 top processes sit behind a collapsed **Detailed config**. It can be expanded at
 any time — even when the group above is off and the values inside it do nothing.
+
+## Several ping targets
+
+The **+** under the target adds a row; the **−** beside a row removes it. The
+last row is emptied rather than removed, because an empty target *is* a value —
+it means the default gateway. Eight is the limit, and a blank row or a host
+entered twice is dropped when the page is saved.
+
+Each target is measured on its own schedule, with the same echo count and
+interval. They do not queue behind one another, so a host that has stopped
+answering costs the others nothing.
+
+!!! warning "The second target renames the first one's entities"
+
+    With one target the readings are `ping_rtt`, `ping_loss` and `ping_target`,
+    exactly as they have always been. From the second target on, every one of
+    them carries an identifier of its own — `ping_rtt_1_1_1_1` beside
+    `ping_rtt_8_8_8_8` — because two readings answering to the same name would
+    be one overwriting the other in every export.
+
+    That includes the target that was there first. A Home Assistant dashboard or
+    an automation pointing at `sensor.…_ping_rtt` therefore has to be repointed,
+    and the old entity has to be cleaned up: **the broker first, then Home
+    Assistant** — see [Export targets](../export-targets.md).
+
+    Going back to a single target reverses it exactly.
 
 ## Working out the game
 
