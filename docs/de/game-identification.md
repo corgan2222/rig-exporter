@@ -35,8 +35,24 @@ den Server eines Dritten kontaktiert.
    Manifestdateien führt. Der längste passende Ordner gewinnt — ein Spiel im
    Verzeichnis eines anderen Spiels wird damit als es selbst gemeldet und nicht
    als sein Wirt.
-3. **Die öffentliche Steam-Suche**, und nur für einen Titel, den Schritt 2 ohne
-   AppID benannt hat. Der Titel geht hinaus, eine AppID kommt zurück.
+3. **Die öffentliche Steam-Suche.** Sie wird in zwei Fällen gefragt: nach der
+   AppID zu einem Titel, den Schritt 2 benannt hat — und, wenn keiner der
+   Schritte davor überhaupt etwas benannt hat, nach einem Suchbegriff, der aus
+   der ausführbaren Datei selbst gebildet wird. Aus `Cyberpunk2077.exe` wird die
+   Frage „Cyberpunk 2077", aus `MyGame-Win64-Shipping.exe` wird „My Game". Das
+   ist die einzige Vermutung im ganzen Verfahren, und sie betrifft nur, was
+   **gefragt** wird, nie, was gemeldet wird: veröffentlicht wird der Titel, mit
+   dem der Store antwortet, und die AppID, die er nennt — oder gar nichts. Ein
+   Spiel, das außerhalb dieser drei Läden gekauft wurde, hätte sonst keinerlei
+   Aussicht auf eine AppID, und die AppID ist das, was das Bild holt. Ein solches
+   Spiel meldet als Plattform `steam` — nicht, weil Steam es gestartet hätte,
+   sondern weil Steams Katalog geantwortet hat und die AppID zu diesem Store
+   gehört.
+
+   Programme, die nie ein Spiel sind — Browser, Chatfenster, Aufnahmewerkzeuge,
+   die Launcher selbst — werden gar nicht erst gefragt. RTSS hakt sich in alles
+   ein, was Bilder ausgibt, also tauchen sie hier genauso auf wie ein Spiel, und
+   „Origin" käme als ein Spiel namens Origin zurück.
 
 Die Reihenfolge ist eine Kostenleiter, die zugleich eine Verlässlichkeitsleiter
 ist. Steams Antwort ist die eigene Aufzeichnung des Launchers darüber, was er
@@ -86,11 +102,13 @@ Nur Einträge, die diese Prüfung bestehen, erreichen den Pfadabgleich überhaup
 Schritt 1 und 2 sind eine Handvoll Registry-Zugriffe und ein paar kleine
 Dateien. Schritt 3 ist eine HTTPS-Anfrage an die öffentliche Steam-Suche —
 dasselbe Ziel, das auch das Suchfeld auf der Store-Seite anspricht, ohne
-Schlüssel, ohne Konto, ohne Anmeldung. Hinaus geht der Titel des Spiels. Sonst
+Schlüssel, ohne Konto, ohne Anmeldung. Hinaus geht der Titel des Spiels — oder,
+wenn ihn kein Launcher benannt hat, ein Suchbegriff aus dem Namen der
+ausführbaren Datei, also aus einem Namen, den man selbst installiert hat. Sonst
 nichts: kein Rechnername, keine Hardware, keine Konfiguration, keinerlei
-Kennung. Zurück kommt eine AppID.
+Kennung. Zurück kommen eine AppID und die Schreibweise, die der Store dazu führt.
 
-Gefragt wird **einmal je Titel**, und die Antwort bleibt gemerkt — **auch wenn
+Gefragt wird **einmal je Suchbegriff**, und die Antwort bleibt gemerkt — **auch wenn
 sie leer war**. Ein Spiel, das der Store nicht kennt, ist genau der Fall, der
 sonst bei jeder Messung erneut fragen würde, zweimal pro Sekunde, solange das
 Spiel läuft.
@@ -110,7 +128,7 @@ ist dann die ausführbare Datei und sonst nichts, genau wie vor dieser Funktion.
 
 ## Fehlt statt geraten
 
-Eine ausführbare Datei, zu der sich kein Launcher bekennt, erzeugt gar keine
+Eine ausführbare Datei, die auch der Store nicht erkennt, erzeugt gar keine
 Details. Ein Spiel, das der Store nicht hat, behält Plattform und Titel und hat
 schlicht keine AppID. Es gibt hier keine leeren Zeichenketten, keine Nullen und
 kein „unbekannt": dieselbe Regel wie überall sonst im Programm, denn ein Wert,
@@ -130,7 +148,7 @@ Automatisierung funktioniert weiter. Plattform, Titel und AppID kommen als
 
 | Attribut | Beispiel | Was es ist |
 |---|---|---|
-| `platform` | `steam`, `gog`, `epic` | ein Bezeichner, klein geschrieben, nie übersetzt |
+| `platform` | `steam`, `gog`, `epic` | ein Bezeichner, klein geschrieben, nie übersetzt. Er nennt, woher die Identität stammt, nicht, wo das Spiel gekauft wurde: ein allein über die Store-Suche gefundenes Spiel steht auf `steam`, weil Steams Katalog geantwortet hat |
 | `title` | `Cyberpunk 2077` | so, wie der Store ihn schreibt, samt Zeichensetzung |
 | `app_id` | `1091500` | Steams Kennung des Titels — sie adressiert das Bildmaterial |
 

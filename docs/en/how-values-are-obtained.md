@@ -46,13 +46,19 @@ directory is reported as itself. Add-ons are dropped there: they name their base
 game's folder, and "Cyberpunk 2077: Phantom Liberty" would otherwise resolve to
 the expansion's own app id and show the wrong artwork.
 
-Only a title found that way, and still without an app id, is worth a request to
+A title found that way, and still without an app id, is worth a request to
 Steam's public store search — the same one the search box on the store page
-uses, without a key or an account. That is the one thing in this program that
-leaves the machine: the game's title goes out, an app id comes back, once per
-title, and the answer is kept in memory including the misses. It is never waited
-for either; a title whose id has not arrived is published without one and gains
-it on a later reading, because a slow store must not become a slow exporter.
+uses, without a key or an account. So is an executable that neither Steam nor a
+catalogue claims at all: its file name is turned into a search term,
+`Cyberpunk2077.exe` into "Cyberpunk 2077", and only what the store answers is
+published — never the term itself. Programs that are never games, from browsers
+to the launchers themselves, are not asked about.
+
+That search is the one thing in this program that leaves the machine: a title or
+a term goes out, an app id and the store's own spelling come back, once per term,
+and the answer is kept in memory including the misses. It is never waited for
+either; a title whose id has not arrived is published without one and gains it on
+a later reading, because a slow store must not become a slow exporter.
 
 Two other ways of asking Steam were measured and dropped. `steam_appid.txt` sits
 in three of the installed games on the development machine, because it is a

@@ -148,15 +148,23 @@ type countingSearch struct {
 	mu     sync.Mutex
 	calls  int
 	answer map[string]string
+	// titles is what the store calls each term it knows, where a test cares.
+	titles map[string]string
 }
 
-func (c *countingSearch) lookup(title string) (string, bool) {
+func (c *countingSearch) lookup(term string) (Match, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.calls++
-	id, ok := c.answer[title]
-	return id, ok
+	id, ok := c.answer[term]
+	if !ok {
+		return Match{}, false
+	}
+	// The store answers with a spelling of its own. Echoing the term back would
+	// hide the case this distinction exists for: a term worked out from a file
+	// name is a guess, and the title that gets published has to be the store's.
+	return Match{AppID: id, Title: c.titles[term]}, true
 }
 
 func (c *countingSearch) count() int {
@@ -236,6 +244,11 @@ func TestALauncherGameIsNamedFromItsCatalogue(t *testing.T) {
 func TestAPathNoLauncherClaimsIsNotAGame(t *testing.T) {
 	// RTSS hooks whatever renders, including a browser. Nothing may be
 	// invented for it — no platform, no title, no id.
+	//
+	// "No launcher claims it" is no longer why: an executable nothing claims is
+	// now turned into a search term on purpose. What keeps a browser out is that
+	// it is on the list of programs that are never games, and that list is what
+	// this checks.
 	catalogue := cyberpunkCatalogue()
 	search := &countingSearch{answer: map[string]string{}}
 
@@ -245,7 +258,7 @@ func TestAPathNoLauncherClaimsIsNotAGame(t *testing.T) {
 		t.Fatalf("a game was reported for %+v", game)
 	}
 	if search.count() != 0 {
-		t.Error("the store was asked about an executable no launcher claims")
+		t.Error("the store was asked about a browser")
 	}
 }
 
@@ -372,10 +385,10 @@ func TestTheStoreIsNeverWaitedFor(t *testing.T) {
 		<-done
 	}()
 
-	search := func(string) (string, bool) {
+	search := func(string) (Match, bool) {
 		<-blocked
 		close(done)
-		return "1091500", true
+		return Match{AppID: "1091500", Title: "Cyberpunk 2077"}, true
 	}
 
 	ident := New(fakeRegistry{}, cyberpunkCatalogue().read, search)
@@ -393,5 +406,92 @@ func TestTheStoreIsNeverWaitedFor(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Identify waited for the store")
+	}
+}
+
+// A game bought outside Steam, GOG and Epic — or installed by hand — is claimed
+// by no catalogue on the machine, and used to produce no reading at all. The
+// executable is the only thing left, so it becomes a question for the store.
+//
+// What the store answers with is what gets published. The term that was asked,
+// "Space Marine 2", is a guess assembled from a file name; the title on the
+// reading is the store's own spelling, which is the one somebody would
+// recognise and the only one anybody checked.
+func TestAGameNoLauncherClaimsIsLookedUpByName(t *testing.T) {
+	search := &countingSearch{
+		answer: map[string]string{"Space Marine 2": "2183900"},
+		titles: map[string]string{"Space Marine 2": "Warhammer 40,000: Space Marine 2"},
+	}
+
+	ident := New(fakeRegistry{}, cyberpunkCatalogue().read, search.lookup)
+	exe := `M:\Handinstalliert\SpaceMarine2.exe`
+
+	// The first look asks and reports nothing: the store runs off this
+	// goroutine, and a measuring loop never waits for somebody else's server.
+	if _, ok := ident.Identify(exe); ok {
+		t.Error("something was reported before the store had answered")
+	}
+	ident.wait()
+
+	game, ok := ident.Identify(exe)
+	if !ok {
+		t.Fatal("the store answered and nothing was reported")
+	}
+	if game.Title != "Warhammer 40,000: Space Marine 2" {
+		t.Errorf("Title = %q, want the store's spelling rather than the term asked", game.Title)
+	}
+	if game.AppID != "2183900" {
+		t.Errorf("AppID = %q, want 2183900", game.AppID)
+	}
+	// Steam, although Steam did not launch this game and need not even be
+	// installed: the platform names where the identity came from, and Steam's
+	// catalogue is what answered. It is also what the app id addresses.
+	if game.Platform != PlatformSteam {
+		t.Errorf("Platform = %q, want %q: the store is what answered", game.Platform, PlatformSteam)
+	}
+}
+
+// The guess is a question, not an answer. A store that knows nothing leaves the
+// reading absent rather than publishing a title assembled from a file name.
+func TestAnUnknownExecutableStaysUnreportedWhenTheStoreHasNothing(t *testing.T) {
+	search := &countingSearch{answer: map[string]string{}}
+
+	ident := New(fakeRegistry{}, cyberpunkCatalogue().read, search.lookup)
+	exe := `M:\Handinstalliert\SomethingObscure.exe`
+
+	for range 5 {
+		if game, ok := ident.Identify(exe); ok {
+			t.Fatalf("got %+v, want nothing: the store does not have this game", game)
+		}
+		ident.wait()
+	}
+
+	// Once, not five times. A miss is the case that would otherwise ask again on
+	// every poll for as long as the game is open.
+	if search.count() != 1 {
+		t.Errorf("the store was asked %d times, want 1", search.count())
+	}
+}
+
+// RTSS hooks whatever presents frames, which is how a browser ends up here. The
+// store must not be asked about it at all — not because the answer would be
+// wrong, but because the name has no business leaving the machine.
+func TestAProgramThatIsNeverAGameNeverReachesTheStore(t *testing.T) {
+	search := &countingSearch{answer: map[string]string{}}
+
+	ident := New(fakeRegistry{}, cyberpunkCatalogue().read, search.lookup)
+
+	for _, exe := range []string{
+		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+		`C:\Program Files (x86)\Steam\steam.exe`,
+	} {
+		if game, ok := ident.Identify(exe); ok {
+			t.Errorf("%s was reported as %+v", exe, game)
+		}
+	}
+	ident.wait()
+
+	if search.count() != 0 {
+		t.Errorf("the store was asked %d times about a program that is not a game", search.count())
 	}
 }

@@ -18,10 +18,19 @@
 //	GOG and  Their catalogues say which folder every installed game lives in, so
 //	Epic     the executable path RTSS reports can be matched against them. Still
 //	         local, still free.
-//	Store    Only for a title the first two named without an app id: one search
-//	         against Steam's public store endpoint, once per title, remembered
-//	         including the misses. This is the only step that leaves the
-//	         machine, and the only one the user has to switch on.
+//	Store    One search against Steam's public store endpoint, once per term,
+//	         remembered including the misses. This is the only step that leaves
+//	         the machine, and the only one the user has to switch on. It is
+//	         asked in two situations: for the app id of a title one of the two
+//	         above named, and — where none of them named anything at all — for
+//	         a term worked out from the executable itself.
+//
+// That last case is the only guess in the package, and it is a guess about what
+// to *ask*, never about what to report. Cyberpunk2077.exe becomes the question
+// "Cyberpunk 2077"; what gets published is the title the store answers with and
+// the id it gave, or nothing. A game bought outside Steam, GOG and Epic
+// otherwise has no chance of an app id at all, and an app id is what fetches
+// the artwork.
 //
 // Two ways of asking Steam were measured and rejected. steam_appid.txt exists
 // in three of the installed games on the development machine, because it is a
@@ -163,12 +172,25 @@ func MatchInstall(installs []Install, exePath string) (Install, bool) {
 	return best, found
 }
 
-// Search asks a store for the app id of a title, reporting whether it knew one.
+// Match is what a store search came back with: the id that addresses the game,
+// and the title the store keeps for it.
+//
+// The title is carried alongside the id because the two are worth different
+// things depending on how the term was arrived at. Where a launcher named the
+// game, the launcher's spelling is the one to publish and only the id is new.
+// Where the term was worked out from a file name, the store's spelling is the
+// only spelling anybody checked.
+type Match struct {
+	AppID string
+	Title string
+}
+
+// Search asks a store about a term, reporting whether it knew anything.
 //
 // Taken as a function so the cache can be tested without a network, and so the
 // caller decides whether asking a store is allowed at all — this is the only
 // part of the whole mechanism that leaves the machine.
-type Search func(title string) (string, bool)
+type Search func(term string) (Match, bool)
 
 // catalogueTTL is how stale the launcher catalogues may get before an
 // executable nobody recognises is worth a second look.
@@ -206,9 +228,10 @@ type Identifier struct {
 	// byPath is the launcher answer per executable, with a zero Install for a
 	// path no launcher claims.
 	byPath map[string]Install
-	// appIDs is the store answer per title, "" for a title it does not have.
-	appIDs map[string]string
-	// asking marks titles the store is being asked about right now, so a slow
+	// matches is the store answer per term, a zero Match for a term it has
+	// nothing for.
+	matches map[string]Match
+	// asking marks terms the store is being asked about right now, so a slow
 	// answer cannot turn into one request per poll.
 	asking map[string]bool
 
@@ -225,7 +248,7 @@ func New(reg Registry, installs func() []Install, search Search) *Identifier {
 		search:   search,
 		now:      time.Now,
 		byPath:   map[string]Install{},
-		appIDs:   map[string]string{},
+		matches:  map[string]Match{},
 		asking:   map[string]bool{},
 	}
 }
@@ -248,15 +271,42 @@ func (i *Identifier) Identify(exePath string) (Game, bool) {
 		return game, true
 	}
 
-	install, ok := i.install(exePath)
+	if install, ok := i.install(exePath); ok {
+		// The launcher's spelling wins. It named the game on this machine, and
+		// the store is only being asked for the id.
+		found, _ := i.match(install.Name)
+		return Game{
+			Platform: install.Platform,
+			Title:    install.Name,
+			AppID:    found.AppID,
+		}, true
+	}
+
+	// Nothing on this machine claims this executable: bought somewhere with no
+	// catalogue to read, installed by hand, or run from a launcher this program
+	// cannot see. All that is left is the file name, so it is turned into a
+	// search term and the store is asked.
+	//
+	// Nothing derived from the file name is published. If the store answers,
+	// what goes out is the title the store spells and the id it gave; if it does
+	// not, there is no reading. The guess is a question, and only the answer is
+	// reported.
+	//
+	// The platform is Steam. Not because Steam launched the game — it did not,
+	// and it may not even be installed — but because Steam's catalogue is what
+	// answered, and the platform names the source of the identity rather than
+	// the shop the game was bought from. It is also what the app id addresses:
+	// reporting an app id with no platform beside it would leave a reader to
+	// work out for themselves which store that number belongs to.
+	term, ok := searchTerm(exePath)
 	if !ok {
 		return Game{}, false
 	}
-	return Game{
-		Platform: install.Platform,
-		Title:    install.Name,
-		AppID:    i.appID(install.Name),
-	}, true
+	found, ok := i.match(term)
+	if !ok {
+		return Game{}, false
+	}
+	return Game{Platform: PlatformSteam, Title: found.Title, AppID: found.AppID}, true
 }
 
 // install matches a path against the launcher catalogues, once per path.
@@ -302,42 +352,47 @@ func (i *Identifier) reloadLocked() {
 	i.catalogue = i.installs()
 }
 
-// appID is the store's answer for a title: the one it already gave, or nothing
+// match is the store's answer for a term: the one it already gave, or nothing
 // while it is being asked for the first and only time.
-func (i *Identifier) appID(title string) string {
-	if strings.TrimSpace(title) == "" {
-		return ""
+//
+// The second result is false both for a term the store does not know and for a
+// term it has not answered yet. A caller that has nothing else to publish must
+// treat the two the same anyway — neither is a reading — and the next poll
+// tells them apart for free.
+func (i *Identifier) match(term string) (Match, bool) {
+	if strings.TrimSpace(term) == "" {
+		return Match{}, false
 	}
 
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	if id, answered := i.appIDs[title]; answered {
-		return id
+	if found, answered := i.matches[term]; answered {
+		return found, found.AppID != ""
 	}
-	if i.search == nil || i.asking[title] {
-		return ""
+	if i.search == nil || i.asking[term] {
+		return Match{}, false
 	}
 
-	i.asking[title] = true
+	i.asking[term] = true
 	i.wg.Add(1)
 	go func() {
 		defer i.wg.Done()
 
-		id, ok := i.search(title)
+		found, ok := i.search(term)
 		if !ok {
 			// Remembered as an empty answer rather than forgotten. A game the
 			// store does not have is the case that would otherwise ask again on
 			// every single poll, for as long as it is open.
-			id = ""
+			found = Match{}
 		}
 
 		i.mu.Lock()
-		i.appIDs[title] = id
-		delete(i.asking, title)
+		i.matches[term] = found
+		delete(i.asking, term)
 		i.mu.Unlock()
 	}()
-	return ""
+	return Match{}, false
 }
 
 // wait blocks until every store lookup has finished. For the tests: nothing in
