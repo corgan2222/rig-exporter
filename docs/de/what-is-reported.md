@@ -254,7 +254,9 @@ dieser Reihenfolge vor — sonst kommt die Entity beim nächsten Start zurück:
 Ping und Paketverlust laufen in einem eigenen Takt, unabhängig vom
 Sendeintervall: eine Runde gegen einen nicht erreichbaren Host dauert Sekunden
 und darf die Messschleife nicht blockieren. Ziel ist standardmäßig das
-Default-Gateway.
+Default-Gateway. Bis zu acht Ziele sind möglich, jedes in einem eigenen Takt —
+ab dem zweiten tragen sie
+[je eine eigene Kennung](interface/data-capture.md#mehrere-ping-ziele).
 
 **Rate und Menge sind zwei verschiedene Werte.** Pro Adapter gibt es beides:
 

@@ -258,9 +258,13 @@ type pageData struct {
 	Endpoints []endpoint
 
 	MinIntervalMs int
-	MaxIntervalMs int
-	MinIdleMs     int
-	MaxIdleMs     int
+	// MaxPingTargets stops the page offering more rows than the configuration
+	// would keep. The limit itself lives in config and is applied on save too —
+	// this copy is only so the form does not lie about it.
+	MaxPingTargets int
+	MaxIntervalMs  int
+	MinIdleMs      int
+	MaxIdleMs      int
 
 	// The Has* flags drive the "leave blank to keep" hints without ever
 	// sending a secret to the browser.
@@ -412,6 +416,7 @@ func (s *Server) newPageData(active, titleKey string) pageData {
 		RefreshMs:       cfg.PollIntervalMs,
 		Endpoints:       endpointsFor(cfg, lang),
 		MinIntervalMs:   config.MinIntervalMs,
+		MaxPingTargets:  config.MaxPingTargets,
 		MaxIntervalMs:   config.MaxIntervalMs,
 		MinIdleMs:       config.MinIdleMs,
 		MaxIdleMs:       config.MaxIdleMs,
@@ -611,7 +616,10 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		cfg.NetAllAdapters = r.FormValue("net_all_adapters") != ""
 		cfg.BatteryEnabled = r.FormValue("battery_enabled") != ""
 		cfg.PingEnabled = r.FormValue("ping_enabled") != ""
-		cfg.PingTarget = strings.TrimSpace(r.FormValue("ping_target"))
+		// Every value the form sent under that name, not just the first: the page
+		// repeats the field once per row, which is how a form carries a list.
+		// Normalise trims, drops blanks and duplicates and applies the cap.
+		cfg.PingTargets = r.Form["ping_target"]
 		cfg.PingCount = formInt(r, "ping_count", cfg.PingCount)
 		cfg.PingIntervalMs = formInt(r, "ping_interval_ms", cfg.PingIntervalMs)
 		cfg.SelfUsageEnabled = r.FormValue("self_usage_enabled") != ""

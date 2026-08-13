@@ -248,7 +248,9 @@ order — otherwise the entity comes back at the next start:
 
 Ping and packet loss run on a tick of their own, independent of the publish
 interval: a round against an unreachable host takes seconds and must not block
-the sampling loop. By default the target is the default gateway.
+the sampling loop. By default the target is the default gateway. Up to eight
+targets can be set, each on a tick of its own — from the second one on they
+carry [an identifier each](interface/data-capture.md#several-ping-targets).
 
 **Rate and amount are two different values.** Per adapter there is both:
 

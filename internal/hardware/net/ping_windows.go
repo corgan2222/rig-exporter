@@ -74,6 +74,13 @@ func NewPinger(target string, count int, interval time.Duration, log *slog.Logge
 	}
 }
 
+// Target is the host as it was configured, empty for the default gateway.
+//
+// Not the host a round resolved to, which is what PingResult carries: this one
+// is what a reading is filed under when several targets are measured, and an
+// instance that moves when a network changes is an entity that moves with it.
+func (p *Pinger) Target() string { return p.target }
+
 // Start begins probing. Calling it twice is harmless.
 func (p *Pinger) Start() {
 	if p.started.CompareAndSwap(false, true) {
