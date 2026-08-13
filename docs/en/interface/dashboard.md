@@ -32,8 +32,24 @@ enough:
 | over 55 | green |
 
 A rate that could not be measured stays uncoloured — a dash has nothing to
-judge. The colour is on screen only; nothing about it reaches an export, where
-the number is the number.
+judge.
+
+**CPU** and **RAM** are coloured the other way round, because with load the high
+end is the bad one, and on the same scale as each other: they sit side by side,
+and two percentages changing colour at different marks would invite comparing
+the colours rather than the numbers.
+
+| Load | Colour |
+|---|---|
+| up to 50 % | none |
+| over 50 % | orange |
+| over 80 % | red |
+
+Nothing turns green down here. A quiet processor is the ordinary state, and a
+colour that is on almost all the time says nothing when it matters.
+
+The colour is on screen only; nothing about it reaches an export, where the
+number is the number.
 
 The hardware panels can be switched between two views. The default is **By
 device**: everything about GPU 0 together, then everything about GPU 1, each

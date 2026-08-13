@@ -32,8 +32,24 @@ ein Blick reicht:
 | über 55 | Grün |
 
 Eine Rate, die sich nicht messen ließ, bleibt ungefärbt — an einem Strich ist
-nichts zu beurteilen. Die Farbe steht nur auf dem Bildschirm; in einen Export
-gelangt davon nichts, dort ist die Zahl die Zahl.
+nichts zu beurteilen.
+
+**CPU** und **RAM** sind andersherum eingefärbt, denn bei einer Auslastung ist
+das obere Ende das schlechte — und beide nach derselben Skala: sie stehen
+nebeneinander, und zwei Prozentwerte, die an verschiedenen Marken die Farbe
+wechseln, laden dazu ein, die Farben statt der Zahlen zu vergleichen.
+
+| Auslastung | Farbe |
+|---|---|
+| bis 50 % | keine |
+| über 50 % | Orange |
+| über 80 % | Rot |
+
+Grün wird hier unten nichts. Ein ruhiger Prozessor ist der Normalfall, und eine
+Farbe, die fast immer an ist, sagt nichts mehr, wenn es darauf ankommt.
+
+Die Farbe steht nur auf dem Bildschirm; in einen Export gelangt davon nichts,
+dort ist die Zahl die Zahl.
 
 In den Hardware-Panels lässt sich zwischen zwei Ansichten umschalten.
 Voreingestellt ist **nach Gerät**: alles zu GPU 0 zusammen, dann alles zu GPU 1,

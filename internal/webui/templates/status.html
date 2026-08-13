@@ -174,7 +174,7 @@ const $ = (id) => document.getElementById(id);
 // keeping the worst one it ever earned. An empty name means no colour, which is
 // the right answer for a value the page could not measure: a dash has nothing
 // to judge, and colouring it would state a condition nobody observed.
-const LEVELS = ["lvl-ok", "lvl-warn", "lvl-deep"];
+const LEVELS = ["lvl-ok", "lvl-warn", "lvl-deep", "lvl-bad"];
 
 function level(el, name) {
   el.classList.remove(...LEVELS);
@@ -194,6 +194,23 @@ function fpsLevel(fps) {
     return "warn";
   }
   return "ok";
+}
+
+// Load runs the other way round: high is the bad end. Half the machine in use
+// is worth noticing, four fifths is worth doing something about.
+//
+// Nothing turns green down here. A quiet processor is the ordinary state, and a
+// colour that is on almost all the time says nothing when it matters — which is
+// the whole reason the FPS tile, where the good end is the unusual one, does
+// have a green.
+function loadLevel(percent) {
+  if (percent > 80) {
+    return "bad";
+  }
+  if (percent > 50) {
+    return "warn";
+  }
+  return "";
 }
 
 // Every string the live view needs, handed over once so the script does not
@@ -443,6 +460,11 @@ async function refresh() {
   $("v-resolution").textContent = s.resolution + (s.refresh_rate ? " @ " + s.refresh_rate + " Hz" : "");
   $("v-cpu").textContent = s.cpu.toFixed(1) + " %";
   $("v-ram").textContent = s.ram.toFixed(1) + " %";
+  // Both on the same scale on purpose: they sit next to each other, and two
+  // percentages that changed colour at different marks would invite comparing
+  // the colours rather than the numbers.
+  level($("v-cpu"), loadLevel(s.cpu));
+  level($("v-ram"), loadLevel(s.ram));
 
   renderExports(s.exports);
   renderGroups(s.groups);

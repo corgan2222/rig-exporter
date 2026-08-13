@@ -21,17 +21,23 @@ func TestTheTileColoursAreDeclaredAndSet(t *testing.T) {
 	_, ts := newServer(t, nil)
 	_, body := get(t, ts.URL+"/")
 
-	for _, class := range []string{"lvl-ok", "lvl-warn", "lvl-deep"} {
+	for _, class := range []string{"lvl-ok", "lvl-warn", "lvl-deep", "lvl-bad"} {
 		if !strings.Contains(body, ".tile .value."+class) {
 			t.Errorf("the stylesheet declares no rule for %s", class)
 		}
+		// LEVELS is what level() clears before it sets. A class the stylesheet
+		// paints but that list has forgotten is the worst of the two failures:
+		// it goes on and never comes off again.
+		if !strings.Contains(body, `"`+class+`"`) {
+			t.Errorf("LEVELS does not list %s, so it would never be cleared", class)
+		}
 	}
 
-	// The three names the script can hand to level(), spelled without the
-	// prefix. A name with no matching rule paints nothing at all.
-	for _, name := range []string{`"ok"`, `"warn"`, `"deep"`} {
+	// The names the two level functions can hand to level(), spelled without
+	// the prefix. A name with no matching rule paints nothing at all.
+	for _, name := range []string{`"ok"`, `"warn"`, `"deep"`, `"bad"`} {
 		if !strings.Contains(body, "return "+name) {
-			t.Errorf("fpsLevel never returns %s", name)
+			t.Errorf("no level function ever returns %s", name)
 		}
 	}
 
@@ -40,6 +46,9 @@ func TestTheTileColoursAreDeclaredAndSet(t *testing.T) {
 		"function level(el, name)",
 		"el.classList.remove(...LEVELS)",
 		"level($(\"v-fps\"), s.fps_available ? fpsLevel(s.fps) : \"\")",
+		"function loadLevel(percent)",
+		"level($(\"v-cpu\"), loadLevel(s.cpu))",
+		"level($(\"v-ram\"), loadLevel(s.ram))",
 	} {
 		if !strings.Contains(body, fragment) {
 			t.Errorf("the page does not carry %q", fragment)
