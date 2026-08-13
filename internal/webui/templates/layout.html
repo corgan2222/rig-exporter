@@ -22,6 +22,10 @@
     --accent: #22c55e;
     --accent-dim: #16803c;
     --warn: #f59e0b;
+    /* A step below --warn, for a reading that is not merely worth noticing but
+       already poor. Darker rather than a different hue, so the two read as one
+       scale instead of as two unrelated states. */
+    --warn-deep: #d97706;
     --err: #ef4444;
   }
   * { box-sizing: border-box; }
@@ -105,6 +109,14 @@
   .tile .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
   .tile .value { font-size: 1.35rem; font-variant-numeric: tabular-nums; margin-top: .15rem; overflow-wrap: anywhere; }
   .tile .value.small { font-size: 1rem; line-height: 1.35; }
+  /* Threshold colouring, set from the poll. The value carries the class and the
+     label keeps its own colour, so a coloured tile still scans as a tile rather
+     than as a block of colour. A value with no class stays --text: the absence
+     of a colour is itself a statement, and painting every reading green would
+     spend the one signal the page has on saying "normal". */
+  .tile .value.lvl-ok { color: var(--accent); }
+  .tile .value.lvl-warn { color: var(--warn); }
+  .tile .value.lvl-deep { color: var(--warn-deep); }
   /* A second line under a tile's value, for what is known about it rather than
      what was measured: the game's platform and its Steam app id. Small and
      muted, because the value above is still the reading. */

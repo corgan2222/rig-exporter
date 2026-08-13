@@ -167,6 +167,35 @@
 <script>
 const $ = (id) => document.getElementById(id);
 
+// Threshold colouring for the tiles.
+//
+// level() sets exactly one of the lvl- classes and removes the others, so a
+// reading that falls back into the normal band loses its colour instead of
+// keeping the worst one it ever earned. An empty name means no colour, which is
+// the right answer for a value the page could not measure: a dash has nothing
+// to judge, and colouring it would state a condition nobody observed.
+const LEVELS = ["lvl-ok", "lvl-warn", "lvl-deep"];
+
+function level(el, name) {
+  el.classList.remove(...LEVELS);
+  if (name) {
+    el.classList.add("lvl-" + name);
+  }
+}
+
+// The bands are about what the number feels like, not about round figures.
+// Below 30 the picture visibly steps; up to 55 it plays but stays short of what
+// a 60 Hz panel can show; above that there is nothing left to warn about.
+function fpsLevel(fps) {
+  if (fps < 30) {
+    return "deep";
+  }
+  if (fps <= 55) {
+    return "warn";
+  }
+  return "ok";
+}
+
 // Every string the live view needs, handed over once so the script does not
 // have to know a second time which language is active.
 const L = {
@@ -358,6 +387,10 @@ async function refresh() {
   // RTSS is not running, so the tile shows it rather than a dash. The server
   // decides which sources count, so this does not reassemble the rule.
   $("v-fps").textContent = s.fps_available ? Math.round(s.fps) : "–";
+  // Colour the rate by how it actually plays: below 30 is a slideshow, up to 55
+  // is playable but short of a 60 Hz panel, above that it is fine. A rate the
+  // page could not measure gets no colour at all — a dash has nothing to judge.
+  level($("v-fps"), s.fps_available ? fpsLevel(s.fps) : "");
 
   // The frame time arrives less reliably than the frame rate it belongs to:
   // RTSS resets its measurement window about once a second, and a poll that
