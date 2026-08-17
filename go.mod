@@ -24,8 +24,8 @@ require (
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/ulikunitz/xz v0.5.16 // indirect
 	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
