@@ -130,7 +130,7 @@ func (s *sensors) stop() {
 // shows something other than what is published is worse than no diagnostic.
 func Probe(cfg config.Config, log *slog.Logger) (c *collector.Collector, start, stop func()) {
 	applyMetricsOptions(cfg)
-	collectorInstance, sensors := buildCollector(cfg, rtss.Reader{}, sysinfo.New(), log)
+	collectorInstance, sensors := buildCollector(cfg, rtss.Reader{}, sysinfo.New(), log, nil)
 	return collectorInstance, sensors.start, sensors.stop
 }
 
