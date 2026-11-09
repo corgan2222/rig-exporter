@@ -23,7 +23,7 @@
     * The licence has to be read out of the file's own wording. Several modules
       ship an unnamed MIT or BSD text; the project name proves nothing.
 
-  Last generated: 2026-08-12, against go.mod as of that date (24 modules).
+  Last generated: 2026-11-10, against go.mod as of that date (26 modules).
 -->
 
 # Third-Party Notices
@@ -37,7 +37,7 @@ distributed as part of every release. Their licences apply to those components,
 and their copyright notices are reproduced here to satisfy the attribution
 requirements those licences impose.
 
-The list covers every module in `go.mod`, direct and indirect. All 24 of them
+The list covers every module in `go.mod`, direct and indirect. All 26 of them
 are reachable from the `windows/amd64` build. **Every module carries a licence
 file in the module cache; none is missing.**
 
@@ -47,28 +47,30 @@ file in the module cache; none is missing.**
 |---|---|---|---|
 | code.gitea.io/sdk/gitea | v0.25.1 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE` |
 | fyne.io/systray | v1.12.2 | Apache License, Version 2.0 | `LICENSE` |
-| github.com/42wim/httpsig | v1.2.4 | BSD 3-Clause License (named in the file) | `LICENSE` |
+| github.com/42wim/httpsig | v1.3.0 | BSD 3-Clause License (named in the file) | `LICENSE` |
 | github.com/Masterminds/semver/v3 | v3.5.0 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE.txt` |
-| github.com/creativeprojects/go-selfupdate | v1.6.0 | "the MIT License" (named in the file); its `update/` package additionally carries an Apache-2.0 notice for code from Alan Shreve | `LICENSE`, `update/LICENSE` |
+| github.com/ProtonMail/go-crypto | v1.5.2 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| github.com/cloudflare/circl | v1.6.3 | BSD 3-Clause, twice — a Cloudflare notice and a Go Authors notice in one file; neither part names the licence. `ecc/p384/LICENSE` (BSD 3-Clause, Brendan McMillion) ships too, but `ecc/p384` is not linked into the windows/amd64 build | `LICENSE` |
+| github.com/creativeprojects/go-selfupdate | v1.7.0 | "the MIT License" (named in the file); its `update/` package additionally carries an Apache-2.0 notice for code from Alan Shreve | `LICENSE`, `update/LICENSE` |
 | github.com/davidmz/go-pageant | v1.0.2 | MIT — text is the MIT licence verbatim; the file never names it | `LICENSE.txt` |
 | github.com/eclipse/paho.mqtt.golang | v1.5.1 | **Dual: EPL-2.0 OR EDL-1.0.** `NOTICE.md` declares `SPDX-License-Identifier: EPL-2.0 or BSD-3-Clause`; both full texts ship with the module | `LICENSE`, `NOTICE.md`, `epl-v20`, `edl-v10` |
 | github.com/go-fed/httpsig | v1.1.0 | BSD 3-Clause License (named in the file) | `LICENSE` |
-| github.com/godbus/dbus/v5 | v5.2.2 | BSD 2-Clause — two numbered conditions, no "endorse or promote" clause; the file never names it | `LICENSE` |
+| github.com/godbus/dbus/v5 | v5.2.4 | BSD 2-Clause — two numbered conditions, no "endorse or promote" clause; the file never names it | `LICENSE` |
 | github.com/google/go-github/v86 | v86.0.0 | BSD 3-Clause — the file never names it | `LICENSE` |
 | github.com/google/go-querystring | v1.2.0 | BSD 3-Clause — the file never names it | `LICENSE` |
 | github.com/gorilla/websocket | v1.5.3 | BSD 2-Clause — two conditions, no "endorse or promote" clause; the file never names it | `LICENSE` |
 | github.com/hashicorp/go-cleanhttp | v0.5.2 | Mozilla Public License, version 2.0 | `LICENSE` |
 | github.com/hashicorp/go-retryablehttp | v0.7.8 | Mozilla Public License, version 2.0 | `LICENSE` |
 | github.com/hashicorp/go-version | v1.9.0 | Mozilla Public License, version 2.0 | `LICENSE` |
-| github.com/ulikunitz/xz | v0.5.16 | BSD 3-Clause — the third clause is worded personally ("My name, Ulrich Kunitz, may not be used…"); the file never names it | `LICENSE` |
+| github.com/ulikunitz/xz | v0.5.17 | BSD 3-Clause — the third clause is worded personally ("My name, Ulrich Kunitz, may not be used…"); the file never names it | `LICENSE` |
 | gitlab.com/gitlab-org/api/client-go | v1.46.0 | Apache License, Version 2.0 | `LICENSE` |
-| golang.org/x/crypto | v0.54.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/net | v0.56.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/oauth2 | v0.36.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/sync | v0.22.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/sys | v0.47.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| golang.org/x/time | v0.15.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
-| gopkg.in/yaml.v3 | v3.0.1 | MIT **and** Apache-2.0 — the file splits the module by file: eight ported libyaml files are MIT, everything else Apache-2.0 | `LICENSE`, `NOTICE` |
+| go.yaml.in/yaml/v3 | v3.0.5 | MIT **and** Apache-2.0 — the file splits the module by file: eight ported libyaml files are MIT, everything else Apache-2.0 | `LICENSE`, `NOTICE` |
+| golang.org/x/crypto | v0.57.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/net | v0.58.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/oauth2 | v0.37.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/sync | v0.24.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/sys | v0.49.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
+| golang.org/x/time | v0.16.0 | BSD 3-Clause (Go Authors) — the file never names it | `LICENSE` |
 
 ### Two entries that need saying out loud
 
@@ -105,7 +107,7 @@ were verified mechanically, not assumed.
 ## Apache License, Version 2.0
 
 Applies to: `fyne.io/systray`, `gitlab.com/gitlab-org/api/client-go`, the
-non-libyaml portion of `gopkg.in/yaml.v3`, and the `update/` package of
+non-libyaml portion of `go.yaml.in/yaml/v3`, and the `update/` package of
 `github.com/creativeprojects/go-selfupdate`.
 
 Reproduced from `fyne.io/systray@v1.12.2/LICENSE`. One line was changed: that
@@ -326,13 +328,13 @@ Copyright 2014 Brave New Software Project, Inc.
     — fyne.io/systray@v1.12.2/LICENSE (appendix)
 
 Copyright 2015 Alan Shreve
-    — github.com/creativeprojects/go-selfupdate@v1.6.0/update/LICENSE
+    — github.com/creativeprojects/go-selfupdate@v1.7.0/update/LICENSE
 
 Copyright (c) 2011-2019 Canonical Ltd
-    — gopkg.in/yaml.v3@v3.0.1/LICENSE
+    — go.yaml.in/yaml/v3@v3.0.5/LICENSE
 
 Copyright 2011-2016 Canonical Ltd.
-    — gopkg.in/yaml.v3@v3.0.1/NOTICE
+    — go.yaml.in/yaml/v3@v3.0.5/NOTICE
 ```
 
 `gitlab.com/gitlab-org/api/client-go@v1.46.0/LICENSE` carries no copyright
@@ -345,7 +347,7 @@ line at all; its appendix keeps the placeholder (in the older `{yyyy}` /
 
 Applies to: `code.gitea.io/sdk/gitea`, `github.com/Masterminds/semver/v3`,
 `github.com/creativeprojects/go-selfupdate`, `github.com/davidmz/go-pageant`,
-and the eight ported libyaml files inside `gopkg.in/yaml.v3`.
+and the eight ported libyaml files inside `go.yaml.in/yaml/v3`.
 
 Reproduced verbatim from `github.com/Masterminds/semver/v3@v3.5.0/LICENSE.txt`.
 The other three modules ship word-identical text — verified after normalising
@@ -384,7 +386,7 @@ the MIT License
 
 Copyright (c) 2017 rhysd
 Copyright (c) 2020 CreativeProjects
-    — github.com/creativeprojects/go-selfupdate@v1.6.0/LICENSE
+    — github.com/creativeprojects/go-selfupdate@v1.7.0/LICENSE
 
 Copyright (c) 2016 The Gitea Authors
 Copyright (c) 2014 The Gogs Authors
@@ -395,7 +397,7 @@ Copyright (c) 2014 David Mzareulyan
 
 Copyright (c) 2006-2010 Kirill Simonov
 Copyright (c) 2006-2011 Kirill Simonov
-    — gopkg.in/yaml.v3@v3.0.1/LICENSE (for apic.go, emitterc.go, parserc.go,
+    — go.yaml.in/yaml/v3@v3.0.5/LICENSE (for apic.go, emitterc.go, parserc.go,
       readerc.go, scannerc.go, writerc.go, yamlh.go, yamlprivateh.go)
 ```
 
@@ -405,13 +407,17 @@ Copyright (c) 2006-2011 Kirill Simonov
 
 Applies to: `golang.org/x/crypto`, `golang.org/x/net`, `golang.org/x/oauth2`,
 `golang.org/x/sync`, `golang.org/x/sys`, `golang.org/x/time`,
-`github.com/google/go-github/v86`, `github.com/google/go-querystring`.
+`github.com/google/go-github/v86`, `github.com/google/go-querystring`,
+`github.com/ProtonMail/go-crypto`, `github.com/cloudflare/circl`.
 
-Reproduced verbatim from `golang.org/x/sys@v0.47.0/LICENSE`. The six
+Reproduced verbatim from `golang.org/x/sys@v0.49.0/LICENSE`. The six
 `golang.org/x/*` files are byte-for-byte identical to one another. The two
 Google modules ship the same body, differing only in the copyright line and in
 naming "Google Inc." where the `x/*` files name "Google LLC" — verified
-mechanically.
+mechanically. `ProtonMail/go-crypto` is a fork of `x/crypto` and ships the
+"Google Inc." form with the Go Authors copyright line. `cloudflare/circl` ships two notices in
+one file: the same "Google Inc." form for code taken from Go, and the same body
+under its own copyright with "Cloudflare" in the third clause.
 
 ```text
 Copyright 2009 The Go Authors.
@@ -454,6 +460,14 @@ Copyright (c) 2013 The go-github AUTHORS. All rights reserved.
 
 Copyright (c) 2013 Google. All rights reserved.
     — github.com/google/go-querystring@v1.2.0/LICENSE
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+    — github.com/ProtonMail/go-crypto@v1.5.2/LICENSE
+    — github.com/cloudflare/circl@v1.6.3/LICENSE (second notice)
+
+Copyright (c) 2019 Cloudflare. All rights reserved.
+    — github.com/cloudflare/circl@v1.6.3/LICENSE (first notice; third clause
+      reads "Neither the name of Cloudflare nor the names of its contributors")
 ```
 
 ---
@@ -462,7 +476,7 @@ Copyright (c) 2013 Google. All rights reserved.
 
 Applies to: `github.com/42wim/httpsig`, `github.com/go-fed/httpsig`.
 
-Reproduced verbatim from `github.com/42wim/httpsig@v1.2.4/LICENSE`. The
+Reproduced verbatim from `github.com/42wim/httpsig@v1.3.0/LICENSE`. The
 `go-fed/httpsig@v1.1.0/LICENSE` file is byte-for-byte identical, same copyright
 line included — `42wim/httpsig` is a maintained fork.
 
@@ -506,7 +520,7 @@ Applies to: `github.com/ulikunitz/xz`.
 
 Kept separate because its third clause is not the standard one — it names the
 author personally rather than "the copyright holder". Reproduced verbatim from
-`github.com/ulikunitz/xz@v0.5.16/LICENSE`.
+`github.com/ulikunitz/xz@v0.5.17/LICENSE`.
 
 ```text
 Copyright (c) 2014-2022  Ulrich Kunitz
@@ -574,7 +588,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-Verbatim from `github.com/godbus/dbus/v5@v5.2.2/LICENSE`:
+Verbatim from `github.com/godbus/dbus/v5@v5.2.4/LICENSE`:
 
 ```text
 Copyright (c) 2013, Georg Reinke (<guelfey at gmail dot com>), Google
@@ -1351,12 +1365,14 @@ registered trademarks of the Eclipse Foundation.
 
 ---
 
-## gopkg.in/yaml.v3 — split MIT / Apache-2.0 notice
+## go.yaml.in/yaml/v3 — split MIT / Apache-2.0 notice
 
-`gopkg.in/yaml.v3` is not covered by a single licence: eight files ported from
+`go.yaml.in/yaml/v3`, the module formerly published as `gopkg.in/yaml.v3`
+and shipping the same `LICENSE` and `NOTICE` byte for byte, is not covered by
+a single licence: eight files ported from
 libyaml stay MIT, everything else is Apache-2.0. Its own `LICENSE` file states
 the split, and is reproduced verbatim from
-`gopkg.in/yaml.v3@v3.0.1/LICENSE`.
+`go.yaml.in/yaml/v3@v3.0.5/LICENSE`.
 
 ```text
 This project is covered by two different licenses: MIT and Apache.
@@ -1411,7 +1427,7 @@ limitations under the License.
 ```
 
 The module additionally ships a `NOTICE` file, which Apache-2.0 §4(d) requires
-to be passed along. Verbatim from `gopkg.in/yaml.v3@v3.0.1/NOTICE`:
+to be passed along. Verbatim from `go.yaml.in/yaml/v3@v3.0.5/NOTICE`:
 
 ```text
 Copyright 2011-2016 Canonical Ltd.
@@ -1436,7 +1452,7 @@ limitations under the License.
 The module as a whole is MIT (see the MIT section). Its `update/` package
 carries a second, Apache-2.0 notice, because that code descends from
 `github.com/inconshreveable/go-update`. Verbatim from
-`github.com/creativeprojects/go-selfupdate@v1.6.0/update/LICENSE`:
+`github.com/creativeprojects/go-selfupdate@v1.7.0/update/LICENSE`:
 
 ```text
 Copyright 2015 Alan Shreve
