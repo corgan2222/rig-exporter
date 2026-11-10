@@ -87,6 +87,7 @@ which source it came from reaches no export.
   binary and what changed
 * **[Contributing](CONTRIBUTING.md)** — layout, check run, rules for pull
   requests
+* **[AI policy](AI_POLICY.md)** — how AI tools are handled, for contributions too
 * **[Licence](LICENSE)**
 * **[Third-party notices](THIRD-PARTY-NOTICES.md)** — the licences of the
   dependencies linked into the binary
