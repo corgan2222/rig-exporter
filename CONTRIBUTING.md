@@ -66,6 +66,10 @@ than restating the diff. The existing history is the style guide: a subject line
 under about 70 characters, a blank line, then prose that says what was wrong and
 what the change assumes. Do not add co-authors.
 
+Using AI tools is fine; [`AI_POLICY.md`](AI_POLICY.md) says what that means here.
+In short: you have to be able to explain every line of the diff yourself, and
+pull requests or issues filed by an agent on its own get closed.
+
 ## Things that will get a change sent back
 
 **The measurement contract.** `internal/metrics/testdata/catalogue.txt` pins
