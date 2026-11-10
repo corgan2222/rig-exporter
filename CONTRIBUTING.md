@@ -105,8 +105,8 @@ somebody else's PC.
 ## Traps worth knowing before you start
 
 `windows.LazyProc.Call` **panics** on a missing symbol; there is no error value.
-With `-H windowsgui` the tray then dies without a word. Resolve every entry
-point with `Find()` before calling it.
+With `-H windowsgui` the tray then dies without a word. Call every proc through
+the helpers in `internal/winapi`; [`AGENTS.md`](AGENTS.md) says which one fits.
 
 `go build` without `-H windowsgui` produces a console binary, and `-probe`
 behaves completely differently there than in the shipped build. Use
