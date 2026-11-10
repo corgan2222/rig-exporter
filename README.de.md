@@ -92,6 +92,7 @@ woher er kam, erreicht keinen Export.
 * **[Releases](https://github.com/corgan2222/rig-exporter/releases)** — das
   Binary und was sich geändert hat
 * **[Mitmachen](CONTRIBUTING.md)** — Aufbau, Prüflauf, Regeln für Pull Requests
+* **[KI-Richtlinie](AI_POLICY.md)** — wie KI-Werkzeuge gehandhabt werden, auch bei Beiträgen
 * **[Lizenz](LICENSE)**
 * **[Drittanbieter-Hinweise](THIRD-PARTY-NOTICES.md)** — die Lizenzen der
   Bibliotheken, die mit ins Binary gelinkt werden
