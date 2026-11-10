@@ -17,6 +17,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/crashlog"
+	"github.com/corgan2222/rig-exporter/internal/demo"
 	"github.com/corgan2222/rig-exporter/internal/export"
 	"github.com/corgan2222/rig-exporter/internal/export/dataserver"
 	"github.com/corgan2222/rig-exporter/internal/export/influxpush"
@@ -99,6 +100,10 @@ type App struct {
 	system  *sysinfo.Provider
 	reader  rtss.Reader
 	updates updateController
+	// demo is nil unless the program was started with -demomode. Kept here
+	// rather than in the collector because the collector is rebuilt whenever a
+	// sensor setting changes, and what the demo was set to has to survive that.
+	demo *demo.Demo
 
 	// applyMu serialises ApplyConfig against itself. Separate from mu because
 	// mu is released halfway through, so it cannot keep two saves apart.
@@ -171,9 +176,27 @@ func New(cfg config.Config, cfgPath string, log *slog.Logger, updates updateCont
 		done:    make(chan struct{}),
 	}
 	applyMetricsOptions(cfg)
-	a.collector, a.sensors = buildCollector(cfg, a.reader, a.system, log)
+	a.collector, a.sensors = buildCollector(cfg, a.reader, a.system, log, nil)
 	a.runners = a.buildRunners(cfg, log)
 	return a
+}
+
+// EnableDemo wires in the simulated game that -demomode offers and returns the
+// handle the tray switches it with. It must run before Start.
+//
+// Until the tray switches it on, the demo passes everything through, so calling
+// this changes nothing about what is measured. Without the call the simulation
+// is not part of the program at all, which is the state every ordinary start
+// is in.
+func (a *App) EnableDemo() *demo.Demo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.demo = demo.New(a.system.TickCount)
+	unused := a.sensors
+	a.collector, a.sensors = buildCollector(a.cfg, a.reader, a.system, a.log, a.demo)
+	unused.stop()
+	return a.demo
 }
 
 // applyMetricsOptions hands the two settings that live as package state in
@@ -197,8 +220,16 @@ func selectionFor(cfg config.Config) map[string]bool {
 
 // buildCollector wires the core source together with the optional ones the
 // configuration asks for.
-func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger) (*collector.Collector, *sensors) {
-	c := collector.New(reader, system, cfg.IdleTimeoutMs, log)
+//
+// simulated is nil on every ordinary start. With -demomode it sits in front of
+// RTSS and of the game identification, and stays out of the way until the tray
+// switches it on.
+func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provider, log *slog.Logger, simulated *demo.Demo) (*collector.Collector, *sensors) {
+	var frames collector.RTSSSource = reader
+	if simulated != nil {
+		frames = simulated.Source(reader)
+	}
+	c := collector.New(frames, system, cfg.IdleTimeoutMs, log)
 	c.SetPollInterval(cfg.PollIntervalMs)
 	c.ReportVersion(config.VersionString())
 	c.ReportSelfUsage(cfg.SelfUsageEnabled)
@@ -211,8 +242,15 @@ func buildCollector(cfg config.Config, reader rtss.Reader, system *sysinfo.Provi
 	// contacts a third party, and an identifier that exists is one that can.
 	// Rebuilt with the collector whenever a setting changes, which drops what
 	// it had learned — cheap, and the only way anybody has to clear it.
+	var identify collector.IdentifyGame
 	if cfg.GameIDEnabled {
-		c.UseGameIdentity(gameid.New(gameid.CurrentUser{}, gameid.Installs, gameid.SteamStore).Identify)
+		identify = gameid.New(gameid.CurrentUser{}, gameid.Installs, gameid.SteamStore).Identify
+	}
+	if simulated != nil {
+		identify = simulated.Identity(identify)
+	}
+	if identify != nil {
+		c.UseGameIdentity(identify)
 	}
 	s := buildSensors(cfg, system, log)
 	c.AddSource(s.sources...)
@@ -566,7 +604,7 @@ func (a *App) ApplyConfig(newCfg config.Config) error {
 		a.updates.SetCheckEnabled(newCfg.UpdateCheckEnabled)
 	}
 	if rebuildSensors {
-		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log)
+		a.collector, a.sensors = buildCollector(newCfg, a.reader, a.system, a.log, a.demo)
 	}
 	// Set whether or not the sensors were rebuilt: the poll interval is not one
 	// of the switches sensorsChanged watches, so changing only the interval

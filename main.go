@@ -24,6 +24,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
 	"github.com/corgan2222/rig-exporter/internal/crashlog"
+	"github.com/corgan2222/rig-exporter/internal/demo"
 	"github.com/corgan2222/rig-exporter/internal/hardware/pawnio"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
@@ -51,6 +52,7 @@ func realMain() int {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	probe := flag.Bool("probe", false, "print one reading in every export format and exit")
 	background := flag.Bool("background", false, "start without opening the interface, as the autostart entry does")
+	demoMode := flag.Bool("demomode", false, "add a simulated game to the tray menu, for building and showing dashboards")
 	configPath := flag.String("config", "", "path to config.json (default: %APPDATA%\\rig-exporter\\config.json)")
 	applyUpdate := flag.String(updater.ApplyHelperFlag, "", "internal update transaction")
 	readyMarker := flag.String(updater.ReadyMarkerFlag, "", "internal update readiness marker")
@@ -143,7 +145,7 @@ func realMain() int {
 			}
 		}
 
-		if err := run(*configPath, *background, *readyMarker, crashes); err != nil {
+		if err := run(*configPath, *background, *demoMode, *readyMarker, crashes); err != nil {
 			winapi.MessageBox(config.AppName, i18n.T(lang, "dialog.startFailed")+"\n\n"+err.Error(),
 				winapi.MBOK|winapi.MBIconWarning|winapi.MBSetForeground)
 			return 1
@@ -421,7 +423,7 @@ func loadConfigFor(configPath string) (config.Config, error) {
 	return cfg, nil
 }
 
-func run(configPath string, background bool, readyMarker string, crashes *crashlog.Recorder) error {
+func run(configPath string, background, demoMode bool, readyMarker string, crashes *crashlog.Recorder) error {
 	if configPath == "" {
 		path, err := config.Path()
 		if err != nil {
@@ -501,6 +503,14 @@ func run(configPath string, background bool, readyMarker string, crashes *crashl
 		application = app.New(cfg, configPath, log, nil)
 	}
 
+	// Before Start, because it replaces the collector. Nil without the flag,
+	// and the tray then has nothing to offer.
+	var simulated *demo.Demo
+	if demoMode {
+		simulated = application.EnableDemo()
+		log.Warn("demo mode: the tray can switch on a simulated game, and what it publishes is not measured")
+	}
+
 	// What the previous session left behind travels with the status, so the
 	// dashboard can say it rather than leaving it in a log nobody opens.
 	application.SetCrash(crashes.Previous())
@@ -553,6 +563,7 @@ func run(configPath string, background bool, readyMarker string, crashes *crashl
 	trayUI = tray.New(application, log, tray.Options{
 		SettingsURL: settings.URL,
 		LogPath:     logPath,
+		Demo:        simulated,
 		OnReady: func() {
 			if readyMarker != "" {
 				if err := updater.MarkReady(readyMarker, config.Version); err != nil {

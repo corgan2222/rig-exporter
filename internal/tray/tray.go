@@ -19,6 +19,7 @@ import (
 	"github.com/corgan2222/rig-exporter/internal/assets"
 	"github.com/corgan2222/rig-exporter/internal/collector"
 	"github.com/corgan2222/rig-exporter/internal/config"
+	"github.com/corgan2222/rig-exporter/internal/demo"
 	"github.com/corgan2222/rig-exporter/internal/i18n"
 	"github.com/corgan2222/rig-exporter/internal/metrics"
 	"github.com/corgan2222/rig-exporter/internal/winapi"
@@ -35,6 +36,9 @@ type Options struct {
 	OnReady func()
 	// OnQuit runs after the tray is torn down, before the process exits.
 	OnQuit func()
+	// Demo is the simulated game of -demomode. Nil on every ordinary start,
+	// and then the menu carries no trace of it.
+	Demo *demo.Demo
 }
 
 // Tray renders the notification-area icon and menu.
@@ -122,6 +126,11 @@ func (t *Tray) onReady() {
 	t.items.autostart = systray.AddMenuItemCheckbox("", "", t.app.Status().Autostart)
 	systray.AddSeparator()
 
+	if t.opts.Demo != nil {
+		addDemoMenu(t.opts.Demo)
+		systray.AddSeparator()
+	}
+
 	t.items.quit = systray.AddMenuItem("", "")
 
 	t.render(t.app.Status())
@@ -165,6 +174,60 @@ func (t *Tray) address() string {
 		return ""
 	}
 	return strings.TrimPrefix(t.opts.SettingsURL(), "http://")
+}
+
+// addDemoMenu adds the three entries -demomode offers: the switch, and the two
+// choices of what to pretend.
+//
+// The labels are fixed English and not in the catalogue of translations. This
+// is a tool for whoever is building a dashboard, reached through a flag nobody
+// finds by accident; translating it would put two strings per language into a
+// catalogue that every user's menu is checked against.
+//
+// Each entry gets a goroutine of its own instead of a case in handleClicks,
+// because how many there are follows the two lists in the demo package. They
+// live as long as the tray does, which is as long as the process.
+func addDemoMenu(d *demo.Demo) {
+	active := systray.AddMenuItemCheckbox("Demo: simulate a game", "Publishes a frame rate and a game that are not real", d.Active())
+	games := systray.AddMenuItem("Demo: game", "")
+	stores := systray.AddMenuItem("Demo: store", "")
+
+	go func() {
+		for range active.ClickedCh {
+			d.SetActive(!d.Active())
+			setChecked(active, d.Active())
+		}
+	}()
+
+	var titles []*systray.MenuItem
+	for i, title := range demo.Titles {
+		titles = append(titles, games.AddSubMenuItemCheckbox(title.Name, "", i == d.Title()))
+	}
+	for i, item := range titles {
+		go func() {
+			for range item.ClickedCh {
+				d.SetTitle(i)
+				for j, other := range titles {
+					setChecked(other, j == i)
+				}
+			}
+		}()
+	}
+
+	var platforms []*systray.MenuItem
+	for _, platform := range demo.Platforms {
+		platforms = append(platforms, stores.AddSubMenuItemCheckbox(platform, "", platform == d.Platform()))
+	}
+	for i, item := range platforms {
+		go func() {
+			for range item.ClickedCh {
+				d.SetPlatform(demo.Platforms[i])
+				for j, other := range platforms {
+					setChecked(other, j == i)
+				}
+			}
+		}()
+	}
 }
 
 func addReadout() *systray.MenuItem {
